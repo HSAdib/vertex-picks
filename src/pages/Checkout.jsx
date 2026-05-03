@@ -1,29 +1,17 @@
 import { useCart } from '../context/CartContext';
-import { Trash2 } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
 
 export default function Checkout() {
-  const { cart, removeFromCart, cartTotal } = useCart();
+  const { cart } = useCart();
 
-  if (cart.length === 0) {
-    return (
-      <div className="w-full max-w-7xl mx-auto py-24 px-4 text-center">
-        <h2 className="text-3xl font-black uppercase text-gray-300 mb-4">Your Cart is Empty</h2>
-        <p className="text-gray-500">Visit the shop to select your premium mangoes.</p>
-      </div>
-    );
-  }
+  // Calculate the total price of all mangoes
+  const subtotal = cart.reduce((total, item) => total + (item.price * item.quantity), 0);
+  const deliveryFee = 150; // Standard BDT delivery fee
+  const grandTotal = subtotal + deliveryFee;
 
-  const handleOrder = (e) => {
-    e.preventDefault();
-    
-    // 1. Grab the data from the form
-    const formData = new FormData(e.target);
-    const customerName = formData.get('name');
-    const phone = formData.get('phone');
-    const address = formData.get('address');
-
-    // 2. Show the premium sliding notification
+  const handleConfirmOrder = () => {
+    // Show the premium sliding notification
     toast.success('Order prepared! Redirecting to WhatsApp...', {
       style: {
         border: '1px solid #f59e0b',
@@ -37,23 +25,21 @@ export default function Checkout() {
       },
     });
 
-    // 3. Format the WhatsApp Message cleanly
+    // Format the WhatsApp Message
     let message = `*NEW ORDER: VERTEX PICKS* 🥭\n\n`;
-    message += `*Customer:* ${customerName}\n`;
-    message += `*Phone:* ${phone}\n`;
-    message += `*Address:* ${address}\n\n`;
     message += `*Order Details:*\n`;
 
     cart.forEach((item, index) => {
-       message += `${index + 1}. ${item.name} (${item.unit}) - ৳${item.price}\n`;
+      message += `${index + 1}. ${item.name} x${item.quantity} - ৳${item.price * item.quantity}\n`;
     });
 
-    message += `\n*Total:* ৳${cartTotal}\n`;
+    message += `\n*Subtotal:* ৳${subtotal}\n`;
+    message += `*Delivery:* ৳${deliveryFee}\n`;
+    message += `*Total:* ৳${grandTotal}\n`;
 
-    // 4. Generate the link and redirect
+    // Generate the link and redirect
     const encodedMessage = encodeURIComponent(message);
-    // REPLACE THIS NUMBER WITH YOUR ACTUAL BUSINESS WHATSAPP NUMBER
-    const whatsappNumber = "8801581221084"; 
+    const whatsappNumber = "8801581221084";
     const whatsappURL = `https://wa.me/${whatsappNumber}?text=${encodedMessage}`;
 
     // Wait 1.5 seconds so they can read the toast, then open WhatsApp
@@ -62,62 +48,86 @@ export default function Checkout() {
     }, 1500);
   };
 
+  // --- EMPTY CART VIEW ---
+  if (cart.length === 0) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center px-4">
+        <div className="bg-white p-10 rounded-xl shadow-lg text-center max-w-lg w-full border-t-8 border-gray-300">
+          <h2 className="text-3xl font-black text-gray-900 mb-4 uppercase">Your Box is Empty</h2>
+          <p className="text-gray-500 mb-8 font-medium">You haven't added any premium mangoes to your harvest box yet.</p>
+          <Link 
+            to="/shop" 
+            className="bg-black text-white px-8 py-4 rounded-md font-black hover:bg-orange-500 transition-colors uppercase tracking-widest block"
+          >
+            Return to Shop
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  // --- FULL CART VIEW ---
   return (
-    <div className="w-full max-w-7xl mx-auto py-16 px-4 sm:px-6 lg:px-8 grid grid-cols-1 lg:grid-cols-2 gap-16">
-      
-      {/* Left Side: Order Summary */}
-      <div>
-        <h2 className="text-3xl font-black uppercase tracking-tight border-b-2 border-brand-gold pb-4 mb-8">Order Summary</h2>
-        <div className="space-y-6">
-          {cart.map((item, index) => (
-            <div key={index} className="flex justify-between items-center bg-white p-4 shadow-sm border border-gray-100">
-              <div>
-                <h4 className="font-bold text-lg">{item.name}</h4>
-                <p className="text-sm text-gray-500">{item.unit}</p>
+    <div className="min-h-screen bg-gray-50 py-16 px-4 sm:px-6 lg:px-8">
+      <div className="max-w-4xl mx-auto">
+        <h1 className="text-4xl font-black text-gray-900 tracking-tight uppercase mb-10">
+          Checkout <span className="text-orange-500">Summary</span>
+        </h1>
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          
+          {/* Left Column: The Items */}
+          <div className="lg:col-span-2 space-y-4">
+            {cart.map((item) => (
+              <div key={item.id} className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 flex items-center gap-6">
+                <div className="h-24 w-24 bg-gray-100 rounded-md overflow-hidden flex-shrink-0">
+                  <img src={item.image} alt={item.name} className="w-full h-full object-cover" />
+                </div>
+                
+                <div className="flex-grow">
+                  <h3 className="text-xl font-black text-gray-900">{item.name}</h3>
+                  <p className="text-gray-500 font-medium text-sm">Qty: {item.quantity}</p>
+                </div>
+                
+                <div className="text-right">
+                  <p className="text-xl font-black text-orange-500">৳{item.price * item.quantity}</p>
+                </div>
               </div>
-              <div className="flex items-center space-x-6">
-                <span className="font-black text-brand-green">৳{item.price}</span>
-                <button onClick={() => removeFromCart(index)} className="text-red-400 hover:text-red-600 transition-colors">
-                  <Trash2 className="h-5 w-5" />
-                </button>
+            ))}
+          </div>
+
+          {/* Right Column: The Receipt */}
+          <div className="bg-white rounded-xl shadow-lg p-6 border-t-8 border-orange-500 h-fit">
+            <h2 className="text-xl font-black text-gray-900 mb-6 uppercase border-b pb-4">Order Total</h2>
+            
+            <div className="space-y-4 mb-6">
+              <div className="flex justify-between text-gray-600 font-medium">
+                <span>Subtotal</span>
+                <span>৳{subtotal}</span>
+              </div>
+              <div className="flex justify-between text-gray-600 font-medium">
+                <span>Delivery Fee</span>
+                <span>৳{deliveryFee}</span>
               </div>
             </div>
-          ))}
-        </div>
-        
-        <div className="mt-8 p-6 bg-brand-dark text-brand-light flex justify-between items-center">
-          <span className="text-xl font-bold uppercase tracking-widest">Total</span>
-          <span className="text-3xl font-black text-brand-gold">৳{cartTotal}</span>
+            
+            <div className="border-t pt-4 mb-8">
+              <div className="flex justify-between items-center">
+                <span className="text-lg font-bold text-gray-900">Total</span>
+                <span className="text-3xl font-black text-orange-500">৳{grandTotal}</span>
+              </div>
+            </div>
+
+            <button 
+              onClick={handleConfirmOrder}
+              className="w-full bg-black text-white font-black text-lg py-4 rounded-md hover:bg-orange-500 transition-colors uppercase tracking-widest"
+            >
+              Confirm Order
+            </button>
+          </div>
+
         </div>
       </div>
-
-      {/* Right Side: Delivery Details Form */}
-      <div>
-        <h2 className="text-3xl font-black uppercase tracking-tight border-b-2 border-brand-gold pb-4 mb-8">Delivery Details</h2>
-        <form onSubmit={handleOrder} className="space-y-6 bg-white p-8 shadow-sm border border-gray-100">
-          
-          <div>
-            <label className="block text-sm font-bold uppercase tracking-wider text-gray-700 mb-2">Full Name</label>
-            <input required name="name" type="text" className="w-full border-2 border-gray-200 p-3 focus:border-brand-gold focus:outline-none transition-colors" placeholder="e.g. Asif Mahmud" />
-          </div>
-
-          <div>
-            <label className="block text-sm font-bold uppercase tracking-wider text-gray-700 mb-2">Phone Number</label>
-            <input required name="phone" type="tel" className="w-full border-2 border-gray-200 p-3 focus:border-brand-gold focus:outline-none transition-colors" placeholder="017XX-XXXXXX" />
-          </div>
-
-          <div>
-            <label className="block text-sm font-bold uppercase tracking-wider text-gray-700 mb-2">Full Delivery Address</label>
-            <textarea required name="address" rows="3" className="w-full border-2 border-gray-200 p-3 focus:border-brand-gold focus:outline-none transition-colors" placeholder="House No, Road No, Area, City" />
-          </div>
-
-          <button type="submit" className="w-full bg-brand-gold text-brand-dark font-black text-lg py-4 uppercase tracking-widest hover:bg-yellow-400 hover:scale-[1.02] transition-all duration-200">
-            Confirm Order
-          </button>
-
-        </form>
-      </div>
-
     </div>
   );
 }
