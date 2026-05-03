@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { collection, getDocs } from 'firebase/firestore';
-import { db } from '../firebase';
+import { db } from '../Firebase';
 import { useCart } from '../context/CartContext';
 
 export default function Shop() {
