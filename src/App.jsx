@@ -5,7 +5,7 @@ import Navbar from './components/Navbar';
 import Home from './pages/Home';
 import Shop from './pages/Shop';
 import Checkout from './pages/Checkout';
-
+import Admin from './pages/Admin';
 function App() {
   return (
     <CartProvider>
@@ -17,6 +17,7 @@ function App() {
           <Navbar />
           <main className="flex-grow">
             <Routes>
+              <Route path="/admin" element={<Admin />} />
               <Route path="/" element={<Home />} />
               <Route path="/shop" element={<Shop />} />
               <Route path="/checkout" element={<Checkout />} />
