@@ -3,6 +3,7 @@ import { signOut, onAuthStateChanged, updateProfile } from 'firebase/auth';
 import { doc, getDoc, setDoc, collection, query, where, getDocs, updateDoc } from 'firebase/firestore'; 
 import { auth, db } from '../firebaseConfig';
 import { Navigate, Link } from 'react-router-dom';
+import { toast } from 'react-hot-toast';
 
 export default function Profile() {
   const [user, setUser] = useState(null);
@@ -10,6 +11,7 @@ export default function Profile() {
   
   // Profile Data
   const [name, setName] = useState('');
+  const [displayName, setDisplayName] = useState('');
   const [addresses, setAddresses] = useState([]);
   const [isSavingName, setIsSavingName] = useState(false);
 
@@ -50,6 +52,7 @@ export default function Profile() {
           if (docSnap.exists()) {
             const data = docSnap.data();
             setName(data.name || currentUser.displayName || '');
+            setDisplayName(data.name || currentUser.displayName || '');
             if (data.addresses) {
               setAddresses(data.addresses);
             } else if (data.address || data.phone) {
@@ -57,6 +60,7 @@ export default function Profile() {
             }
           } else {
             setName(currentUser.displayName || '');
+            setDisplayName(currentUser.displayName || '');
           }
           
           // Fetch User's Orders
@@ -82,7 +86,8 @@ export default function Profile() {
     try {
       if (user) await updateProfile(user, { displayName: name });
       await setDoc(doc(db, 'users', user.uid), { name, email: user.email }, { merge: true });
-      alert('Name updated successfully!');
+      setDisplayName(name);
+      toast.success('Name updated successfully!');
     } catch (err) { console.error(err); }
     setIsSavingName(false);
   };
@@ -156,7 +161,7 @@ export default function Profile() {
   };
 
   const handleCancelOrder = async () => {
-    if(!cancelReason) return alert("Please select a reason.");
+    if(!cancelReason) return toast.error("Please select a reason.");
     try {
       await updateDoc(doc(db, 'orders', orderToCancel), {
         status: 'Cancelled',
@@ -272,7 +277,7 @@ export default function Profile() {
           <div className="bg-white rounded-xl shadow-lg overflow-hidden border-t-8 border-orange-500 mb-8 animate-in fade-in">
             <div className="p-8 border-b border-gray-100 flex flex-col md:flex-row justify-between items-center bg-gray-50 gap-4">
               <div>
-                <h1 className="text-3xl font-black text-gray-900 uppercase">My Account</h1>
+                <h1 className="text-3xl font-black text-gray-900 uppercase">{displayName ? `${displayName}'s Account` : 'My Account'}</h1>
                 <p className="text-gray-600 font-medium mt-1">Logged in as: <span className="font-bold text-orange-500">{user.email}</span></p>
               </div>
               <button onClick={() => signOut(auth)} className="w-full md:w-auto bg-black text-white px-6 py-2.5 rounded-md font-bold hover:bg-orange-500 transition-colors uppercase tracking-wider text-sm">Log Out</button>
@@ -349,7 +354,7 @@ export default function Profile() {
                      <div className="flex justify-between items-start mb-4">
                        <div>
                          <p className="text-xs font-black text-gray-400 uppercase tracking-widest">Order #{order.id.slice(-6)}</p>
-                         <p className="font-bold text-gray-800 mt-1">Total: ৳{order.total}</p>
+                         <p className="font-bold text-gray-800 mt-1">Total: ৳{order.total} <span className="text-xs text-gray-500 font-bold">(incl. ৳{order.deliveryFee || 0} delivery)</span></p>
                        </div>
                        <div className="text-right">
                          <span className={`px-3 py-1 rounded text-xs font-black uppercase tracking-widest ${

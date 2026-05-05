@@ -50,7 +50,7 @@ export default function ProductDetails() {
 
   const handleAddToCart = () => {
     addToCart(mango.id, qty);
-    alert(`Added ${qty} box(es) to cart!`); 
+    toast.success(`Added ${qty} box(es) to cart!`); 
   };
 
   // GOD MODE TELEPORT
@@ -61,7 +61,7 @@ export default function ProductDetails() {
 
   const handleCustomerReviewSubmit = async (e) => {
     e.preventDefault();
-    if (!auth.currentUser) return alert("Please log in to leave a review.");
+    if (!auth.currentUser) return toast.error("Please log in to leave a review.");
     setIsSubmitting(true);
 
     const newReview = {
@@ -78,7 +78,7 @@ export default function ProductDetails() {
       await updateDoc(docRef, { reviews: arrayUnion(newReview) });
       setMango(prev => ({ ...prev, reviews: [newReview, ...(prev.reviews || [])] }));
       setUserReviewText('');
-      alert("Review posted successfully!");
+      toast.success("Review posted successfully!");
     } catch (error) { console.error("Failed to post review", error); }
     setIsSubmitting(false);
   };

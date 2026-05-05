@@ -3,6 +3,7 @@ import { collection, getDocs, addDoc, doc, getDoc } from 'firebase/firestore';
 import { db, auth } from '../firebaseConfig'; 
 import { useCart } from '../context/CartContext';
 import { Link, useNavigate } from 'react-router-dom';
+import { toast } from 'react-hot-toast';
 
 export default function Checkout() {
   const { cart, removeFromCart, updateQuantity, toggleSelection, clearCart } = useCart();
@@ -116,9 +117,9 @@ export default function Checkout() {
   };
 
   const handleConfirmOrder = async () => {
-    if (!auth.currentUser) return alert("Please login to place an order!");
-    if (activeItems.length === 0) return alert("Select at least one item to checkout!");
-    if (!customerName || !deliveryPhone || !deliveryAddress) return alert("Please fill out all delivery details!");
+    if (!auth.currentUser) return toast.error("Please login to place an order!");
+    if (activeItems.length === 0) return toast.error("Select at least one item to checkout!");
+    if (!customerName || !deliveryPhone || !deliveryAddress) return toast.error("Please fill out all delivery details!");
 
     try {
       const orderData = {
@@ -139,7 +140,7 @@ export default function Checkout() {
       
       await addDoc(collection(db, 'orders'), orderData);
       clearCart();
-      alert("Order Placed Successfully!");
+      toast.success("Order Placed Successfully!");
       navigate('/profile');
     } catch (err) {
       console.error("Failed to place order:", err);

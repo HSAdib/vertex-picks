@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { collection, getDocs, updateDoc, deleteDoc, doc, addDoc } from 'firebase/firestore';
 import { db } from '../../firebaseConfig';
 import { motion } from 'framer-motion';
+import { toast } from 'react-hot-toast';
 
 export default function InventoryTab() {
   const [liveMangoes, setLiveMangoes] = useState([]);
@@ -81,7 +82,7 @@ export default function InventoryTab() {
       fetchProducts();
     } catch (err) {
       console.error("Error saving product:", err);
-      alert("Failed to save product.");
+      toast.error("Failed to save product.");
     } finally {
       setIsUploading(false);
     }
