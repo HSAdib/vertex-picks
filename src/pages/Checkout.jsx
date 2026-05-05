@@ -5,7 +5,7 @@ import { useCart } from '../context/CartContext';
 import { Link, useNavigate } from 'react-router-dom';
 
 export default function Checkout() {
-  const { cart, removeFromCart, updateQuantity, updateWeight, toggleSelection } = useCart();
+  const { cart, removeFromCart, updateQuantity, toggleSelection } = useCart();
   const [liveProducts, setLiveProducts] = useState([]);
   const [livePromos, setLivePromos] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -46,7 +46,7 @@ export default function Checkout() {
     return product ? { 
       ...product, 
       quantity: cartItem.quantity, 
-      weight: cartItem.weight || 1, 
+      weight: Number(product.fixedWeight) || 1, 
       selected: cartItem.selected !== false // Defaults to true
     } : null;
   }).filter(item => item !== null);
@@ -142,19 +142,11 @@ export default function Checkout() {
                 <img src={item.images ? item.images[0] : item.image} className="w-20 h-20 object-cover rounded shadow-inner bg-gray-50" />
                 
                 <div className="flex-grow text-center sm:text-left">
-                  <h3 className="font-black text-gray-900 leading-tight">{item.name}</h3>
+                  <h3 className="font-black text-gray-900 leading-tight">{item.name} {item.weight ? `(${item.weight}kg)` : ''}</h3>
                   <p className="text-orange-500 font-black">৳{item.discountPrice || item.price}</p>
                 </div>
 
                 <div className="flex flex-col items-end gap-2">
-                  {/* WEIGHT CONTROL */}
-                  <div className="flex items-center text-xs bg-blue-50 border border-blue-200 rounded p-1">
-                    <span className="font-black text-blue-500 px-2 uppercase tracking-widest">Weight:</span>
-                    <button onClick={() => updateWeight(item.id, item.weight - 1)} className="px-2 font-black text-blue-400 hover:text-blue-600">-</button>
-                    <span className="font-black text-blue-700 w-4 text-center">{item.weight}kg</span>
-                    <button onClick={() => updateWeight(item.id, item.weight + 1)} className="px-2 font-black text-blue-400 hover:text-blue-600">+</button>
-                  </div>
-                  
                   {/* QUANTITY CONTROL */}
                   <div className="flex items-center text-xs bg-gray-50 border border-gray-200 rounded p-1">
                     <span className="font-black text-gray-500 px-2 uppercase tracking-widest">Qty:</span>
