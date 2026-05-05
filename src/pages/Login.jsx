@@ -10,18 +10,24 @@ export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
-  const [message, setMessage] = useState(''); // For success messages
+  const [message, setMessage] = useState(''); 
   
   const [showPortal, setShowPortal] = useState(false);
   const navigate = useNavigate();
 
+  // THE BOUNCER: Now properly recognizes Admin immunity
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
-      if (user && user.emailVerified) {
-        if (user.email.toLowerCase() === ADMIN_EMAIL.toLowerCase()) {
-          setShowPortal(true);
-        } else {
-          navigate('/profile');
+      if (user) {
+        const isAdmin = user.email.toLowerCase() === ADMIN_EMAIL.toLowerCase();
+        
+        // If they are verified OR they are the VIP Admin, let them through
+        if (user.emailVerified || isAdmin) {
+          if (isAdmin) {
+            setShowPortal(true);
+          } else {
+            navigate('/profile');
+          }
         }
       }
     });
@@ -36,11 +42,20 @@ export default function Login() {
     try {
       if (isLoginMode) {
         const userCredential = await signInWithEmailAndPassword(auth, email, password);
+        const isAdmin = userCredential.user.email.toLowerCase() === ADMIN_EMAIL.toLowerCase();
         
         // Block unverified users (unless it's the master admin)
-        if (!userCredential.user.emailVerified && userCredential.user.email.toLowerCase() !== ADMIN_EMAIL.toLowerCase()) {
+        if (!userCredential.user.emailVerified && !isAdmin) {
+          
+          // Auto-resend verification to rescue old accounts trapped in limbo
+          try {
+            await sendEmailVerification(userCredential.user);
+          } catch (resendError) {
+            console.log("Email already sent recently.");
+          }
+          
           await signOut(auth);
-          setError('Please verify your email before logging in. Check your inbox!');
+          setError('Please verify your email before logging in. A fresh verification link has been sent to your inbox (check your spam folder)!');
         }
       } else {
         // Sign up process
@@ -48,7 +63,7 @@ export default function Login() {
         await sendEmailVerification(userCredential.user);
         await signOut(auth); // Force them out until they verify
         setIsLoginMode(true);
-        setMessage('Account created! Please check your email to verify your account before logging in.');
+        setMessage('Account created! Please check your email (and spam folder) to verify your account before logging in.');
       }
     } catch (err) {
       if (err.code === 'auth/email-already-in-use') setError('An account with this email already exists.');
