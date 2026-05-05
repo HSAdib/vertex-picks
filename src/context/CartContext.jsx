@@ -5,8 +5,7 @@ const CartContext = createContext();
 export function CartProvider({ children }) {
   const [cart, setCart] = useState([]);
 
-  // We only store ID and Quantity now!
-  const addToCart = (productId, quantityToAdd = 1) => {
+  const addToCart = (productId, quantityToAdd = 1, initialWeight = 1) => {
     setCart((prevCart) => {
       const existingItem = prevCart.find(item => item.id === productId);
       if (existingItem) {
@@ -14,7 +13,8 @@ export function CartProvider({ children }) {
           item.id === productId ? { ...item, quantity: item.quantity + quantityToAdd } : item
         );
       }
-      return [...prevCart, { id: productId, quantity: quantityToAdd }];
+      // NEW: Added 'selected' boolean and 'weight' property
+      return [...prevCart, { id: productId, quantity: quantityToAdd, weight: initialWeight, selected: true }];
     });
   };
 
@@ -27,8 +27,19 @@ export function CartProvider({ children }) {
     setCart((prevCart) => prevCart.map(item => item.id === productId ? { ...item, quantity: newQuantity } : item));
   };
 
+  // NEW: Adjust the weight of the item (minimum 1kg)
+  const updateWeight = (productId, newWeight) => {
+    if (newWeight < 1) return;
+    setCart((prevCart) => prevCart.map(item => item.id === productId ? { ...item, weight: newWeight } : item));
+  };
+
+  // NEW: Toggle the checkbox on/off for checkout
+  const toggleSelection = (productId) => {
+    setCart((prevCart) => prevCart.map(item => item.id === productId ? { ...item, selected: !item.selected } : item));
+  };
+
   return (
-    <CartContext.Provider value={{ cart, addToCart, removeFromCart, updateQuantity }}>
+    <CartContext.Provider value={{ cart, addToCart, removeFromCart, updateQuantity, updateWeight, toggleSelection }}>
       {children}
     </CartContext.Provider>
   );
