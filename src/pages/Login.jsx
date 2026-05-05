@@ -50,7 +50,8 @@ export default function Login() {
     try {
       await signInWithPopup(auth, provider);
     } catch (err) {
-      setError('Failed to sign in with Google. Check your connection or pop-up settings.');
+      console.error(err); // Logs the full error to your browser console
+      setError(`Error: ${err.code} - ${err.message}`); // Displays the exact Firebase error on screen
     }
   };
 
