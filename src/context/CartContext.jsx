@@ -5,15 +5,16 @@ const CartContext = createContext();
 export function CartProvider({ children }) {
   const [cart, setCart] = useState([]);
 
-  const addToCart = (product, quantityToAdd = 1) => {
+  // We only store ID and Quantity now!
+  const addToCart = (productId, quantityToAdd = 1) => {
     setCart((prevCart) => {
-      const existingItem = prevCart.find(item => item.id === product.id);
+      const existingItem = prevCart.find(item => item.id === productId);
       if (existingItem) {
         return prevCart.map(item =>
-          item.id === product.id ? { ...item, quantity: item.quantity + quantityToAdd } : item
+          item.id === productId ? { ...item, quantity: item.quantity + quantityToAdd } : item
         );
       }
-      return [...prevCart, { ...product, quantity: quantityToAdd }];
+      return [...prevCart, { id: productId, quantity: quantityToAdd }];
     });
   };
 
@@ -23,12 +24,7 @@ export function CartProvider({ children }) {
 
   const updateQuantity = (productId, newQuantity) => {
     if (newQuantity < 1) return; 
-    
-    setCart((prevCart) => 
-      prevCart.map(item => 
-        item.id === productId ? { ...item, quantity: newQuantity } : item
-      )
-    );
+    setCart((prevCart) => prevCart.map(item => item.id === productId ? { ...item, quantity: newQuantity } : item));
   };
 
   return (

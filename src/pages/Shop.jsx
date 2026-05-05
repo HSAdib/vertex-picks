@@ -8,7 +8,6 @@ export default function Shop() {
   const [loading, setLoading] = useState(true);
   const { addToCart } = useCart();
   
-  // NEW: State to track the selected quantity for each mango
   const [quantities, setQuantities] = useState({});
 
   useEffect(() => {
@@ -28,7 +27,6 @@ export default function Shop() {
     fetchMangoes();
   }, []);
 
-  // Increase or decrease quantity (minimum is 1)
   const updateQty = (id, amount) => {
     setQuantities(prev => {
       const currentQty = prev[id] || 1;
@@ -37,18 +35,17 @@ export default function Shop() {
     });
   };
 
-  // Handles adding the specific quantity to the cart
+  // CHANGE: Now only passing the ID to the cart context
   const handleAddToCart = (mango) => {
     const qtyToAdd = quantities[mango.id] || 1;
-    addToCart(mango, qtyToAdd);
-    // Reset that mango's counter back to 1 after adding
+    addToCart(mango.id, qtyToAdd); // Passing ID only
     setQuantities(prev => ({ ...prev, [mango.id]: 1 }));
   };
 
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <p className="text-2xl font-black text-gray-800 animate-pulse">Harvesting Data...</p>
+        <p className="text-2xl font-black text-gray-800 animate-pulse uppercase tracking-widest">Harvesting Data...</p>
       </div>
     );
   }
@@ -65,45 +62,53 @@ export default function Shop() {
           </p>
         </div>
 
-        {mangoes.length === 0 ? (
-          <div className="text-center text-gray-500 font-bold text-xl">
-            Sold out. Check back soon for the next harvest!
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10">
-            {mangoes.map((mango) => (
-              <div key={mango.id} className="bg-white rounded-xl shadow-md overflow-hidden hover:shadow-xl transition-shadow duration-300 border border-gray-100 flex flex-col">
-                <div className="h-64 bg-gray-200 relative overflow-hidden">
-                  <img src={mango.image} alt={mango.name} className="w-full h-full object-cover" onError={(e) => { e.target.src = 'https://via.placeholder.com/400x300?text=Mango+Image'; }} />
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10">
+          {mangoes.map((mango) => (
+            <div key={mango.id} className="bg-white rounded-xl shadow-md overflow-hidden hover:shadow-xl transition-shadow duration-300 border border-gray-100 flex flex-col relative">
+              
+              {/* DISPLAY DISCOUNT BADGE */}
+              {mango.discountPercent && (
+                <div className="absolute top-4 left-4 bg-orange-500 text-white px-3 py-1 rounded-full font-black text-xs z-10 animate-bounce">
+                  {mango.discountPercent}% OFF
                 </div>
-                
-                <div className="p-6 flex flex-col flex-grow">
-                  <h2 className="text-2xl font-black text-gray-900 mb-2">{mango.name}</h2>
-                  <p className="text-gray-600 mb-6 flex-grow">{mango.description}</p>
-                  
-                  <div className="flex items-center justify-between mt-auto pt-4 border-t border-gray-100">
-                    <span className="text-2xl font-black text-orange-500">৳{mango.price}</span>
-                    
-                    {/* NEW: Quantity Selector and Add Button */}
-                    <div className="flex items-center gap-2">
-                      <div className="flex items-center border border-gray-300 rounded">
-                        <button onClick={() => updateQty(mango.id, -1)} className="px-3 py-1 text-gray-600 hover:bg-gray-100 font-bold transition-colors">-</button>
-                        <span className="px-3 py-1 font-bold text-sm border-l border-r border-gray-300 w-8 text-center">
-                          {quantities[mango.id] || 1}
-                        </span>
-                        <button onClick={() => updateQty(mango.id, 1)} className="px-3 py-1 text-gray-600 hover:bg-gray-100 font-bold transition-colors">+</button>
-                      </div>
-                      <button onClick={() => handleAddToCart(mango)} className="bg-black text-white px-4 py-1.5 rounded font-bold hover:bg-orange-500 transition-colors uppercase tracking-wider text-sm">
-                        Add
-                      </button>
-                    </div>
+              )}
 
+              <div className="h-64 bg-gray-200 relative overflow-hidden">
+                <img src={mango.image} alt={mango.name} className="w-full h-full object-cover" />
+              </div>
+              
+              <div className="p-6 flex flex-col flex-grow">
+                <h2 className="text-2xl font-black text-gray-900 mb-2">{mango.name}</h2>
+                <p className="text-gray-600 mb-6 flex-grow">{mango.description}</p>
+                
+                <div className="flex items-center justify-between mt-auto pt-4 border-t border-gray-100">
+                  <div className="flex flex-col">
+                    {/* DISPLAY DISCOUNTED PRICE IF AVAILABLE */}
+                    {mango.discountPrice ? (
+                      <>
+                        <span className="text-sm text-gray-400 line-through font-bold">৳{mango.price}</span>
+                        <span className="text-2xl font-black text-orange-500">৳{mango.discountPrice}</span>
+                      </>
+                    ) : (
+                      <span className="text-2xl font-black text-orange-500">৳{mango.price}</span>
+                    )}
+                  </div>
+                  
+                  <div className="flex items-center gap-2">
+                    <div className="flex items-center border border-gray-300 rounded">
+                      <button onClick={() => updateQty(mango.id, -1)} className="px-3 py-1 text-gray-600 hover:bg-gray-100 font-bold">-</button>
+                      <span className="px-3 py-1 font-bold text-sm border-l border-r border-gray-300 w-8 text-center">{quantities[mango.id] || 1}</span>
+                      <button onClick={() => updateQty(mango.id, 1)} className="px-3 py-1 text-gray-600 hover:bg-gray-100 font-bold">+</button>
+                    </div>
+                    <button onClick={() => handleAddToCart(mango)} className="bg-black text-white px-4 py-1.5 rounded font-bold hover:bg-orange-500 transition-colors uppercase tracking-wider text-sm">
+                      Add
+                    </button>
                   </div>
                 </div>
               </div>
-            ))}
-          </div>
-        )}
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   );
