@@ -1,5 +1,15 @@
 import { useState, useEffect } from 'react';
-import { createUserWithEmailAndPassword, signInWithEmailAndPassword, onAuthStateChanged, sendEmailVerification, signOut } from 'firebase/auth';
+import { 
+  createUserWithEmailAndPassword, 
+  signInWithEmailAndPassword, 
+  onAuthStateChanged, 
+  sendEmailVerification, 
+  sendPasswordResetEmail,
+  signOut,
+  GoogleAuthProvider, // NEW
+  FacebookAuthProvider, // NEW
+  signInWithPopup // NEW
+} from 'firebase/auth';
 import { useNavigate } from 'react-router-dom';
 import { auth } from '../firebaseConfig';
 
@@ -7,101 +17,94 @@ export default function Login() {
   const ADMIN_EMAIL = 'hasanshahriaradib@gmail.com'; 
 
   const [isLoginMode, setIsLoginMode] = useState(true);
-  
-  // Changed from "email" to "identifier" to handle both email and phone
-  const [identifier, setIdentifier] = useState(''); 
+  const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
-  
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [error, setError] = useState('');
   const [message, setMessage] = useState(''); 
   const [showPortal, setShowPortal] = useState(false);
   const navigate = useNavigate();
 
-  // THE BOUNCER: Now recognizes Phone Logins and lets them bypass verification
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       if (user) {
-        const isAdmin = user.email.toLowerCase() === ADMIN_EMAIL.toLowerCase();
-        const isPhoneAccount = user.email.endsWith('@phone.vertexpicks.com');
+        const isAdmin = user.email?.toLowerCase() === ADMIN_EMAIL.toLowerCase();
+        const isPhoneAccount = user.email?.includes('@phone.vertexpicks.com');
         
-        // If verified, OR Admin, OR a Phone Account -> Let them through!
         if (user.emailVerified || isAdmin || isPhoneAccount) {
-          if (isAdmin) {
-            setShowPortal(true);
-          } else {
-            navigate('/profile');
-          }
+          if (isAdmin) setShowPortal(true);
+          else navigate('/profile');
         }
       }
     });
     return () => unsubscribe();
   }, [navigate]);
 
+  // SOCIAL LOGIN HANDLERS
+  const handleSocialLogin = async (providerName) => {
+    setError('');
+    const provider = providerName === 'google' 
+      ? new GoogleAuthProvider() 
+      : new FacebookAuthProvider();
+    
+    try {
+      await signInWithPopup(auth, provider);
+      // Success is handled by the useEffect bouncer
+    } catch (err) {
+      setError(`Failed to sign in with ${providerName}.`);
+    }
+  };
+
+  const processIdentifier = (input) => {
+    const cleanInput = input.trim();
+    const isEmail = cleanInput.includes('@');
+    const emailToUse = isEmail ? cleanInput : `${cleanInput.replace(/\s+/g, '')}@phone.vertexpicks.com`;
+    return { isEmail, emailToUse };
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
     setMessage('');
+    if (password.length < 8) return setError('Password must be at least 8 characters long.');
+    if (!isLoginMode && password !== confirmPassword) return setError('Passwords do not match!');
 
-    const trimmedIdentifier = identifier.trim();
-    const isEmailInput = trimmedIdentifier.includes('@');
-    
-    // The Hacker Workaround: Append a dummy domain if it's a phone number
-    const finalLoginEmail = isEmailInput 
-      ? trimmedIdentifier 
-      : `${trimmedIdentifier.replace(/\s+/g, '')}@phone.vertexpicks.com`;
+    const { isEmail, emailToUse } = processIdentifier(identifier);
 
     try {
       if (isLoginMode) {
-        const userCredential = await signInWithEmailAndPassword(auth, finalLoginEmail, password);
-        
+        const userCredential = await signInWithEmailAndPassword(auth, emailToUse, password);
         const isAdmin = userCredential.user.email.toLowerCase() === ADMIN_EMAIL.toLowerCase();
-        const isPhoneAccount = userCredential.user.email.endsWith('@phone.vertexpicks.com');
-        
-        // Block unverified standard emails
-        if (!userCredential.user.emailVerified && !isAdmin && !isPhoneAccount) {
-          try { await sendEmailVerification(userCredential.user); } catch (resendError) { /* ignore spam limit */ }
+        if (isEmail && !userCredential.user.emailVerified && !isAdmin) {
+          try { await sendEmailVerification(userCredential.user); } catch (e) {}
           await signOut(auth);
-          setError('Please verify your email before logging in. A fresh verification link has been sent to your inbox (check your spam folder)!');
+          setError('Please verify your email. Check your inbox!');
         }
       } else {
-        // Sign up process
-        const userCredential = await createUserWithEmailAndPassword(auth, finalLoginEmail, password);
-        
-        if (isEmailInput) {
-          // It's an email: Send verification and block them
+        const userCredential = await createUserWithEmailAndPassword(auth, emailToUse, password);
+        if (isEmail) {
           await sendEmailVerification(userCredential.user);
           await signOut(auth); 
           setIsLoginMode(true);
-          setMessage('Account created! Please check your email (and spam folder) to verify your account before logging in.');
-        } else {
-          // It's a phone number: No verification needed! Firebase logs them in automatically,
-          // and the useEffect above will instantly teleport them to their Profile.
+          setMessage('Account created! Verify your email before logging in.');
         }
       }
     } catch (err) {
-      if (err.code === 'auth/email-already-in-use') setError('An account with this email/phone already exists.');
-      else if (err.code === 'auth/weak-password') setError('Password should be at least 6 characters.');
-      else if (err.code === 'auth/invalid-credential') setError('Incorrect email/phone or password.');
-      else if (err.code === 'auth/invalid-email') setError('Please enter a valid format.');
-      else setError('Something went wrong. Please try again.');
+      setError('Invalid credentials or connection error.');
     }
   };
 
   if (showPortal) {
     return (
-      <div className="min-h-screen bg-gray-50 flex flex-col justify-center py-12 px-4 sm:px-6 lg:px-8">
-        <div className="sm:mx-auto sm:w-full sm:max-w-md">
-          <div className="bg-white py-10 px-4 shadow-2xl sm:rounded-xl sm:px-10 border-t-8 border-orange-500 text-center animate-in fade-in">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-20 w-20 mx-auto text-orange-500 mb-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-            </svg>
-            <h2 className="text-3xl font-black text-gray-900 uppercase tracking-tight mb-2">Access Granted</h2>
-            <p className="text-gray-500 font-medium mb-8">Welcome back, Admin. Select your destination.</p>
+      <div className="min-h-screen bg-gray-50 flex flex-col justify-center py-12 px-4">
+        <div className="sm:mx-auto sm:w-full sm:max-w-md bg-white py-10 px-10 shadow-2xl rounded-xl border-t-8 border-orange-500 text-center">
+            <h2 className="text-3xl font-black text-gray-900 uppercase mb-8">Access Granted</h2>
             <div className="space-y-4">
-              <button onClick={() => navigate('/admin')} className="w-full py-4 px-4 rounded-md shadow-sm text-lg font-black text-white bg-orange-500 hover:bg-black transition-colors uppercase tracking-wide">Enter Admin Portal</button>
-              <button onClick={() => navigate('/profile')} className="w-full py-4 px-4 border-2 border-gray-200 rounded-md shadow-sm text-lg font-black text-gray-700 bg-white hover:bg-gray-50 transition-colors uppercase tracking-wide">Customer Dashboard</button>
+              <button onClick={() => navigate('/admin')} className="w-full py-4 rounded-md font-black text-white bg-orange-500 hover:bg-black uppercase">Enter Admin Portal</button>
+              <button onClick={() => navigate('/profile')} className="w-full py-4 rounded-md font-black text-gray-700 bg-white border-2 border-gray-200 hover:bg-gray-50 uppercase">Customer Dashboard</button>
             </div>
-          </div>
         </div>
       </div>
     );
@@ -110,43 +113,51 @@ export default function Login() {
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col justify-center py-12 px-4 sm:px-6 lg:px-8">
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
-        <h2 className="mt-6 text-center text-4xl font-black text-gray-900 uppercase tracking-tight">{isLoginMode ? 'Welcome Back' : 'Create Account'}</h2>
-        <p className="mt-2 text-center text-sm text-gray-600 font-medium">Use your email or mobile number</p>
+        <h2 className="text-center text-4xl font-black text-gray-900 uppercase tracking-tight">{isLoginMode ? 'Welcome Back' : 'Create Account'}</h2>
         <div className="mt-8 flex justify-center space-x-12 border-b border-gray-300">
-          <button onClick={() => { setIsLoginMode(true); setError(''); setMessage(''); }} className={`pb-3 text-sm font-black uppercase tracking-wider transition-colors border-b-4 ${isLoginMode ? 'border-orange-500 text-orange-500' : 'border-transparent text-gray-400 hover:text-gray-800'}`}>Log In</button>
-          <button onClick={() => { setIsLoginMode(false); setError(''); setMessage(''); }} className={`pb-3 text-sm font-black uppercase tracking-wider transition-colors border-b-4 ${!isLoginMode ? 'border-orange-500 text-orange-500' : 'border-transparent text-gray-400 hover:text-gray-800'}`}>Sign Up</button>
+          <button onClick={() => setIsLoginMode(true)} className={`pb-3 text-sm font-black uppercase border-b-4 ${isLoginMode ? 'border-orange-500 text-orange-500' : 'border-transparent text-gray-400'}`}>Log In</button>
+          <button onClick={() => setIsLoginMode(false)} className={`pb-3 text-sm font-black uppercase border-b-4 ${!isLoginMode ? 'border-orange-500 text-orange-500' : 'border-transparent text-gray-400'}`}>Sign Up</button>
         </div>
       </div>
 
       <div className="mt-6 sm:mx-auto sm:w-full sm:max-w-md">
-        <div className="bg-white py-8 px-4 shadow-xl sm:rounded-xl sm:px-10 border-t-4 border-orange-500">
-          {error && <div className="bg-red-50 text-red-700 p-3 rounded mb-6 font-bold text-sm border border-red-200">{error}</div>}
-          {message && <div className="bg-green-50 text-green-700 p-3 rounded mb-6 font-bold text-sm border border-green-200">{message}</div>}
+        <div className="bg-white py-8 px-10 shadow-xl rounded-xl border-t-4 border-orange-500">
+          
+          {/* SOCIAL BUTTONS */}
+          <div className="grid grid-cols-2 gap-3 mb-6">
+            <button onClick={() => handleSocialLogin('google')} className="flex items-center justify-center gap-2 py-2.5 border border-gray-300 rounded-md font-bold text-xs uppercase hover:bg-gray-50 transition-colors">
+              <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" className="w-4 h-4" alt="Google" /> Gmail
+            </button>
+            <button onClick={() => handleSocialLogin('facebook')} className="flex items-center justify-center gap-2 py-2.5 bg-[#1877F2] text-white rounded-md font-bold text-xs uppercase hover:opacity-90 transition-opacity">
+              <svg className="w-4 h-4 fill-current" viewBox="0 0 24 24"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg> Facebook
+            </button>
+          </div>
 
-          <form className="space-y-6" onSubmit={handleSubmit}>
-            <div>
-              <label className="block text-sm font-bold text-gray-700 mb-1">Email or Phone Number</label>
-              <input 
-                type="text" 
-                placeholder="e.g. adib@gmail.com or 017..."
-                required 
-                value={identifier} 
-                onChange={(e) => setIdentifier(e.target.value)} 
-                className="w-full px-4 py-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-orange-200 outline-none transition-all bg-gray-50" 
-              />
+          <div className="relative mb-6">
+            <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-gray-200"></div></div>
+            <div className="relative flex justify-center text-xs uppercase"><span className="bg-white px-2 text-gray-400 font-bold">Or continue with</span></div>
+          </div>
+
+          {error && <div className="bg-red-50 text-red-700 p-3 rounded mb-6 font-bold text-xs border border-red-200">{error}</div>}
+          {message && <div className="bg-green-50 text-green-700 p-3 rounded mb-6 font-bold text-xs border border-green-200">{message}</div>}
+
+          <form className="space-y-5" onSubmit={handleSubmit}>
+            <input type="text" required value={identifier} onChange={(e) => setIdentifier(e.target.value)} placeholder="Email or Phone Number" className="w-full px-4 py-3 border border-gray-300 rounded-md bg-gray-50 font-bold outline-none focus:ring-2 focus:ring-orange-200" />
+            
+            <div className="relative">
+              <input type={showPassword ? "text" : "password"} required value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Password" className="w-full px-4 py-3 border border-gray-300 rounded-md bg-gray-50 font-bold outline-none pr-12" />
+              <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-black text-gray-400 uppercase">{showPassword ? 'HIDE' : 'SHOW'}</button>
             </div>
-            <div>
-              <label className="block text-sm font-bold text-gray-700 mb-1">Password</label>
-              <input 
-                type="password" 
-                required 
-                value={password} 
-                onChange={(e) => setPassword(e.target.value)} 
-                className="w-full px-4 py-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-orange-200 outline-none transition-all bg-gray-50" 
-              />
-            </div>
-            <button type="submit" className="w-full py-4 px-4 rounded-md shadow-sm text-lg font-black text-white bg-black hover:bg-orange-500 transition-colors uppercase tracking-wide">
-              {isLoginMode ? 'Log In' : 'Sign Up'}
+
+            {!isLoginMode && (
+              <div className="relative">
+                <input type={showConfirmPassword ? "text" : "password"} required value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} placeholder="Confirm Password" className="w-full px-4 py-3 border border-gray-300 rounded-md bg-gray-50 font-bold outline-none pr-12" />
+                <button type="button" onClick={() => setShowConfirmPassword(!showConfirmPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-black text-gray-400 uppercase">{showConfirmPassword ? 'HIDE' : 'SHOW'}</button>
+              </div>
+            )}
+
+            <button type="submit" className="w-full py-4 rounded-md font-black text-white bg-black hover:bg-orange-500 transition-colors uppercase tracking-wide">
+              {isLoginMode ? 'Log In' : 'Create Account'}
             </button>
           </form>
         </div>
