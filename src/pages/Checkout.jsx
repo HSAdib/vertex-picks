@@ -15,27 +15,34 @@ export default function Checkout() {
   const [promoCode, setPromoCode] = useState('');
   const [appliedPromo, setAppliedPromo] = useState(null);
   const [promoMessage, setPromoMessage] = useState({ text: '', type: '' });
+  const [customerName, setCustomerName] = useState('');
   const [deliveryAddress, setDeliveryAddress] = useState('');
   const [deliveryPhone, setDeliveryPhone] = useState('');
+  const [showDeliveryForm, setShowDeliveryForm] = useState(false);
 
   useEffect(() => {
     const fetchCheckoutData = async () => {
-      const productSnap = await getDocs(collection(db, 'mangoes'));
-      setLiveProducts(productSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-      
-      const promoSnap = await getDocs(collection(db, 'promos'));
-      setLivePromos(promoSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-      
-      // CHECK IF USER HAS SAVED THEIR PROFILE ADDRESS!
-      if (auth.currentUser) {
-        const userDoc = await getDoc(doc(db, 'users', auth.currentUser.uid));
-        if (userDoc.exists() && userDoc.data().address && userDoc.data().phone) {
-          setHasDeliveryDetails(true);
-          setDeliveryAddress(userDoc.data().address); // <-- ADD THIS
-          setDeliveryPhone(userDoc.data().phone);     // <-- ADD THIS
+      try {
+        const productSnap = await getDocs(collection(db, 'mangoes'));
+        setLiveProducts(productSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+        
+        const promoSnap = await getDocs(collection(db, 'promos'));
+        setLivePromos(promoSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+        
+        // CHECK IF USER HAS SAVED THEIR PROFILE ADDRESS!
+        if (auth.currentUser) {
+          const userDoc = await getDoc(doc(db, 'users', auth.currentUser.uid));
+          if (userDoc.exists()) {
+            if (userDoc.data().name) setCustomerName(userDoc.data().name);
+            if (userDoc.data().address) setDeliveryAddress(userDoc.data().address);
+            if (userDoc.data().phone) setDeliveryPhone(userDoc.data().phone);
+          }
         }
+      } catch (error) {
+        console.error("Error fetching checkout data:", error);
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     };
     fetchCheckoutData();
   }, []);
@@ -83,13 +90,14 @@ export default function Checkout() {
   const handleConfirmOrder = async () => {
     if (!auth.currentUser) return alert("Please login to place an order!");
     if (activeItems.length === 0) return alert("Select at least one item to checkout!");
-    if (!hasDeliveryDetails) return alert("You must complete your delivery profile first!");
+    if (!customerName || !deliveryPhone || !deliveryAddress) return alert("Please fill out all delivery details!");
 
     try {
       const orderData = {
         customerEmail: auth.currentUser.email,
-        deliveryAddress: deliveryAddress, // <-- ADD THIS
-        deliveryPhone: deliveryPhone,     // <-- ADD THIS
+        customerName: customerName,
+        deliveryAddress: deliveryAddress,
+        deliveryPhone: deliveryPhone,
         items: activeItems,
         subtotal: subtotal,
         totalWeight: totalWeight,
@@ -115,16 +123,7 @@ export default function Checkout() {
     <div className="max-w-5xl mx-auto p-6 py-12">
       <h1 className="text-3xl font-black uppercase mb-8 tracking-tight">Checkout Summary</h1>
       
-      {/* PROFILE WARNING LOCK */}
-      {!hasDeliveryDetails && auth.currentUser && (
-        <div className="bg-red-50 border-l-8 border-red-500 p-6 rounded-xl mb-8 flex justify-between items-center shadow-sm">
-          <div>
-            <h3 className="text-red-700 font-black text-lg uppercase tracking-widest mb-1">Action Required</h3>
-            <p className="text-red-600 font-medium">You must add your phone number and address before checking out.</p>
-          </div>
-          <Link to="/profile" className="bg-red-600 text-white px-6 py-3 rounded font-black uppercase text-sm hover:bg-red-700">Go to Profile</Link>
-        </div>
-      )}
+      {/* WE NO LONGER LOCK THE PROFILE, WE SHOW THE FORM BELOW */}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         
@@ -162,16 +161,52 @@ export default function Checkout() {
           )}
         </div>
 
-        {/* ORDER SUMMARY */}
-        <div className="bg-white p-8 rounded-xl shadow-xl border-t-8 border-black h-fit">
-          <div className="mb-8 pb-8 border-b border-gray-100">
-            <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-2">Gift Card or Promo Code</label>
-            <div className="flex gap-2">
-              <input type="text" value={promoCode} onChange={(e) => setPromoCode(e.target.value)} placeholder="Enter Code" className="w-full px-4 py-3 bg-gray-50 border rounded font-bold uppercase outline-none focus:border-orange-500" />
-              <button onClick={handleApplyPromo} className="bg-gray-900 text-white px-6 font-black rounded hover:bg-orange-500 uppercase text-xs">Apply</button>
+        {/* CHECKOUT FORM & ORDER SUMMARY */}
+        {/* CHECKOUT FORM & ORDER SUMMARY */}
+        <div className="space-y-6 h-fit">
+          <div className="bg-white p-8 rounded-xl shadow-xl border-t-8 border-black">
+            
+            {/* DELIVERY DETAILS ACCORDION */}
+            <div className="mb-8 pb-8 border-b border-gray-100">
+              <button 
+                onClick={() => setShowDeliveryForm(!showDeliveryForm)} 
+                className="w-full flex justify-between items-center text-left focus:outline-none group"
+              >
+                <div>
+                  <h2 className="font-black uppercase text-xl tracking-widest text-gray-900 group-hover:text-orange-500 transition-colors">Delivery Details</h2>
+                  <p className="text-xs font-bold text-gray-500 mt-1">
+                    {deliveryPhone || deliveryAddress ? 'Details provided. Tap to edit.' : 'Tap to expand and fill out'}
+                  </p>
+                </div>
+                <span className="text-orange-500 font-black text-3xl">{showDeliveryForm ? '−' : '+'}</span>
+              </button>
+
+              {showDeliveryForm && (
+                <div className="space-y-4 mt-6 animate-in fade-in slide-in-from-top-2">
+                  <div>
+                    <label className="block text-xs font-black uppercase tracking-widest text-gray-500 mb-2">Full Name</label>
+                    <input type="text" value={customerName} onChange={e => setCustomerName(e.target.value)} required placeholder="Your Name" className="w-full p-3 bg-gray-50 border border-gray-200 rounded font-bold outline-none focus:border-orange-500" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-black uppercase tracking-widest text-gray-500 mb-2">Phone Number</label>
+                    <input type="tel" value={deliveryPhone} onChange={e => setDeliveryPhone(e.target.value)} required placeholder="017..." className="w-full p-3 bg-gray-50 border border-gray-200 rounded font-bold outline-none focus:border-orange-500" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-black uppercase tracking-widest text-gray-500 mb-2">Full Address</label>
+                    <textarea value={deliveryAddress} onChange={e => setDeliveryAddress(e.target.value)} required placeholder="House, Road, Area..." className="w-full p-3 bg-gray-50 border border-gray-200 rounded font-bold outline-none focus:border-orange-500 h-24"></textarea>
+                  </div>
+                </div>
+              )}
             </div>
-            {promoMessage.text && <p className={`mt-3 text-sm font-bold ${promoMessage.type === 'success' ? 'text-green-600' : 'text-red-500'}`}>{promoMessage.text}</p>}
-          </div>
+
+            <div className="mb-8 pb-8 border-b border-gray-100">
+              <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-2">Gift Card or Promo Code</label>
+              <div className="flex gap-2">
+                <input type="text" value={promoCode} onChange={(e) => setPromoCode(e.target.value)} placeholder="Enter Code" className="w-full px-4 py-3 bg-gray-50 border rounded font-bold uppercase outline-none focus:border-orange-500" />
+                <button onClick={handleApplyPromo} className="bg-gray-900 text-white px-6 font-black rounded hover:bg-orange-500 uppercase text-xs">Apply</button>
+              </div>
+              {promoMessage.text && <p className={`mt-3 text-sm font-bold ${promoMessage.type === 'success' ? 'text-green-600' : 'text-red-500'}`}>{promoMessage.text}</p>}
+            </div>
 
           <div className="space-y-3 font-medium text-gray-500">
             <div className="flex justify-between"><span>Subtotal ({activeItems.length} items)</span><span className="font-bold text-gray-900">৳{subtotal}</span></div>
@@ -183,13 +218,14 @@ export default function Checkout() {
           
           <button 
             onClick={handleConfirmOrder} 
-            disabled={activeItems.length === 0 || !hasDeliveryDetails}
+            disabled={activeItems.length === 0}
             className="w-full bg-orange-500 text-white font-black py-5 rounded-md mt-8 uppercase tracking-widest hover:bg-black transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
           >
-            {!hasDeliveryDetails ? 'Profile Setup Required' : 'Confirm Order'}
+            Confirm Order
           </button>
         </div>
       </div>
+    </div>
     </div>
   );
 }

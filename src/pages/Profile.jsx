@@ -32,21 +32,25 @@ export default function Profile() {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       setUser(currentUser);
       if (currentUser) {
-        // Fetch Profile
-        const docRef = doc(db, 'users', currentUser.uid);
-        const docSnap = await getDoc(docRef);
-        if (docSnap.exists()) {
-          setAddress(docSnap.data().address || '');
-          setPhone(docSnap.data().phone || '');
+        try {
+          // Fetch Profile
+          const docRef = doc(db, 'users', currentUser.uid);
+          const docSnap = await getDoc(docRef);
+          if (docSnap.exists()) {
+            setAddress(docSnap.data().address || '');
+            setPhone(docSnap.data().phone || '');
+          }
+          
+          // Fetch User's Orders
+          const q = query(collection(db, 'orders'), where("customerEmail", "==", currentUser.email));
+          const orderSnap = await getDocs(q);
+          // Sort by date descending locally
+          const ordersData = orderSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }))
+                                         .sort((a, b) => b.createdAt.toMillis() - a.createdAt.toMillis());
+          setMyOrders(ordersData);
+        } catch (error) {
+          console.error("Error fetching profile data:", error);
         }
-        
-        // Fetch User's Orders
-        const q = query(collection(db, 'orders'), where("customerEmail", "==", currentUser.email));
-        const orderSnap = await getDocs(q);
-        // Sort by date descending locally
-        const ordersData = orderSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }))
-                                       .sort((a, b) => b.createdAt.toMillis() - a.createdAt.toMillis());
-        setMyOrders(ordersData);
       }
       setLoading(false);
     });
@@ -178,6 +182,18 @@ export default function Profile() {
                            'bg-red-100 text-red-600'
                          }`}>{order.status}</span>
                        </div>
+                     </div>
+                     
+                     {/* Show items bought */}
+                     <div className="mt-4 border-t border-gray-100 pt-4">
+                       <p className="text-xs font-black text-gray-400 uppercase tracking-widest mb-2">Items Bought:</p>
+                       <ul className="space-y-1">
+                         {order.items?.map((item, idx) => (
+                           <li key={idx} className="font-bold text-gray-800 text-sm">
+                             {item.quantity}x {item.name} {item.weight ? `(${item.weight}kg)` : ''} - ৳{(item.discountPrice || item.price) * item.quantity}
+                           </li>
+                         ))}
+                       </ul>
                      </div>
                      
                      {/* Show cancel button ONLY if it's still pending */}

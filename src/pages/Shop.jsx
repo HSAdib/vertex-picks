@@ -101,6 +101,16 @@ export default function Shop() {
                 
                 <div className="p-6 pb-2 flex flex-col">
                   <h2 className="text-2xl font-black text-gray-900 mb-2 group-hover:text-orange-500 transition-colors">{mango.name}</h2>
+                  {mango.stats && (
+                    <div className="flex items-center gap-3 text-xs font-bold text-gray-500 mb-3">
+                      <span className="flex items-center gap-1 text-yellow-500">
+                        ★ {mango.stats.rating || '5.0'}
+                      </span>
+                      <span>({mango.stats.reviewCount || 0} reviews)</span>
+                      <span>•</span>
+                      <span className="text-orange-500">{mango.stats.sales || 0}+ Sold</span>
+                    </div>
+                  )}
                   <p className="text-gray-600 mb-2 line-clamp-2">{mango.description}</p>
                 </div>
               </Link>

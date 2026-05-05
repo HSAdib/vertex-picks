@@ -1,11 +1,37 @@
-import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { useCart } from '../context/CartContext';
+import { auth } from '../firebaseConfig';
+import { onAuthStateChanged } from 'firebase/auth';
 
 export default function Navbar() {
-  // This state controls whether the mobile menu is open or closed
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const { cart } = useCart();
+  const [user, setUser] = useState(null);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const navigate = useNavigate();
+  
+  const ADMIN_EMAIL = 'hasanshahriaradib@gmail.com';
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      setUser(currentUser);
+      setIsAdmin(currentUser && currentUser.email?.toLowerCase() === ADMIN_EMAIL.toLowerCase());
+    });
+    return () => unsubscribe();
+  }, []);
+
+  const handleProfileClick = (e) => {
+    e.preventDefault();
+    if (isAdmin) {
+      navigate('/admin');
+    } else if (user) {
+      navigate('/profile');
+    } else {
+      navigate('/login');
+    }
+  };
+
   const totalItems = cart.reduce((total, item) => total + item.quantity, 0);
 
   return (
@@ -32,12 +58,12 @@ export default function Navbar() {
           {/* Icons Section (Profile + Cart + Mobile Menu Toggle) */}
           <div className="flex items-center space-x-5">
             
-            {/* NEW: Profile Icon */}
-            <Link to="/profile" className="text-black hover:text-orange-500 transition-colors">
+            {/* NEW: Profile Icon (Dynamic Routing) */}
+            <button onClick={handleProfileClick} className="text-black hover:text-orange-500 transition-colors">
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
               </svg>
-            </Link>
+            </button>
 
             {/* Cart Icon (Always visible) */}
             <Link to="/checkout" className="text-black hover:text-orange-500 transition-colors relative">
@@ -88,13 +114,12 @@ export default function Navbar() {
               Premium Mangoes
             </Link>
             {/* NEW: Mobile Profile Link */}
-            <Link 
-              to="/profile" 
-              onClick={() => setIsMobileMenuOpen(false)}
-              className="block px-3 py-3 text-base font-bold text-gray-800 hover:text-orange-500 hover:bg-gray-50 rounded-md uppercase tracking-wider"
+            <button 
+              onClick={(e) => { setIsMobileMenuOpen(false); handleProfileClick(e); }}
+              className="block w-full text-left px-3 py-3 text-base font-bold text-gray-800 hover:text-orange-500 hover:bg-gray-50 rounded-md uppercase tracking-wider"
             >
-              My Account
-            </Link>
+              {isAdmin ? 'Admin Dashboard' : (user ? 'My Account' : 'Login')}
+            </button>
           </div>
         </div>
       )}
