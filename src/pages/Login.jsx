@@ -7,22 +7,25 @@ export default function Login() {
   const ADMIN_EMAIL = 'hasanshahriaradib@gmail.com'; 
 
   const [isLoginMode, setIsLoginMode] = useState(true);
-  const [email, setEmail] = useState('');
+  
+  // Changed from "email" to "identifier" to handle both email and phone
+  const [identifier, setIdentifier] = useState(''); 
   const [password, setPassword] = useState('');
+  
   const [error, setError] = useState('');
   const [message, setMessage] = useState(''); 
-  
   const [showPortal, setShowPortal] = useState(false);
   const navigate = useNavigate();
 
-  // THE BOUNCER: Now properly recognizes Admin immunity
+  // THE BOUNCER: Now recognizes Phone Logins and lets them bypass verification
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       if (user) {
         const isAdmin = user.email.toLowerCase() === ADMIN_EMAIL.toLowerCase();
+        const isPhoneAccount = user.email.endsWith('@phone.vertexpicks.com');
         
-        // If they are verified OR they are the VIP Admin, let them through
-        if (user.emailVerified || isAdmin) {
+        // If verified, OR Admin, OR a Phone Account -> Let them through!
+        if (user.emailVerified || isAdmin || isPhoneAccount) {
           if (isAdmin) {
             setShowPortal(true);
           } else {
@@ -39,36 +42,47 @@ export default function Login() {
     setError('');
     setMessage('');
 
+    const trimmedIdentifier = identifier.trim();
+    const isEmailInput = trimmedIdentifier.includes('@');
+    
+    // The Hacker Workaround: Append a dummy domain if it's a phone number
+    const finalLoginEmail = isEmailInput 
+      ? trimmedIdentifier 
+      : `${trimmedIdentifier.replace(/\s+/g, '')}@phone.vertexpicks.com`;
+
     try {
       if (isLoginMode) {
-        const userCredential = await signInWithEmailAndPassword(auth, email, password);
-        const isAdmin = userCredential.user.email.toLowerCase() === ADMIN_EMAIL.toLowerCase();
+        const userCredential = await signInWithEmailAndPassword(auth, finalLoginEmail, password);
         
-        // Block unverified users (unless it's the master admin)
-        if (!userCredential.user.emailVerified && !isAdmin) {
-          
-          // Auto-resend verification to rescue old accounts trapped in limbo
-          try {
-            await sendEmailVerification(userCredential.user);
-          } catch (resendError) {
-            console.log("Email already sent recently.");
-          }
-          
+        const isAdmin = userCredential.user.email.toLowerCase() === ADMIN_EMAIL.toLowerCase();
+        const isPhoneAccount = userCredential.user.email.endsWith('@phone.vertexpicks.com');
+        
+        // Block unverified standard emails
+        if (!userCredential.user.emailVerified && !isAdmin && !isPhoneAccount) {
+          try { await sendEmailVerification(userCredential.user); } catch (resendError) { /* ignore spam limit */ }
           await signOut(auth);
           setError('Please verify your email before logging in. A fresh verification link has been sent to your inbox (check your spam folder)!');
         }
       } else {
         // Sign up process
-        const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-        await sendEmailVerification(userCredential.user);
-        await signOut(auth); // Force them out until they verify
-        setIsLoginMode(true);
-        setMessage('Account created! Please check your email (and spam folder) to verify your account before logging in.');
+        const userCredential = await createUserWithEmailAndPassword(auth, finalLoginEmail, password);
+        
+        if (isEmailInput) {
+          // It's an email: Send verification and block them
+          await sendEmailVerification(userCredential.user);
+          await signOut(auth); 
+          setIsLoginMode(true);
+          setMessage('Account created! Please check your email (and spam folder) to verify your account before logging in.');
+        } else {
+          // It's a phone number: No verification needed! Firebase logs them in automatically,
+          // and the useEffect above will instantly teleport them to their Profile.
+        }
       }
     } catch (err) {
-      if (err.code === 'auth/email-already-in-use') setError('An account with this email already exists.');
+      if (err.code === 'auth/email-already-in-use') setError('An account with this email/phone already exists.');
       else if (err.code === 'auth/weak-password') setError('Password should be at least 6 characters.');
-      else if (err.code === 'auth/invalid-credential') setError('Incorrect email or password.');
+      else if (err.code === 'auth/invalid-credential') setError('Incorrect email/phone or password.');
+      else if (err.code === 'auth/invalid-email') setError('Please enter a valid format.');
       else setError('Something went wrong. Please try again.');
     }
   };
@@ -97,6 +111,7 @@ export default function Login() {
     <div className="min-h-screen bg-gray-50 flex flex-col justify-center py-12 px-4 sm:px-6 lg:px-8">
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
         <h2 className="mt-6 text-center text-4xl font-black text-gray-900 uppercase tracking-tight">{isLoginMode ? 'Welcome Back' : 'Create Account'}</h2>
+        <p className="mt-2 text-center text-sm text-gray-600 font-medium">Use your email or mobile number</p>
         <div className="mt-8 flex justify-center space-x-12 border-b border-gray-300">
           <button onClick={() => { setIsLoginMode(true); setError(''); setMessage(''); }} className={`pb-3 text-sm font-black uppercase tracking-wider transition-colors border-b-4 ${isLoginMode ? 'border-orange-500 text-orange-500' : 'border-transparent text-gray-400 hover:text-gray-800'}`}>Log In</button>
           <button onClick={() => { setIsLoginMode(false); setError(''); setMessage(''); }} className={`pb-3 text-sm font-black uppercase tracking-wider transition-colors border-b-4 ${!isLoginMode ? 'border-orange-500 text-orange-500' : 'border-transparent text-gray-400 hover:text-gray-800'}`}>Sign Up</button>
@@ -110,12 +125,25 @@ export default function Login() {
 
           <form className="space-y-6" onSubmit={handleSubmit}>
             <div>
-              <label className="block text-sm font-bold text-gray-700 mb-1">Email address</label>
-              <input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} className="w-full px-4 py-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-orange-200 outline-none transition-all bg-gray-50" />
+              <label className="block text-sm font-bold text-gray-700 mb-1">Email or Phone Number</label>
+              <input 
+                type="text" 
+                placeholder="e.g. adib@gmail.com or 017..."
+                required 
+                value={identifier} 
+                onChange={(e) => setIdentifier(e.target.value)} 
+                className="w-full px-4 py-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-orange-200 outline-none transition-all bg-gray-50" 
+              />
             </div>
             <div>
               <label className="block text-sm font-bold text-gray-700 mb-1">Password</label>
-              <input type="password" required value={password} onChange={(e) => setPassword(e.target.value)} className="w-full px-4 py-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-orange-200 outline-none transition-all bg-gray-50" />
+              <input 
+                type="password" 
+                required 
+                value={password} 
+                onChange={(e) => setPassword(e.target.value)} 
+                className="w-full px-4 py-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-orange-200 outline-none transition-all bg-gray-50" 
+              />
             </div>
             <button type="submit" className="w-full py-4 px-4 rounded-md shadow-sm text-lg font-black text-white bg-black hover:bg-orange-500 transition-colors uppercase tracking-wide">
               {isLoginMode ? 'Log In' : 'Sign Up'}
