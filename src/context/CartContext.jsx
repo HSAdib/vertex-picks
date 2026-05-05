@@ -1,4 +1,6 @@
-import { createContext, useContext, useState } from 'react';
+import { createContext, useContext, useState, useEffect } from 'react';
+import { auth } from '../firebaseConfig';
+import { onAuthStateChanged } from 'firebase/auth';
 
 const CartContext = createContext();
 
@@ -31,8 +33,19 @@ export function CartProvider({ children }) {
     setCart((prevCart) => prevCart.map(item => item.id === productId ? { ...item, selected: !item.selected } : item));
   };
 
+  // Clear the cart
+  const clearCart = () => setCart([]);
+
+  // Auto-clear cart on logout
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      if (!user) clearCart();
+    });
+    return () => unsubscribe();
+  }, []);
+
   return (
-    <CartContext.Provider value={{ cart, addToCart, removeFromCart, updateQuantity, toggleSelection }}>
+    <CartContext.Provider value={{ cart, addToCart, removeFromCart, updateQuantity, toggleSelection, clearCart }}>
       {children}
     </CartContext.Provider>
   );

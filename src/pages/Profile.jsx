@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { signOut, onAuthStateChanged } from 'firebase/auth';
+import { signOut, onAuthStateChanged, updateProfile } from 'firebase/auth';
 import { doc, getDoc, setDoc, collection, query, where, getDocs, updateDoc } from 'firebase/firestore'; 
 import { auth, db } from '../firebaseConfig';
 import { Navigate, Link } from 'react-router-dom';
@@ -8,9 +8,17 @@ export default function Profile() {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   
-  const [address, setAddress] = useState('');
-  const [phone, setPhone] = useState('');
-  const [isSaving, setIsSaving] = useState(false);
+  // Profile Data
+  const [name, setName] = useState('');
+  const [addresses, setAddresses] = useState([]);
+  const [isSavingName, setIsSavingName] = useState(false);
+
+  // Address Modal State
+  const [showAddressModal, setShowAddressModal] = useState(false);
+  const [editAddressId, setEditAddressId] = useState(null);
+  const [newLabel, setNewLabel] = useState('Home');
+  const [newPhone, setNewPhone] = useState('');
+  const [newAddress, setNewAddress] = useState('');
 
   // --- ORDER HISTORY STATE ---
   const [myOrders, setMyOrders] = useState([]);
@@ -37,8 +45,15 @@ export default function Profile() {
           const docRef = doc(db, 'users', currentUser.uid);
           const docSnap = await getDoc(docRef);
           if (docSnap.exists()) {
-            setAddress(docSnap.data().address || '');
-            setPhone(docSnap.data().phone || '');
+            const data = docSnap.data();
+            setName(data.name || currentUser.displayName || '');
+            if (data.addresses) {
+              setAddresses(data.addresses);
+            } else if (data.address || data.phone) {
+              setAddresses([{ id: Date.now().toString(), label: 'Default', address: data.address || '', phone: data.phone || '', isDefault: true }]);
+            }
+          } else {
+            setName(currentUser.displayName || '');
           }
           
           // Fetch User's Orders
@@ -46,6 +61,7 @@ export default function Profile() {
           const orderSnap = await getDocs(q);
           // Sort by date descending locally
           const ordersData = orderSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }))
+                                         .filter(o => !o.hiddenByCustomer)
                                          .sort((a, b) => b.createdAt.toMillis() - a.createdAt.toMillis());
           setMyOrders(ordersData);
         } catch (error) {
@@ -57,16 +73,76 @@ export default function Profile() {
     return () => unsubscribe();
   }, []);
 
-  const handleSaveProfile = async (e) => {
+  const handleSaveName = async (e) => {
     e.preventDefault();
-    setIsSaving(true);
+    setIsSavingName(true);
     try {
-      await setDoc(doc(db, 'users', user.uid), {
-        email: user.email, address, phone, updatedAt: new Date()
-      }, { merge: true });
-      alert('Delivery details securely saved!');
-    } catch (error) { console.error("Error saving profile", error); }
-    setIsSaving(false);
+      if (user) await updateProfile(user, { displayName: name });
+      await setDoc(doc(db, 'users', user.uid), { name, email: user.email }, { merge: true });
+      alert('Name updated successfully!');
+    } catch (err) { console.error(err); }
+    setIsSavingName(false);
+  };
+
+  const saveAddressesToDB = async (updatedAddresses) => {
+    try {
+      await setDoc(doc(db, 'users', user.uid), { addresses: updatedAddresses, updatedAt: new Date() }, { merge: true });
+      setAddresses(updatedAddresses);
+    } catch (err) { console.error("Error saving addresses", err); }
+  };
+
+  const handleSaveAddressModal = async (e) => {
+    e.preventDefault();
+    let updated;
+    if (editAddressId) {
+      updated = addresses.map(addr => addr.id === editAddressId ? {
+        ...addr,
+        label: newLabel,
+        phone: newPhone,
+        address: newAddress
+      } : addr);
+    } else {
+      const newAddrObj = {
+        id: Date.now().toString(),
+        label: newLabel,
+        phone: newPhone,
+        address: newAddress,
+        isDefault: addresses.length === 0
+      };
+      updated = [...addresses, newAddrObj];
+    }
+    await saveAddressesToDB(updated);
+    setShowAddressModal(false);
+    setEditAddressId(null);
+    setNewLabel('Home'); setNewPhone(''); setNewAddress('');
+  };
+
+  const handleEditAddress = (addr) => {
+    setEditAddressId(addr.id);
+    setNewLabel(addr.label);
+    setNewPhone(addr.phone);
+    setNewAddress(addr.address);
+    setShowAddressModal(true);
+  };
+
+  const closeAddressModal = () => {
+    setShowAddressModal(false);
+    setEditAddressId(null);
+    setNewLabel('Home'); setNewPhone(''); setNewAddress('');
+  };
+
+  const handleSetDefault = async (id) => {
+    const updated = addresses.map(addr => ({ ...addr, isDefault: addr.id === id }));
+    await saveAddressesToDB(updated);
+  };
+
+  const handleDeleteAddress = async (id) => {
+    if(!window.confirm("Delete this address?")) return;
+    const updated = addresses.filter(addr => addr.id !== id);
+    if (updated.length > 0 && !updated.some(a => a.isDefault)) {
+      updated[0].isDefault = true;
+    }
+    await saveAddressesToDB(updated);
   };
 
   const handleCancelOrder = async () => {
@@ -85,6 +161,14 @@ export default function Profile() {
     } catch (err) { console.error("Failed to cancel", err); }
   };
 
+  const handleHideOrder = async (id) => {
+    if(!window.confirm("Remove this order from your history?")) return;
+    try {
+      await updateDoc(doc(db, 'orders', id), { hiddenByCustomer: true });
+      setMyOrders(myOrders.filter(o => o.id !== id));
+    } catch (err) { console.error("Failed to hide order", err); }
+  };
+
   if (loading) return <div className="min-h-screen flex items-center justify-center bg-gray-50 font-bold">Loading Profile...</div>;
   if (!user) return <Navigate to="/login" replace />;
 
@@ -93,6 +177,33 @@ export default function Profile() {
   return (
     <div className={`min-h-screen py-16 px-4 ${isAdmin ? 'bg-gray-900' : 'bg-gray-50'}`}>
       
+      {/* ADD ADDRESS MODAL */}
+      {showAddressModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl p-8 max-w-md w-full shadow-2xl">
+            <h3 className="text-xl font-black uppercase text-gray-900 mb-6">{editAddressId ? 'Edit Address' : 'Add New Address'}</h3>
+            <form onSubmit={handleSaveAddressModal} className="space-y-4">
+              <div>
+                <label className="block text-xs font-black uppercase tracking-widest text-gray-500 mb-2">Label (e.g. Home, Office)</label>
+                <input type="text" value={newLabel} onChange={e => setNewLabel(e.target.value)} required className="w-full p-3 border rounded font-bold outline-none focus:border-orange-500" />
+              </div>
+              <div>
+                <label className="block text-xs font-black uppercase tracking-widest text-gray-500 mb-2">Phone Number</label>
+                <input type="tel" value={newPhone} onChange={e => setNewPhone(e.target.value)} required placeholder="017..." className="w-full p-3 border rounded font-bold outline-none focus:border-orange-500" />
+              </div>
+              <div>
+                <label className="block text-xs font-black uppercase tracking-widest text-gray-500 mb-2">Full Address</label>
+                <textarea value={newAddress} onChange={e => setNewAddress(e.target.value)} required placeholder="House, Road, Area, City" className="w-full p-3 border rounded font-bold outline-none focus:border-orange-500 h-24"></textarea>
+              </div>
+              <div className="flex gap-4 mt-6">
+                <button type="button" onClick={closeAddressModal} className="flex-1 bg-gray-200 font-black py-3 rounded uppercase text-sm hover:bg-gray-300">Cancel</button>
+                <button type="submit" className="flex-1 bg-orange-500 text-white font-black py-3 rounded uppercase text-sm hover:bg-black transition-colors">Save Address</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       {/* CANCELLATION MODAL */}
       {cancelModalOpen && (
         <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
@@ -142,19 +253,57 @@ export default function Profile() {
           </div>
         )}
 
+        {/* EDIT PROFILE NAME */}
+        {!isAdmin && (
+          <div className="bg-white p-8 rounded-xl shadow-lg mb-8">
+            <h2 className="text-xl font-black uppercase mb-4 text-gray-800">Personal Details</h2>
+            <form onSubmit={handleSaveName} className="flex gap-4 items-end">
+              <div className="flex-grow">
+                <label className="block text-xs font-black uppercase tracking-widest mb-2 text-gray-500">Full Name</label>
+                <input type="text" value={name} onChange={e => setName(e.target.value)} placeholder="Your Name" className="w-full p-3 border border-gray-200 rounded font-bold outline-none bg-gray-50 focus:border-orange-500" required />
+              </div>
+              <button type="submit" disabled={isSavingName} className="bg-gray-900 text-white font-black px-6 py-3 rounded uppercase tracking-widest hover:bg-orange-500 transition-colors h-[50px]">{isSavingName ? '...' : 'Save'}</button>
+            </form>
+          </div>
+        )}
+
+        {/* ADDRESS BOOK */}
         <div className={`p-8 rounded-xl shadow-lg mb-8 ${isAdmin ? 'bg-gray-800 border border-gray-700' : 'bg-white'}`}>
-          <h2 className={`text-xl font-black uppercase mb-4 ${isAdmin ? 'text-white' : 'text-gray-800'}`}>Delivery Details</h2>
-          <form onSubmit={handleSaveProfile} className="space-y-4">
-            <div>
-              <label className={`block text-xs font-black uppercase tracking-widest mb-2 ${isAdmin ? 'text-gray-400' : 'text-gray-500'}`}>Phone Number</label>
-              <input type="tel" value={phone} onChange={e => setPhone(e.target.value)} placeholder="e.g., 017..." className={`w-full p-3 border rounded font-bold outline-none ${isAdmin ? 'bg-gray-900 border-gray-700 text-white focus:border-orange-500' : 'bg-gray-50 focus:border-orange-500'}`} required />
+          <div className="flex justify-between items-center mb-6">
+            <h2 className={`text-xl font-black uppercase ${isAdmin ? 'text-white' : 'text-gray-800'}`}>Address Book</h2>
+            <button onClick={() => setShowAddressModal(true)} className="bg-orange-500 text-white text-xs font-black px-4 py-2 rounded uppercase tracking-widest hover:bg-black transition-colors">+ Add New</button>
+          </div>
+          
+          {addresses.length === 0 ? (
+            <div className={`p-6 text-center border-2 border-dashed rounded-lg ${isAdmin ? 'border-gray-700 text-gray-500' : 'border-gray-200 text-gray-400'}`}>
+              <p className="font-bold">No addresses saved yet.</p>
             </div>
-            <div>
-              <label className={`block text-xs font-black uppercase tracking-widest mb-2 ${isAdmin ? 'text-gray-400' : 'text-gray-500'}`}>Full Address</label>
-              <textarea value={address} onChange={e => setAddress(e.target.value)} placeholder="House, Road, Area, City" className={`w-full p-3 border rounded font-bold outline-none h-24 ${isAdmin ? 'bg-gray-900 border-gray-700 text-white focus:border-orange-500' : 'bg-gray-50 focus:border-orange-500'}`} required></textarea>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {addresses.map(addr => (
+                <div key={addr.id} className={`p-5 border-2 rounded-lg relative ${addr.isDefault ? 'border-orange-500 bg-orange-50' : (isAdmin ? 'border-gray-700 bg-gray-900 text-white' : 'border-gray-200 bg-white')}`}>
+                  {addr.isDefault && <span className="absolute -top-3 left-4 bg-orange-500 text-white text-[10px] font-black px-2 py-1 rounded uppercase tracking-widest">Default</span>}
+                  <div className="flex justify-between items-start mb-2">
+                    <h3 className="font-black uppercase tracking-widest text-sm">{addr.label}</h3>
+                    <div className="flex gap-3">
+                      <button onClick={() => handleEditAddress(addr)} className="text-blue-500 hover:text-blue-400 transition-colors drop-shadow-[0_0_8px_rgba(59,130,246,0.6)]">
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+                      </button>
+                      <button onClick={() => handleDeleteAddress(addr.id)} className="text-red-500 hover:text-red-400 transition-colors drop-shadow-[0_0_8px_rgba(239,68,68,0.8)]">
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                      </button>
+                    </div>
+                  </div>
+                  <p className={`font-bold text-sm mb-1 ${isAdmin ? 'text-gray-300' : 'text-gray-700'}`}>{addr.phone}</p>
+                  <p className={`font-medium text-sm mb-4 ${isAdmin ? 'text-gray-400' : 'text-gray-500'}`}>{addr.address}</p>
+                  
+                  {!addr.isDefault && (
+                    <button onClick={() => handleSetDefault(addr.id)} className={`text-xs font-black uppercase tracking-widest hover:text-orange-500 ${isAdmin ? 'text-gray-500' : 'text-gray-400'}`}>Set as Default</button>
+                  )}
+                </div>
+              ))}
             </div>
-            <button type="submit" disabled={isSaving} className="w-full bg-orange-500 text-white font-black py-4 rounded uppercase tracking-widest hover:bg-black transition-colors">{isSaving ? 'Saving...' : 'Save Profile Details'}</button>
-          </form>
+          )}
         </div>
 
         {/* CUSTOMER ORDER HISTORY */}
@@ -196,14 +345,37 @@ export default function Profile() {
                        </ul>
                      </div>
                      
-                     {/* Show cancel button ONLY if it's still pending */}
-                     {order.status === 'Pending' && (
-                       <div className="border-t pt-4 mt-2">
+                     {/* Actions section */}
+                     <div className="border-t pt-4 mt-4 flex flex-wrap items-center justify-between gap-4">
+                       {order.status === 'Pending' ? (
                          <button onClick={() => { setOrderToCancel(order.id); setCancelModalOpen(true); }} className="text-xs font-bold text-red-500 hover:text-red-700 underline">Cancel Order</button>
-                       </div>
-                     )}
+                       ) : (
+                         <div />
+                       )}
+                       <button onClick={() => handleHideOrder(order.id)} className="text-xs font-bold text-gray-400 hover:text-gray-600 underline">
+                         Delete History
+                       </button>
+                     </div>
+
                      {order.status === 'Cancelled' && (
                        <p className="text-xs font-bold text-red-500 mt-2">Reason: {order.cancelReason}</p>
+                     )}
+
+                     {order.status !== 'Cancelled' && (
+                       order.trackingLink ? (
+                         <div className="border-t pt-4 mt-4 text-center">
+                           <a href={order.trackingLink} target="_blank" rel="noreferrer" className="inline-block w-full bg-blue-500 text-white px-4 py-3 rounded text-sm font-black uppercase tracking-widest hover:bg-blue-600 transition-colors shadow-sm">
+                             Track Delivery
+                           </a>
+                         </div>
+                       ) : (
+                         <div className="border-t pt-4 mt-4 text-center">
+                           <p className="text-xs font-bold text-gray-500 mb-3">No tracking link was provided, contact admin.</p>
+                           <a href="https://wa.me/8801581221084" target="_blank" rel="noreferrer" className="inline-block w-full bg-[#25D366] text-white px-4 py-3 rounded text-sm font-black uppercase tracking-widest hover:bg-[#128C7E] transition-colors shadow-lg shadow-green-500/30 animate-pulse">
+                             Contact Admin
+                           </a>
+                         </div>
+                       )
                      )}
                    </div>
                  ))}

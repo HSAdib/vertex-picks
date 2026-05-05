@@ -5,20 +5,22 @@ import { useCart } from '../context/CartContext';
 import { Link, useNavigate } from 'react-router-dom';
 
 export default function Checkout() {
-  const { cart, removeFromCart, updateQuantity, toggleSelection } = useCart();
+  const { cart, removeFromCart, updateQuantity, toggleSelection, clearCart } = useCart();
   const [liveProducts, setLiveProducts] = useState([]);
   const [livePromos, setLivePromos] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [hasDeliveryDetails, setHasDeliveryDetails] = useState(false);
   const navigate = useNavigate();
 
   const [promoCode, setPromoCode] = useState('');
   const [appliedPromo, setAppliedPromo] = useState(null);
   const [promoMessage, setPromoMessage] = useState({ text: '', type: '' });
+  
   const [customerName, setCustomerName] = useState('');
   const [deliveryAddress, setDeliveryAddress] = useState('');
   const [deliveryPhone, setDeliveryPhone] = useState('');
   const [showDeliveryForm, setShowDeliveryForm] = useState(false);
+  const [savedAddresses, setSavedAddresses] = useState([]);
+  const [selectedAddressId, setSelectedAddressId] = useState('new');
 
   useEffect(() => {
     const fetchCheckoutData = async () => {
@@ -33,9 +35,21 @@ export default function Checkout() {
         if (auth.currentUser) {
           const userDoc = await getDoc(doc(db, 'users', auth.currentUser.uid));
           if (userDoc.exists()) {
-            if (userDoc.data().name) setCustomerName(userDoc.data().name);
-            if (userDoc.data().address) setDeliveryAddress(userDoc.data().address);
-            if (userDoc.data().phone) setDeliveryPhone(userDoc.data().phone);
+            const data = userDoc.data();
+            setCustomerName(data.name || auth.currentUser.displayName || '');
+            
+            if (data.addresses && data.addresses.length > 0) {
+              setSavedAddresses(data.addresses);
+              const defaultAddr = data.addresses.find(a => a.isDefault) || data.addresses[0];
+              setSelectedAddressId(defaultAddr.id);
+              setDeliveryAddress(defaultAddr.address);
+              setDeliveryPhone(defaultAddr.phone);
+            } else if (data.address) {
+              setDeliveryAddress(data.address);
+              setDeliveryPhone(data.phone || '');
+            }
+          } else {
+            setCustomerName(auth.currentUser.displayName || '');
           }
         }
       } catch (error) {
@@ -46,6 +60,20 @@ export default function Checkout() {
     };
     fetchCheckoutData();
   }, []);
+
+  const handleAddressSelect = (addrId) => {
+    setSelectedAddressId(addrId);
+    if (addrId === 'new') {
+      setDeliveryAddress('');
+      setDeliveryPhone('');
+    } else {
+      const addr = savedAddresses.find(a => a.id === addrId);
+      if (addr) {
+        setDeliveryAddress(addr.address);
+        setDeliveryPhone(addr.phone);
+      }
+    }
+  };
 
   // Map cart items to live products and ensure selected/weight default values exist
   const cartItemsWithPrice = cart.map(cartItem => {
@@ -110,6 +138,7 @@ export default function Checkout() {
       };
       
       await addDoc(collection(db, 'orders'), orderData);
+      clearCart();
       alert("Order Placed Successfully!");
       navigate('/profile');
     } catch (err) {
@@ -155,7 +184,9 @@ export default function Checkout() {
                   </div>
                 </div>
 
-                <button onClick={() => removeFromCart(item.id)} className="text-red-400 hover:text-red-600 font-black p-2 ml-2">✕</button>
+                <button onClick={() => removeFromCart(item.id)} className="text-red-500 hover:text-red-400 p-2 ml-2 transition-colors drop-shadow-[0_0_8px_rgba(239,68,68,0.8)]">
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                </button>
               </div>
             ))
           )}
@@ -167,18 +198,25 @@ export default function Checkout() {
           <div className="bg-white p-8 rounded-xl shadow-xl border-t-8 border-black">
             
             {/* DELIVERY DETAILS ACCORDION */}
-            <div className="mb-8 pb-8 border-b border-gray-100">
+            <div className={`mb-8 p-6 rounded-xl border-2 transition-all ${showDeliveryForm ? 'border-orange-500 bg-orange-50 shadow-md' : 'border-gray-200 bg-gray-50 shadow-sm hover:border-orange-300'}`}>
               <button 
                 onClick={() => setShowDeliveryForm(!showDeliveryForm)} 
                 className="w-full flex justify-between items-center text-left focus:outline-none group"
               >
-                <div>
-                  <h2 className="font-black uppercase text-xl tracking-widest text-gray-900 group-hover:text-orange-500 transition-colors">Delivery Details</h2>
-                  <p className="text-xs font-bold text-gray-500 mt-1">
-                    {deliveryPhone || deliveryAddress ? 'Details provided. Tap to edit.' : 'Tap to expand and fill out'}
-                  </p>
+                <div className="flex items-center gap-4">
+                  <div className={`w-12 h-12 rounded-full flex items-center justify-center font-black text-xl transition-colors ${showDeliveryForm ? 'bg-orange-500 text-white' : 'bg-white border-2 border-gray-200 text-gray-400 group-hover:border-orange-300 group-hover:text-orange-500'}`}>
+                    🚚
+                  </div>
+                  <div>
+                    <h2 className="font-black uppercase text-xl tracking-widest text-gray-900 group-hover:text-orange-500 transition-colors">Delivery Details</h2>
+                    <p className="text-xs font-bold mt-1 text-gray-500">
+                      {deliveryPhone && deliveryAddress ? 'Address is selected. Tap to change.' : 'Tap here to add delivery info'}
+                    </p>
+                  </div>
                 </div>
-                <span className="text-orange-500 font-black text-3xl">{showDeliveryForm ? '−' : '+'}</span>
+                <div className={`w-10 h-10 rounded-full flex items-center justify-center transition-colors ${showDeliveryForm ? 'bg-orange-100 text-orange-600' : 'bg-gray-200 text-gray-600 group-hover:bg-orange-100 group-hover:text-orange-500'}`}>
+                  <span className="font-black text-2xl leading-none">{showDeliveryForm ? '−' : '+'}</span>
+                </div>
               </button>
 
               {showDeliveryForm && (
@@ -187,14 +225,41 @@ export default function Checkout() {
                     <label className="block text-xs font-black uppercase tracking-widest text-gray-500 mb-2">Full Name</label>
                     <input type="text" value={customerName} onChange={e => setCustomerName(e.target.value)} required placeholder="Your Name" className="w-full p-3 bg-gray-50 border border-gray-200 rounded font-bold outline-none focus:border-orange-500" />
                   </div>
-                  <div>
-                    <label className="block text-xs font-black uppercase tracking-widest text-gray-500 mb-2">Phone Number</label>
-                    <input type="tel" value={deliveryPhone} onChange={e => setDeliveryPhone(e.target.value)} required placeholder="017..." className="w-full p-3 bg-gray-50 border border-gray-200 rounded font-bold outline-none focus:border-orange-500" />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-black uppercase tracking-widest text-gray-500 mb-2">Full Address</label>
-                    <textarea value={deliveryAddress} onChange={e => setDeliveryAddress(e.target.value)} required placeholder="House, Road, Area..." className="w-full p-3 bg-gray-50 border border-gray-200 rounded font-bold outline-none focus:border-orange-500 h-24"></textarea>
-                  </div>
+                  
+                  {savedAddresses.length > 0 && (
+                    <div className="py-2">
+                      <label className="block text-xs font-black uppercase tracking-widest text-gray-500 mb-3">Select Address</label>
+                      <div className="space-y-2">
+                        {savedAddresses.map(addr => (
+                          <label key={addr.id} className={`flex items-start gap-3 p-3 border rounded-lg cursor-pointer transition-colors ${selectedAddressId === addr.id ? 'border-orange-500 bg-orange-50' : 'border-gray-200 hover:bg-gray-50'}`}>
+                            <input type="radio" name="addressSelect" checked={selectedAddressId === addr.id} onChange={() => handleAddressSelect(addr.id)} className="mt-1 w-4 h-4 accent-orange-500" />
+                            <div>
+                              <p className="font-black text-sm uppercase tracking-widest">{addr.label} {addr.isDefault && <span className="text-orange-500 text-[10px] ml-2">(Default)</span>}</p>
+                              <p className="text-xs font-bold text-gray-600 mt-1">{addr.phone}</p>
+                              <p className="text-xs text-gray-500 line-clamp-1">{addr.address}</p>
+                            </div>
+                          </label>
+                        ))}
+                        <label className={`flex items-center gap-3 p-3 border rounded-lg cursor-pointer transition-colors ${selectedAddressId === 'new' ? 'border-orange-500 bg-orange-50' : 'border-gray-200 hover:bg-gray-50'}`}>
+                          <input type="radio" name="addressSelect" checked={selectedAddressId === 'new'} onChange={() => handleAddressSelect('new')} className="w-4 h-4 accent-orange-500" />
+                          <span className="font-black text-sm uppercase tracking-widest">Use a different address</span>
+                        </label>
+                      </div>
+                    </div>
+                  )}
+
+                  {(selectedAddressId === 'new' || savedAddresses.length === 0) && (
+                    <>
+                      <div>
+                        <label className="block text-xs font-black uppercase tracking-widest text-gray-500 mb-2">Phone Number</label>
+                        <input type="tel" value={deliveryPhone} onChange={e => setDeliveryPhone(e.target.value)} required placeholder="017..." className="w-full p-3 bg-gray-50 border border-gray-200 rounded font-bold outline-none focus:border-orange-500" />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-black uppercase tracking-widest text-gray-500 mb-2">Full Address</label>
+                        <textarea value={deliveryAddress} onChange={e => setDeliveryAddress(e.target.value)} required placeholder="House, Road, Area..." className="w-full p-3 bg-gray-50 border border-gray-200 rounded font-bold outline-none focus:border-orange-500 h-24"></textarea>
+                      </div>
+                    </>
+                  )}
                 </div>
               )}
             </div>

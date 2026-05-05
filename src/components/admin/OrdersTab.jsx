@@ -63,6 +63,14 @@ export default function OrdersTab() {
     setOrders(orders.map(o => o.id === id ? { ...o, status: newStatus } : o));
   };
 
+  const handleAddTracking = async (id) => {
+    const url = window.prompt("Enter tracking link URL (e.g. Pathao/Steadfast link):");
+    if (url) {
+      await updateDoc(doc(db, 'orders', id), { trackingLink: url });
+      setOrders(orders.map(o => o.id === id ? { ...o, trackingLink: url } : o));
+    }
+  };
+
   const handleDeleteOrder = async (id) => {
     if (window.confirm('Delete this order completely?')) { 
       await deleteDoc(doc(db, 'orders', id)); 
@@ -237,6 +245,14 @@ export default function OrdersTab() {
                       <button onClick={() => handleUpdateStatus(order.id, 'Done')} className="bg-black text-white font-black px-4 py-2 rounded text-xs uppercase tracking-widest hover:bg-orange-500">
                         Mark as Done
                       </button>
+                    )}
+                    {order.status !== 'Cancelled' && (
+                      <button onClick={() => handleAddTracking(order.id)} className={`font-black px-4 py-2 rounded text-xs uppercase tracking-widest transition-colors ${order.trackingLink ? 'bg-blue-50 text-blue-600 border border-blue-200 hover:bg-blue-100' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}>
+                        {order.trackingLink ? 'Edit Tracking' : '+ Add Tracking'}
+                      </button>
+                    )}
+                    {order.trackingLink && (
+                       <a href={order.trackingLink} target="_blank" rel="noreferrer" className="text-xs font-bold text-blue-500 underline self-center">View Link</a>
                     )}
                     <button onClick={() => handleDeleteOrder(order.id)} className="bg-red-100 text-red-600 font-black px-4 py-2 rounded text-xs uppercase tracking-widest hover:bg-red-600 hover:text-white ml-auto">
                       Delete Record
