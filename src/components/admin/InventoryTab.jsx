@@ -22,6 +22,9 @@ export default function InventoryTab() {
   const [editingId, setEditingId] = useState(null); 
   const [isUploading, setIsUploading] = useState(false);
 
+  // --- CONFIRM MODAL STATE ---
+  const [confirmModal, setConfirmModal] = useState({ isOpen: false, title: '', message: '', action: null });
+
   const fetchProducts = async () => {
     try {
       setLoadingProducts(true);
@@ -91,11 +94,18 @@ export default function InventoryTab() {
     setFakeSales('500'); setFakeRating('4.8'); setFakeReviewCount('124'); setReviews([]);
   };
 
-  const handleDelete = async (id) => { 
-    if (window.confirm('Delete this?')) { 
-      await deleteDoc(doc(db, 'mangoes', id)); 
-      fetchProducts(); 
-    } 
+  const executeDelete = async (id) => {
+    await deleteDoc(doc(db, 'mangoes', id)); 
+    fetchProducts(); 
+  };
+
+  const handleDelete = (id) => { 
+    setConfirmModal({
+      isOpen: true,
+      title: 'Delete Product',
+      message: 'Are you sure you want to delete this product? This action cannot be undone.',
+      action: () => executeDelete(id)
+    });
   };
 
   const handleEditClick = (mango) => {
@@ -190,6 +200,21 @@ export default function InventoryTab() {
           </div>
         )}
       </div>
+
+      {/* CONFIRMATION MODAL */}
+      {confirmModal.isOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-70 z-[100] flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl p-6 max-w-sm w-full shadow-2xl animate-in fade-in zoom-in-95">
+            <h3 className="text-xl font-black uppercase text-gray-900 mb-2">{confirmModal.title}</h3>
+            <p className="text-sm font-bold text-gray-500 mb-6">{confirmModal.message}</p>
+            <div className="flex gap-4">
+              <button onClick={() => setConfirmModal({ ...confirmModal, isOpen: false })} className="flex-1 bg-gray-200 font-black py-3 rounded uppercase text-sm hover:bg-gray-300">Cancel</button>
+              <button onClick={() => { confirmModal.action(); setConfirmModal({ ...confirmModal, isOpen: false }); }} className="flex-1 bg-red-600 text-white font-black py-3 rounded uppercase text-sm hover:bg-red-700">Confirm</button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </motion.div>
   );
 }

@@ -26,6 +26,9 @@ export default function Profile() {
   const [orderToCancel, setOrderToCancel] = useState(null);
   const [cancelReason, setCancelReason] = useState('');
 
+  // --- CONFIRM MODAL STATE ---
+  const [confirmModal, setConfirmModal] = useState({ isOpen: false, title: '', message: '', action: null });
+
   const ADMIN_EMAIL = 'hasanshahriaradib@gmail.com';
 
   const cancellationReasons = [
@@ -136,13 +139,20 @@ export default function Profile() {
     await saveAddressesToDB(updated);
   };
 
-  const handleDeleteAddress = async (id) => {
-    if(!window.confirm("Delete this address?")) return;
+  const triggerConfirm = (title, message, action) => {
+    setConfirmModal({ isOpen: true, title, message, action });
+  };
+
+  const executeDeleteAddress = async (id) => {
     const updated = addresses.filter(addr => addr.id !== id);
     if (updated.length > 0 && !updated.some(a => a.isDefault)) {
       updated[0].isDefault = true;
     }
     await saveAddressesToDB(updated);
+  };
+
+  const handleDeleteAddress = (id) => {
+    triggerConfirm("Delete Address", "Are you sure you want to delete this address? This action cannot be undone.", () => executeDeleteAddress(id));
   };
 
   const handleCancelOrder = async () => {
@@ -161,12 +171,15 @@ export default function Profile() {
     } catch (err) { console.error("Failed to cancel", err); }
   };
 
-  const handleHideOrder = async (id) => {
-    if(!window.confirm("Remove this order from your history?")) return;
+  const executeHideOrder = async (id) => {
     try {
       await updateDoc(doc(db, 'orders', id), { hiddenByCustomer: true });
       setMyOrders(myOrders.filter(o => o.id !== id));
     } catch (err) { console.error("Failed to hide order", err); }
+  };
+
+  const handleHideOrder = (id) => {
+    triggerConfirm("Delete History", "Remove this order from your history? It will no longer be visible here.", () => executeHideOrder(id));
   };
 
   if (loading) return <div className="min-h-screen flex items-center justify-center bg-gray-50 font-bold">Loading Profile...</div>;
@@ -177,6 +190,20 @@ export default function Profile() {
   return (
     <div className={`min-h-screen py-16 px-4 ${isAdmin ? 'bg-gray-900' : 'bg-gray-50'}`}>
       
+      {/* CONFIRMATION MODAL */}
+      {confirmModal.isOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-70 z-[100] flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl p-6 max-w-sm w-full shadow-2xl animate-in fade-in zoom-in-95">
+            <h3 className="text-xl font-black uppercase text-gray-900 mb-2">{confirmModal.title}</h3>
+            <p className="text-sm font-bold text-gray-500 mb-6">{confirmModal.message}</p>
+            <div className="flex gap-4">
+              <button onClick={() => setConfirmModal({ ...confirmModal, isOpen: false })} className="flex-1 bg-gray-200 font-black py-3 rounded uppercase text-sm hover:bg-gray-300">Cancel</button>
+              <button onClick={() => { confirmModal.action(); setConfirmModal({ ...confirmModal, isOpen: false }); }} className="flex-1 bg-red-600 text-white font-black py-3 rounded uppercase text-sm hover:bg-red-700">Confirm</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ADD ADDRESS MODAL */}
       {showAddressModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">

@@ -17,6 +17,10 @@ export default function OrdersTab() {
   const [mItem, setMItem] = useState(''); const [mCharged, setMCharged] = useState('');
   const [mCost, setMCost] = useState('');
 
+  // --- MODALS STATE ---
+  const [confirmModal, setConfirmModal] = useState({ isOpen: false, title: '', message: '', action: null });
+  const [promptModal, setPromptModal] = useState({ isOpen: false, title: '', placeholder: '', value: '', action: null });
+
   const fetchOrders = async (isLoadMore = false) => {
     try {
       if (isLoadMore) setLoadingMore(true);
@@ -63,19 +67,35 @@ export default function OrdersTab() {
     setOrders(orders.map(o => o.id === id ? { ...o, status: newStatus } : o));
   };
 
-  const handleAddTracking = async (id) => {
-    const url = window.prompt("Enter tracking link URL (e.g. Pathao/Steadfast link):");
+  const executeAddTracking = async (id, url) => {
     if (url) {
       await updateDoc(doc(db, 'orders', id), { trackingLink: url });
       setOrders(orders.map(o => o.id === id ? { ...o, trackingLink: url } : o));
     }
   };
 
-  const handleDeleteOrder = async (id) => {
-    if (window.confirm('Delete this order completely?')) { 
-      await deleteDoc(doc(db, 'orders', id)); 
-      setOrders(orders.filter(o => o.id !== id));
-    }
+  const handleAddTracking = (id) => {
+    setPromptModal({
+      isOpen: true,
+      title: "Add Tracking Link",
+      placeholder: "e.g. Pathao/Steadfast URL",
+      value: "",
+      action: (url) => executeAddTracking(id, url)
+    });
+  };
+
+  const executeDeleteOrder = async (id) => {
+    await deleteDoc(doc(db, 'orders', id)); 
+    setOrders(orders.filter(o => o.id !== id));
+  };
+
+  const handleDeleteOrder = (id) => {
+    setConfirmModal({
+      isOpen: true,
+      title: 'Delete Order',
+      message: 'Are you sure you want to completely delete this order? This action cannot be undone.',
+      action: () => executeDeleteOrder(id)
+    });
   };
 
   const createWhatsAppLink = (phone, total, address) => {
@@ -275,6 +295,41 @@ export default function OrdersTab() {
         >
           {loadingMore ? 'Loading...' : 'Load More Orders'}
         </button>
+      )}
+
+      {/* CONFIRMATION MODAL */}
+      {confirmModal.isOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-70 z-[100] flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl p-6 max-w-sm w-full shadow-2xl animate-in fade-in zoom-in-95">
+            <h3 className="text-xl font-black uppercase text-gray-900 mb-2">{confirmModal.title}</h3>
+            <p className="text-sm font-bold text-gray-500 mb-6">{confirmModal.message}</p>
+            <div className="flex gap-4">
+              <button onClick={() => setConfirmModal({ ...confirmModal, isOpen: false })} className="flex-1 bg-gray-200 font-black py-3 rounded uppercase text-sm hover:bg-gray-300">Cancel</button>
+              <button onClick={() => { confirmModal.action(); setConfirmModal({ ...confirmModal, isOpen: false }); }} className="flex-1 bg-red-600 text-white font-black py-3 rounded uppercase text-sm hover:bg-red-700">Confirm</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* PROMPT MODAL */}
+      {promptModal.isOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-70 z-[100] flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl p-6 max-w-sm w-full shadow-2xl animate-in fade-in zoom-in-95">
+            <h3 className="text-xl font-black uppercase text-gray-900 mb-4">{promptModal.title}</h3>
+            <input 
+              type="text" 
+              placeholder={promptModal.placeholder}
+              value={promptModal.value}
+              onChange={(e) => setPromptModal({ ...promptModal, value: e.target.value })}
+              className="w-full p-3 border rounded font-bold outline-none focus:border-orange-500 mb-6"
+              autoFocus
+            />
+            <div className="flex gap-4">
+              <button onClick={() => setPromptModal({ ...promptModal, isOpen: false })} className="flex-1 bg-gray-200 font-black py-3 rounded uppercase text-sm hover:bg-gray-300">Cancel</button>
+              <button onClick={() => { promptModal.action(promptModal.value); setPromptModal({ ...promptModal, isOpen: false }); }} className="flex-1 bg-blue-600 text-white font-black py-3 rounded uppercase text-sm hover:bg-blue-700">Submit</button>
+            </div>
+          </div>
+        </div>
       )}
 
     </motion.div>
