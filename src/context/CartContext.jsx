@@ -5,7 +5,18 @@ import { onAuthStateChanged } from 'firebase/auth';
 const CartContext = createContext();
 
 export function CartProvider({ children }) {
-  const [cart, setCart] = useState([]);
+  const [cart, setCart] = useState(() => {
+    try {
+      const saved = localStorage.getItem('vertex_cart');
+      return saved ? JSON.parse(saved) : [];
+    } catch (e) {
+      return [];
+    }
+  });
+
+  useEffect(() => {
+    localStorage.setItem('vertex_cart', JSON.stringify(cart));
+  }, [cart]);
 
   const addToCart = (productId, quantityToAdd = 1) => {
     setCart((prevCart) => {

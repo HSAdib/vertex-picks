@@ -22,6 +22,7 @@ export default function Profile() {
   const [newLabel, setNewLabel] = useState('Home');
   const [newPhone, setNewPhone] = useState('');
   const [newAddress, setNewAddress] = useState('');
+  const [phoneError, setPhoneError] = useState(false);
 
   // --- ORDER HISTORY STATE ---
   const [myOrders, setMyOrders] = useState([]);
@@ -64,17 +65,35 @@ export default function Profile() {
             setDisplayName(currentUser.displayName || '');
           }
           
+          
           // Fetch User's Orders
-          const q = query(collection(db, 'orders'), where("customerEmail", "==", currentUser.email));
-          const orderSnap = await getDocs(q);
-          // Sort by date descending locally
-          const ordersData = orderSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }))
-                                         .filter(o => !o.hiddenByCustomer)
-                                         .sort((a, b) => b.createdAt.toMillis() - a.createdAt.toMillis());
-          setMyOrders(ordersData);
+          let ordersData = [];
+          if (currentUser.email) {
+            const q = query(collection(db, 'orders'), where("customerEmail", "==", currentUser.email));
+            const orderSnap = await getDocs(q);
+            ordersData = orderSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+          }
+          
+          // Merge with guest orders
+          const localOrders = JSON.parse(localStorage.getItem('vertex_guest_orders') || '[]');
+          
+          const combinedOrders = [...ordersData, ...localOrders]
+            .filter((o, index, self) => index === self.findIndex((t) => t.id === o.id)) // Deduplicate
+            .filter(o => !o.hiddenByCustomer)
+            .sort((a, b) => {
+              const timeA = a.createdAt?.toMillis ? a.createdAt.toMillis() : new Date(a.createdAt).getTime();
+              const timeB = b.createdAt?.toMillis ? b.createdAt.toMillis() : new Date(b.createdAt).getTime();
+              return timeB - timeA;
+            });
+            
+          setMyOrders(combinedOrders);
         } catch (error) {
           console.error("Error fetching profile data:", error);
         }
+      } else {
+        // If not logged in, just load guest orders
+        const localOrders = JSON.parse(localStorage.getItem('vertex_guest_orders') || '[]');
+        setMyOrders(localOrders.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
       }
       setLoading(false);
     });
@@ -102,7 +121,11 @@ export default function Profile() {
 
   const handleSaveAddressModal = async (e) => {
     e.preventDefault();
-    if (!isValidBDPhoneNumber(newPhone)) return toast.error("Please enter a valid Bangladeshi phone number");
+    if (!isValidBDPhoneNumber(newPhone)) {
+      setPhoneError(true);
+      setTimeout(() => setPhoneError(false), 3000);
+      return toast.error("Please enter a valid Bangladeshi phone number");
+    }
     let updated;
     if (editAddressId) {
       updated = addresses.map(addr => addr.id === editAddressId ? {
@@ -223,7 +246,7 @@ export default function Profile() {
               </div>
               <div>
                 <label className="block text-xs font-black uppercase tracking-widest text-gray-500 mb-2">Phone Number</label>
-                <input type="tel" value={newPhone} onChange={e => setNewPhone(e.target.value)} required placeholder="017..." className="w-full p-3 border rounded font-bold outline-none focus:border-orange-500" />
+                <input type="tel" value={newPhone} onChange={e => setNewPhone(e.target.value)} required placeholder="017..." className={`w-full p-3 border rounded font-bold outline-none transition-colors duration-300 ${phoneError ? 'bg-red-50 border-red-500 text-red-700 shadow-[0_0_15px_rgba(239,68,68,0.5)]' : 'focus:border-orange-500'}`} />
               </div>
               <div>
                 <label className="block text-xs font-black uppercase tracking-widest text-gray-500 mb-2">Full Address</label>

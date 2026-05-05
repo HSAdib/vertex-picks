@@ -18,6 +18,7 @@ export default function Login() {
 
   const [isLoginMode, setIsLoginMode] = useState(true);
   const [isForgotPasswordMode, setIsForgotPasswordMode] = useState(false);
+  const [phoneError, setPhoneError] = useState(false);
   const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -71,6 +72,8 @@ export default function Login() {
     
     const { isEmail, emailToUse } = processIdentifier(identifier);
     if (!isEmail && !isValidBDPhoneNumber(identifier)) {
+      setPhoneError(true);
+      setTimeout(() => setPhoneError(false), 3000);
       return setError('Please enter a valid Bangladeshi phone number');
     }
 
@@ -180,7 +183,7 @@ export default function Login() {
             </form>
           ) : (
             <form className="space-y-5" onSubmit={handleSubmit}>
-              <input type="text" required value={identifier} onChange={(e) => setIdentifier(e.target.value)} placeholder="Email or Phone Number" className="w-full px-4 py-3 border border-gray-300 rounded-md bg-gray-50 font-bold outline-none focus:ring-2 focus:ring-orange-200 transition-all" />
+              <input type="text" required value={identifier} onChange={(e) => setIdentifier(e.target.value)} placeholder="Email or Phone Number" className={`w-full px-4 py-3 border rounded-md font-bold outline-none transition-all duration-300 ${phoneError ? 'bg-red-50 border-red-500 text-red-700 shadow-[0_0_15px_rgba(239,68,68,0.5)]' : 'bg-gray-50 border-gray-300 focus:ring-2 focus:ring-orange-200'}`} />
               
               <div className="relative">
                 <input type={showPassword ? "text" : "password"} required value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Password (Min 8 chars)" className="w-full px-4 py-3 border border-gray-300 rounded-md bg-gray-50 font-bold outline-none pr-12 transition-all" />

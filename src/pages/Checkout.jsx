@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { collection, getDocs, addDoc, doc, getDoc } from 'firebase/firestore';
 import { db, auth } from '../firebaseConfig'; 
+import { signInAnonymously } from 'firebase/auth';
 import { useCart } from '../context/CartContext';
 import { Link, useNavigate } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
@@ -24,6 +25,7 @@ export default function Checkout() {
   const [savedAddresses, setSavedAddresses] = useState([]);
   const [selectedAddressId, setSelectedAddressId] = useState('new');
   const [highlightDelivery, setHighlightDelivery] = useState(false);
+  const [phoneError, setPhoneError] = useState(false);
 
   useEffect(() => {
     const fetchCheckoutData = async () => {
@@ -127,11 +129,20 @@ export default function Checkout() {
       setTimeout(() => setHighlightDelivery(false), 3000);
       return toast.error("Please fill out all delivery details!");
     }
-    if (!isValidBDPhoneNumber(deliveryPhone)) return toast.error("Please enter a valid Bangladeshi phone number");
+    if (!isValidBDPhoneNumber(deliveryPhone)) {
+      setPhoneError(true);
+      setTimeout(() => setPhoneError(false), 3000);
+      return toast.error("Please enter a valid Bangladeshi phone number");
+    }
 
     try {
+      // Ensure guest has an anonymous auth token to pass Firestore security rules
+      if (!auth.currentUser) {
+        await signInAnonymously(auth);
+      }
+
       const orderData = {
-        customerEmail: auth.currentUser ? auth.currentUser.email : 'guest@vertexpicks.com',
+        customerEmail: auth.currentUser?.email ? auth.currentUser.email : 'guest@vertexpicks.com',
         customerName: customerName,
         deliveryAddress: deliveryAddress,
         deliveryPhone: deliveryPhone,
@@ -143,20 +154,34 @@ export default function Checkout() {
         promoUsed: appliedPromo ? appliedPromo.code : 'None',
         total: total,
         status: 'Pending',
+        isGuest: !auth.currentUser?.email,
         createdAt: new Date()
       };
       
-      await addDoc(collection(db, 'orders'), orderData);
+      const docRef = await addDoc(collection(db, 'orders'), orderData);
+      
+      // Save order to local storage for guests
+      if (!auth.currentUser?.email) {
+        const localOrders = JSON.parse(localStorage.getItem('vertex_guest_orders') || '[]');
+        localStorage.setItem('vertex_guest_orders', JSON.stringify([{ id: docRef.id, ...orderData }, ...localOrders]));
+      }
+
       clearCart();
+      
+      // The popups requested by the user
       toast.success("Order Placed Successfully!");
-      if (auth.currentUser) {
+      setTimeout(() => {
+        toast("The Owner will contact you soon, please wait.", { icon: '📞', duration: 5000 });
+      }, 1000);
+
+      if (auth.currentUser?.email) {
         navigate('/profile');
       } else {
         navigate('/shop');
-        toast.success("Guest Order tracking info will be sent via SMS soon!");
       }
     } catch (err) {
       console.error("Failed to place order:", err);
+      toast.error("Error: " + err.message);
     }
   };
 
@@ -266,7 +291,7 @@ export default function Checkout() {
                     <>
                       <div>
                         <label className="block text-xs font-black uppercase tracking-widest text-gray-500 mb-2">Phone Number</label>
-                        <input type="tel" value={deliveryPhone} onChange={e => setDeliveryPhone(e.target.value)} required placeholder="017..." className="w-full p-3 bg-gray-50 border border-gray-200 rounded font-bold outline-none focus:border-orange-500" />
+                        <input type="tel" value={deliveryPhone} onChange={e => setDeliveryPhone(e.target.value)} required placeholder="017..." className={`w-full p-3 border rounded font-bold outline-none transition-colors duration-300 ${phoneError ? 'bg-red-50 border-red-500 text-red-700 shadow-[0_0_15px_rgba(239,68,68,0.5)]' : 'bg-gray-50 border-gray-200 focus:border-orange-500'}`} />
                       </div>
                       <div>
                         <label className="block text-xs font-black uppercase tracking-widest text-gray-500 mb-2">Full Address</label>

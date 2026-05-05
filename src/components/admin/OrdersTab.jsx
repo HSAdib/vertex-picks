@@ -17,6 +17,7 @@ export default function OrdersTab() {
   const [mName, setMName] = useState(''); const [mPhone, setMPhone] = useState('');
   const [mItem, setMItem] = useState(''); const [mCharged, setMCharged] = useState('');
   const [mCost, setMCost] = useState('');
+  const [phoneError, setPhoneError] = useState(false);
 
   // --- MODALS STATE ---
   const [confirmModal, setConfirmModal] = useState({ isOpen: false, title: '', message: '', action: null });
@@ -110,6 +111,8 @@ export default function OrdersTab() {
   const handleManualOrderSubmit = async (e) => {
     e.preventDefault();
     if (!isValidBDPhoneNumber(mPhone)) {
+      setPhoneError(true);
+      setTimeout(() => setPhoneError(false), 3000);
       alert("Please enter a valid Bangladeshi phone number");
       return;
     }
@@ -149,7 +152,7 @@ export default function OrdersTab() {
             <h3 className="text-xl font-black uppercase text-gray-900 mb-6">Create Offline Order</h3>
             <form onSubmit={handleManualOrderSubmit} className="space-y-4">
               <input type="text" placeholder="Customer Name" value={mName} onChange={e => setMName(e.target.value)} required className="w-full p-3 bg-gray-50 border rounded font-bold outline-none" />
-              <input type="text" placeholder="Phone Number" value={mPhone} onChange={e => setMPhone(e.target.value)} required className="w-full p-3 bg-gray-50 border rounded font-bold outline-none" />
+              <input type="text" placeholder="Phone Number" value={mPhone} onChange={e => setMPhone(e.target.value)} required className={`w-full p-3 border rounded font-bold outline-none transition-colors duration-300 ${phoneError ? 'bg-red-50 border-red-500 text-red-700 shadow-[0_0_15px_rgba(239,68,68,0.5)]' : 'bg-gray-50'}`} />
               <input type="text" placeholder="Item/Box Name" value={mItem} onChange={e => setMItem(e.target.value)} required className="w-full p-3 bg-gray-50 border rounded font-bold outline-none" />
               <div className="flex gap-2">
                 <input type="number" placeholder="Amt Charged" value={mCharged} onChange={e => setMCharged(e.target.value)} required className="w-full p-3 bg-green-50 border border-green-200 text-green-700 rounded font-bold outline-none" />
