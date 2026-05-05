@@ -15,6 +15,8 @@ export default function Checkout() {
   const [promoCode, setPromoCode] = useState('');
   const [appliedPromo, setAppliedPromo] = useState(null);
   const [promoMessage, setPromoMessage] = useState({ text: '', type: '' });
+  const [deliveryAddress, setDeliveryAddress] = useState('');
+  const [deliveryPhone, setDeliveryPhone] = useState('');
 
   useEffect(() => {
     const fetchCheckoutData = async () => {
@@ -29,6 +31,8 @@ export default function Checkout() {
         const userDoc = await getDoc(doc(db, 'users', auth.currentUser.uid));
         if (userDoc.exists() && userDoc.data().address && userDoc.data().phone) {
           setHasDeliveryDetails(true);
+          setDeliveryAddress(userDoc.data().address); // <-- ADD THIS
+          setDeliveryPhone(userDoc.data().phone);     // <-- ADD THIS
         }
       }
       setLoading(false);
@@ -84,6 +88,8 @@ export default function Checkout() {
     try {
       const orderData = {
         customerEmail: auth.currentUser.email,
+        deliveryAddress: deliveryAddress, // <-- ADD THIS
+        deliveryPhone: deliveryPhone,     // <-- ADD THIS
         items: activeItems,
         subtotal: subtotal,
         totalWeight: totalWeight,
