@@ -55,8 +55,15 @@ export default function Navbar() {
             </Link>
           </div>
 
-          {/* Icons Section (Profile + Cart + Mobile Menu Toggle) */}
+          {/* Icons Section (Home + Profile + Cart + Mobile Menu Toggle) */}
           <div className="flex items-center space-x-5">
+            
+            {/* Home Icon */}
+            <Link to="/" className="text-black hover:text-orange-500 transition-colors">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 12l8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h8.25" />
+              </svg>
+            </Link>
             
             {/* NEW: Profile Icon (Dynamic Routing) */}
             <button onClick={handleProfileClick} className="text-black hover:text-orange-500 transition-colors">
