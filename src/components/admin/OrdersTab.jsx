@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { collection, getDocs, updateDoc, deleteDoc, doc, addDoc, query, orderBy, limit, startAfter } from 'firebase/firestore';
 import { db } from '../../firebaseConfig';
 import { motion, AnimatePresence } from 'framer-motion';
+import { isValidBDPhoneNumber } from '../../utils/phoneValidation';
 
 export default function OrdersTab() {
   const [orders, setOrders] = useState([]);
@@ -108,6 +109,10 @@ export default function OrdersTab() {
 
   const handleManualOrderSubmit = async (e) => {
     e.preventDefault();
+    if (!isValidBDPhoneNumber(mPhone)) {
+      alert("Please enter a valid Bangladeshi phone number");
+      return;
+    }
     const profit = Number(mCharged) - Number(mCost);
     await addDoc(collection(db, 'orders'), {
       isManual: true,
@@ -272,7 +277,7 @@ export default function OrdersTab() {
                       </button>
                     )}
                     {order.trackingLink && (
-                       <a href={order.trackingLink} target="_blank" rel="noreferrer" className="text-xs font-bold text-blue-500 underline self-center">View Link</a>
+                       <a href={order.trackingLink?.startsWith('http') ? order.trackingLink : `https://${order.trackingLink}`} target="_blank" rel="noreferrer" className="text-xs font-bold text-blue-500 underline self-center">View Link</a>
                     )}
                     <button onClick={() => handleDeleteOrder(order.id)} className="bg-red-100 text-red-600 font-black px-4 py-2 rounded text-xs uppercase tracking-widest hover:bg-red-600 hover:text-white ml-auto">
                       Delete Record

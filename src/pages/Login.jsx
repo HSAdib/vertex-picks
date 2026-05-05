@@ -11,6 +11,7 @@ import {
 } from 'firebase/auth';
 import { useNavigate } from 'react-router-dom';
 import { auth } from '../firebaseConfig';
+import { isValidBDPhoneNumber } from '../utils/phoneValidation';
 
 export default function Login() {
   const ADMIN_EMAIL = 'hasanshahriaradib@gmail.com'; 
@@ -67,10 +68,14 @@ export default function Login() {
     e.preventDefault();
     setError('');
     setMessage('');
+    
+    const { isEmail, emailToUse } = processIdentifier(identifier);
+    if (!isEmail && !isValidBDPhoneNumber(identifier)) {
+      return setError('Please enter a valid Bangladeshi phone number');
+    }
+
     if (password.length < 8) return setError('Password must be at least 8 characters long.');
     if (!isLoginMode && password !== confirmPassword) return setError('Passwords do not match!');
-
-    const { isEmail, emailToUse } = processIdentifier(identifier);
 
     try {
       if (isLoginMode) {
@@ -106,7 +111,8 @@ export default function Login() {
     setError('');
     setMessage('');
     const { isEmail, emailToUse } = processIdentifier(identifier);
-    if (!identifier || !isEmail) return setError('Please enter a valid email address first.');
+    if (!identifier) return setError('Please enter a valid email address first.');
+    if (!isEmail) return setError('Password reset is only available via email address.');
     try {
       await sendPasswordResetEmail(auth, emailToUse);
       setMessage('Password reset link sent! Check your inbox.');

@@ -4,6 +4,7 @@ import { doc, getDoc, setDoc, collection, query, where, getDocs, updateDoc } fro
 import { auth, db } from '../firebaseConfig';
 import { Navigate, Link } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
+import { isValidBDPhoneNumber } from '../utils/phoneValidation';
 
 export default function Profile() {
   const [user, setUser] = useState(null);
@@ -101,6 +102,7 @@ export default function Profile() {
 
   const handleSaveAddressModal = async (e) => {
     e.preventDefault();
+    if (!isValidBDPhoneNumber(newPhone)) return toast.error("Please enter a valid Bangladeshi phone number");
     let updated;
     if (editAddressId) {
       updated = addresses.map(addr => addr.id === editAddressId ? {
@@ -396,7 +398,7 @@ export default function Profile() {
                      {order.status !== 'Cancelled' && (
                        order.trackingLink ? (
                          <div className="border-t pt-4 mt-4 text-center">
-                           <a href={order.trackingLink} target="_blank" rel="noreferrer" className="inline-block w-full bg-blue-500 text-white px-4 py-3 rounded text-sm font-black uppercase tracking-widest hover:bg-blue-600 transition-colors shadow-sm">
+                           <a href={order.trackingLink?.startsWith('http') ? order.trackingLink : `https://${order.trackingLink}`} target="_blank" rel="noreferrer" className="inline-block w-full bg-blue-500 text-white px-4 py-3 rounded text-sm font-black uppercase tracking-widest hover:bg-blue-600 transition-colors shadow-sm">
                              Track Delivery
                            </a>
                          </div>

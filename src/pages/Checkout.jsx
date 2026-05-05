@@ -4,6 +4,7 @@ import { db, auth } from '../firebaseConfig';
 import { useCart } from '../context/CartContext';
 import { Link, useNavigate } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
+import { isValidBDPhoneNumber } from '../utils/phoneValidation';
 
 export default function Checkout() {
   const { cart, removeFromCart, updateQuantity, toggleSelection, clearCart } = useCart();
@@ -22,6 +23,7 @@ export default function Checkout() {
   const [showDeliveryForm, setShowDeliveryForm] = useState(false);
   const [savedAddresses, setSavedAddresses] = useState([]);
   const [selectedAddressId, setSelectedAddressId] = useState('new');
+  const [highlightDelivery, setHighlightDelivery] = useState(false);
 
   useEffect(() => {
     const fetchCheckoutData = async () => {
@@ -117,13 +119,19 @@ export default function Checkout() {
   };
 
   const handleConfirmOrder = async () => {
-    if (!auth.currentUser) return toast.error("Please login to place an order!");
     if (activeItems.length === 0) return toast.error("Select at least one item to checkout!");
-    if (!customerName || !deliveryPhone || !deliveryAddress) return toast.error("Please fill out all delivery details!");
+    
+    if (!customerName || !deliveryPhone || !deliveryAddress) {
+      setShowDeliveryForm(true);
+      setHighlightDelivery(true);
+      setTimeout(() => setHighlightDelivery(false), 3000);
+      return toast.error("Please fill out all delivery details!");
+    }
+    if (!isValidBDPhoneNumber(deliveryPhone)) return toast.error("Please enter a valid Bangladeshi phone number");
 
     try {
       const orderData = {
-        customerEmail: auth.currentUser.email,
+        customerEmail: auth.currentUser ? auth.currentUser.email : 'guest@vertexpicks.com',
         customerName: customerName,
         deliveryAddress: deliveryAddress,
         deliveryPhone: deliveryPhone,
@@ -141,7 +149,12 @@ export default function Checkout() {
       await addDoc(collection(db, 'orders'), orderData);
       clearCart();
       toast.success("Order Placed Successfully!");
-      navigate('/profile');
+      if (auth.currentUser) {
+        navigate('/profile');
+      } else {
+        navigate('/shop');
+        toast.success("Guest Order tracking info will be sent via SMS soon!");
+      }
     } catch (err) {
       console.error("Failed to place order:", err);
     }
@@ -199,7 +212,7 @@ export default function Checkout() {
           <div className="bg-white p-8 rounded-xl shadow-xl border-t-8 border-black">
             
             {/* DELIVERY DETAILS ACCORDION */}
-            <div className={`mb-8 p-6 rounded-xl border-2 transition-all ${showDeliveryForm ? 'border-orange-500 bg-orange-50 shadow-md' : 'border-gray-200 bg-gray-50 shadow-sm hover:border-orange-300'}`}>
+            <div className={`mb-8 p-6 rounded-xl border-2 transition-all duration-300 ${highlightDelivery ? 'border-red-500 shadow-[0_0_20px_rgba(239,68,68,0.8)] bg-red-50' : (showDeliveryForm ? 'border-orange-500 bg-orange-50 shadow-md' : 'border-gray-200 bg-gray-50 shadow-sm hover:border-orange-300')}`}>
               <button 
                 onClick={() => setShowDeliveryForm(!showDeliveryForm)} 
                 className="w-full flex justify-between items-center text-left focus:outline-none group"
