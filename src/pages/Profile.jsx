@@ -7,7 +7,9 @@ export default function Profile() {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  // Listen for login changes automatically
+  // YOUR MASTER ADMIN EMAIL (Must match exactly)
+  const ADMIN_EMAIL = 'hasanshahriaradib@gmail.com';
+
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       setUser(currentUser);
@@ -28,19 +30,33 @@ export default function Profile() {
     return <div className="min-h-screen flex items-center justify-center bg-gray-50 font-bold">Loading Profile...</div>;
   }
 
-  // ==========================================
-  // LOGGED OUT VIEW: Send them to the real Login page!
-  // ==========================================
   if (!user) {
     return <Navigate to="/login" replace />;
   }
 
-  // ==========================================
-  // LOGGED IN VIEW: CUSTOMER DASHBOARD
-  // ==========================================
+  // Check if the current user is the VIP Admin
+  const isAdmin = user.email?.toLowerCase() === ADMIN_EMAIL.toLowerCase();
+
   return (
     <div className="min-h-screen bg-gray-50 py-16 px-4">
       <div className="max-w-3xl mx-auto">
+        
+        {/* VIP ADMIN TRAPDOOR */}
+        {isAdmin && (
+          <div className="mb-8 bg-black rounded-xl p-6 flex justify-between items-center shadow-xl border border-gray-800 animate-in fade-in slide-in-from-top-4">
+            <div>
+              <p className="text-orange-500 font-black text-xs uppercase tracking-widest mb-1">Access Granted</p>
+              <h2 className="text-white text-xl font-black">Admin Privileges Active</h2>
+            </div>
+            <Link 
+              to="/admin" 
+              className="bg-orange-500 text-white px-6 py-3 rounded font-black uppercase tracking-widest hover:bg-white hover:text-black transition-colors shadow-lg"
+            >
+              Enter Dashboard
+            </Link>
+          </div>
+        )}
+
         <div className="bg-white rounded-xl shadow-lg overflow-hidden border-t-8 border-orange-500">
           <div className="p-8 border-b border-gray-100 flex justify-between items-center bg-gray-50">
             <div>
@@ -60,13 +76,13 @@ export default function Profile() {
             <div className="bg-gray-50 border border-gray-200 rounded-lg p-8 text-center">
               <p className="text-gray-500 font-medium mb-6">You haven't placed any orders yet. Head to the shop to get your first box of mangoes!</p>
               
-              {/* The Go To Shop Button! */}
               <Link to="/shop" className="inline-block bg-orange-500 text-white px-8 py-3 rounded font-black uppercase tracking-widest hover:bg-black transition-colors">
                 Go to Shop
               </Link>
             </div>
           </div>
         </div>
+        
       </div>
     </div>
   );
