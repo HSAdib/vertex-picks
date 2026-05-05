@@ -8,7 +8,7 @@ import Checkout from './pages/Checkout';
 import Admin from './pages/Admin';
 import Login from './pages/Login';
 import { CartProvider } from './context/CartContext';
-
+import ProductDetails from './pages/ProductDetails'; 
 function App() {
   return (
     <CartProvider>
@@ -19,7 +19,7 @@ function App() {
           <Navbar />
           <main className="flex-grow">
             <Routes>
-              {/* FIX: Corrected the syntax error on the line below */}
+             <Route path="/product/:id" element={<ProductDetails />} />
               <Route path="/profile" element={<Profile />} />
               <Route path="/login" element={<Login />} />
               <Route path="/admin" element={<Admin />} />

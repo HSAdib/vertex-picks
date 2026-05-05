@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { collection, getDocs } from 'firebase/firestore';
 import { db } from '../firebaseConfig';
 import { useCart } from '../context/CartContext'; 
-
+import { Link } from 'react-router-dom';
 export default function Shop() {
   const [mangoes, setMangoes] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -73,14 +73,18 @@ export default function Shop() {
                 </div>
               )}
 
-              <div className="h-64 bg-gray-200 relative overflow-hidden">
-                <img src={mango.image} alt={mango.name} className="w-full h-full object-cover" />
-              </div>
-              
-              <div className="p-6 flex flex-col flex-grow">
-                <h2 className="text-2xl font-black text-gray-900 mb-2">{mango.name}</h2>
-                <p className="text-gray-600 mb-6 flex-grow">{mango.description}</p>
+              <Link to={`/product/${mango.id}`} className="block cursor-pointer group">
+                <div className="h-64 bg-gray-200 relative overflow-hidden">
+                  <img src={mango.images && mango.images.length > 0 ? mango.images[0] : mango.image} alt={mango.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                </div>
                 
+                <div className="p-6 pb-2 flex flex-col">
+                  <h2 className="text-2xl font-black text-gray-900 mb-2 group-hover:text-orange-500 transition-colors">{mango.name}</h2>
+                  <p className="text-gray-600 mb-2 line-clamp-2">{mango.description}</p>
+                </div>
+              </Link>
+              
+              <div className="px-6 pb-6 flex flex-col flex-grow">
                 <div className="flex items-center justify-between mt-auto pt-4 border-t border-gray-100">
                   <div className="flex flex-col">
                     {/* DISPLAY DISCOUNTED PRICE IF AVAILABLE */}
