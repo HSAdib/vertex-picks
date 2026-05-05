@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { signOut, onAuthStateChanged } from 'firebase/auth';
-import { auth } from '../firebase';
+import { auth } from '../firebaseConfig';
 import { Navigate, Link } from 'react-router-dom';
 
 export default function Profile() {

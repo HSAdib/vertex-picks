@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { signOut, onAuthStateChanged } from 'firebase/auth';
 import { collection, addDoc, getDocs, deleteDoc, doc, updateDoc, query, orderBy } from 'firebase/firestore';
 import { useNavigate } from 'react-router-dom';
-import { auth, db } from '../firebase';
+import { auth, db } from '../firebaseConfig';
 
 export default function Admin() {
   const ADMIN_EMAIL = 'hasanshahriaradib@gmail.com';

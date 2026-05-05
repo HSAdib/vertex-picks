@@ -1,7 +1,7 @@
 import { useCart } from '../context/CartContext';
 import { Link } from 'react-router-dom';
 import { collection, addDoc } from 'firebase/firestore';
-import { db, auth } from '../firebase';
+import { db, auth } from '../firebaseConfig';
 import { toast } from 'react-hot-toast';
 export default function Checkout() {
   const handleConfirmOrder = async () => {
