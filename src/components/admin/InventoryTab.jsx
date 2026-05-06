@@ -6,6 +6,7 @@ import { toast } from 'react-hot-toast';
 
 export default function InventoryTab() {
   const [liveMangoes, setLiveMangoes] = useState([]);
+  const [storeSections, setStoreSections] = useState([]);
   const [loadingProducts, setLoadingProducts] = useState(true);
 
   // --- PRODUCT FORM STATE ---
@@ -13,6 +14,7 @@ export default function InventoryTab() {
   const [discountPrice, setDiscountPrice] = useState(''); const [discountPercent, setDiscountPercent] = useState('');
   const [deliveryCharge, setDeliveryCharge] = useState('150'); const [fixedWeight, setFixedWeight] = useState('');
   const [description, setDescription] = useState('');
+  const [section, setSection] = useState('Uncategorized');
   
   const [images, setImages] = useState(['']);
   
@@ -30,7 +32,19 @@ export default function InventoryTab() {
     try {
       setLoadingProducts(true);
       const prodSnap = await getDocs(collection(db, 'mangoes'));
-      setLiveMangoes(prodSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+      let loadedSections = [];
+      const loadedMangoes = [];
+      
+      prodSnap.docs.forEach(doc => {
+        if (doc.id === 'STORE_SECTIONS') {
+          loadedSections = doc.data().list || [];
+        } else {
+          loadedMangoes.push({ id: doc.id, ...doc.data() });
+        }
+      });
+      
+      setLiveMangoes(loadedMangoes);
+      setStoreSections(loadedSections);
     } catch (error) {
       console.error("Error fetching mangoes:", error);
     } finally {
@@ -65,6 +79,7 @@ export default function InventoryTab() {
         deliveryCharge: Number(deliveryCharge), 
         fixedWeight: Number(fixedWeight) || 1, 
         description, 
+        section,
         images: finalImages, 
         stats: { sales: Number(fakeSales), rating: Number(fakeRating), reviewCount: Number(fakeReviewCount) }, 
         reviews: reviews || [], 
@@ -90,7 +105,7 @@ export default function InventoryTab() {
 
   const cancelEdit = () => { 
     setEditingId(null); setName(''); setPrice(''); setDiscountPrice(''); setDiscountPercent(''); 
-    setDeliveryCharge('150'); setFixedWeight(''); setDescription(''); 
+    setDeliveryCharge('150'); setFixedWeight(''); setDescription(''); setSection('Uncategorized');
     setImages(['']);
     setFakeSales('500'); setFakeRating('4.8'); setFakeReviewCount('124'); setReviews([]);
   };
@@ -118,7 +133,8 @@ export default function InventoryTab() {
     setDeliveryCharge(mango.deliveryCharge || '150'); 
     setFixedWeight(mango.fixedWeight || ''); 
     setDescription(mango.description || ''); 
-    setImages(mango.images || ['']);
+    setSection(mango.section || 'Uncategorized');
+    setImages(mango.images && mango.images.length > 0 ? mango.images : ['']);
     setFakeSales(mango.stats?.sales || ''); 
     setFakeRating(mango.stats?.rating || ''); 
     setFakeReviewCount(mango.stats?.reviewCount || ''); 
@@ -132,11 +148,18 @@ export default function InventoryTab() {
       exit={{ opacity: 0, y: -10 }}
       className="space-y-8"
     >
+
       <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
         <h2 className="font-black uppercase text-xl mb-6">{editingId ? 'Edit Product' : 'Add New Product'}</h2>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <input type="text" placeholder="Product Name" required value={name} onChange={e => setName(e.target.value)} className="p-3 bg-gray-50 border rounded font-bold outline-none" />
+            <select value={section} onChange={e => setSection(e.target.value)} className="p-3 bg-gray-50 border rounded font-bold outline-none cursor-pointer">
+              <option value="Uncategorized">Uncategorized</option>
+              {storeSections.map((sec, idx) => (
+                <option key={idx} value={sec}>{sec}</option>
+              ))}
+            </select>
             <input type="number" placeholder="Base Price (৳)" required value={price} onChange={e => { setPrice(e.target.value); handleDiscountPriceChange(discountPrice); }} className="p-3 bg-gray-50 border rounded font-bold outline-none" />
             <input type="number" placeholder="Discount Price (৳) - Optional" value={discountPrice} onChange={e => handleDiscountPriceChange(e.target.value)} className="p-3 bg-gray-50 border rounded font-bold outline-none" />
             <input type="number" placeholder="Discount Percent (%) - Optional" value={discountPercent} onChange={e => handlePercentChange(e.target.value)} className="p-3 bg-gray-50 border rounded font-bold outline-none" />

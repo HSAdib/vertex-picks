@@ -6,6 +6,41 @@ import { onAuthStateChanged } from 'firebase/auth'; // Added to check who is vie
 import { useCart } from '../context/CartContext';
 import { toast } from 'react-hot-toast';
 
+const ImageMagnifier = ({ src, alt }) => {
+  const [position, setPosition] = useState({ x: 0, y: 0 });
+  const [showMagnifier, setShowMagnifier] = useState(false);
+
+  const handleMouseMove = (e) => {
+    const { left, top, width, height } = e.currentTarget.getBoundingClientRect();
+    const x = ((e.clientX - left) / width) * 100;
+    const y = ((e.clientY - top) / height) * 100;
+    setPosition({ x, y });
+  };
+
+  return (
+    <div 
+      className="relative w-full h-full cursor-zoom-in"
+      onMouseEnter={() => setShowMagnifier(true)}
+      onMouseLeave={() => setShowMagnifier(false)}
+      onMouseMove={handleMouseMove}
+    >
+      <img src={src} alt={alt} className="w-full h-full object-cover" />
+      
+      {showMagnifier && (
+        <div 
+          className="absolute inset-0 pointer-events-none shadow-inner z-10"
+          style={{
+            backgroundImage: `url(${src})`,
+            backgroundPosition: `${position.x}% ${position.y}%`,
+            backgroundSize: '200%',
+            backgroundColor: '#f3f4f6'
+          }}
+        />
+      )}
+    </div>
+  );
+};
+
 export default function ProductDetails() {
   const { id } = useParams();
   const { addToCart } = useCart();
@@ -119,7 +154,7 @@ export default function ProductDetails() {
           
           <div className="space-y-4">
             <div className="bg-gray-100 rounded-2xl overflow-hidden shadow-sm border border-gray-200 h-[500px]">
-              <img src={mainImage} alt={mango.name} className="w-full h-full object-cover" />
+              <ImageMagnifier src={mainImage} alt={mango.name} />
             </div>
             {imagesArray.length > 1 && (
               <div className="flex gap-4 overflow-x-auto pb-2">

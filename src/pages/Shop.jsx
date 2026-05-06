@@ -7,6 +7,9 @@ import { Link, useNavigate } from 'react-router-dom';
 
 export default function Shop() {
   const [mangoes, setMangoes] = useState([]);
+  const [sections, setSections] = useState([]);
+  const [selectedSection, setSelectedSection] = useState('All');
+  const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
   const { addToCart } = useCart();
   const [quantities, setQuantities] = useState({});
@@ -25,9 +28,16 @@ export default function Shop() {
     const fetchMangoes = async () => {
       try {
         const querySnapshot = await getDocs(collection(db, 'mangoes'));
-        const productsArray = querySnapshot.docs.map(doc => ({
-          id: doc.id, ...doc.data()
-        }));
+        const productsArray = [];
+        let fetchedSections = [];
+        querySnapshot.docs.forEach(doc => {
+          if (doc.id === 'STORE_SECTIONS') {
+            fetchedSections = doc.data().list || [];
+          } else {
+            productsArray.push({ id: doc.id, ...doc.data() });
+          }
+        });
+        setSections(fetchedSections);
         setMangoes(productsArray);
         setLoading(false);
       } catch (error) {
@@ -68,13 +78,67 @@ export default function Shop() {
   return (
     <div className="min-h-screen bg-gray-50 py-16 px-4 sm:px-6 lg:px-8">
       <div className="max-w-7xl mx-auto">
-        <div className="text-center mb-16">
+        <div className="text-center mb-10">
           <h1 className="text-4xl font-black text-gray-900 tracking-tight sm:text-5xl uppercase">Premium <span className="text-orange-500">Selection</span></h1>
           <p className="mt-4 text-lg text-gray-500 font-medium">Fresh from the orchards of Rajshahi. Hand-picked for excellence.</p>
         </div>
 
+        {/* AMAZON-STYLE SEARCH BAR */}
+        <div className="max-w-4xl mx-auto mb-6">
+          <div className="flex w-full h-12 md:h-14 shadow-sm rounded-md overflow-hidden border border-gray-300 focus-within:ring-2 focus-within:ring-orange-500 focus-within:border-transparent transition-all">
+            {/* Category Dropdown */}
+            <select 
+              value={selectedSection} 
+              onChange={e => setSelectedSection(e.target.value)} 
+              className="bg-gray-100 hover:bg-gray-200 px-2 md:px-4 text-xs md:text-sm font-bold border-r border-gray-300 outline-none text-gray-700 cursor-pointer transition-colors max-w-[100px] md:max-w-xs"
+            >
+              <option value="All">All</option>
+              <option value="Uncategorized">Uncategorized</option>
+              {sections.map(sec => <option key={sec} value={sec}>{sec}</option>)}
+            </select>
+            
+            {/* Text Input */}
+            <input 
+              type="text" 
+              placeholder="Search products..." 
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="flex-1 px-4 outline-none font-medium text-gray-800"
+            />
+            
+            {/* Search Button */}
+            <button className="bg-[#febd69] hover:bg-[#f3a847] px-4 md:px-6 flex items-center justify-center transition-colors">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-5 h-5 md:w-6 md:h-6 text-gray-900"><path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" /></svg>
+            </button>
+          </div>
+        </div>
+
+        {/* AMAZON-STYLE SECONDARY NAV BAR (STORE SECTIONS) */}
+        <div className="bg-[#232F3E] text-white flex items-center px-4 py-2 gap-6 overflow-x-auto whitespace-nowrap text-sm font-medium rounded-md shadow-md mb-12 scrollbar-hide">
+          <button 
+            onClick={() => setSelectedSection('All')} 
+            className={`flex items-center gap-2 hover:border-white border border-transparent px-2 py-1 rounded transition-all ${selectedSection === 'All' ? 'font-bold border-white' : ''}`}
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5"><path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" /></svg>
+            All
+          </button>
+          {sections.map(sec => (
+            <button 
+              key={sec} 
+              onClick={() => setSelectedSection(sec)} 
+              className={`hover:border-white border border-transparent px-2 py-1 rounded transition-all ${selectedSection === sec ? 'font-bold border-white' : ''}`}
+            >
+              {sec}
+            </button>
+          ))}
+        </div>
+
+        {/* PRODUCT GRID */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10">
-          {mangoes.map((mango) => (
+          {mangoes
+            .filter(mango => selectedSection === 'All' || mango.section === selectedSection || (!mango.section && selectedSection === 'Uncategorized'))
+            .filter(mango => mango.name?.toLowerCase().includes(searchQuery.toLowerCase()))
+            .map((mango) => (
             <div key={mango.id} className="bg-white rounded-xl shadow-md overflow-hidden hover:shadow-xl transition-shadow duration-300 border border-gray-100 flex flex-col relative">
               
               {/* GOD MODE BUTTON */}
@@ -100,6 +164,9 @@ export default function Shop() {
                 </div>
                 
                 <div className="p-6 pb-2 flex flex-col">
+                  {mango.section && mango.section !== 'Uncategorized' && (
+                    <span className="text-[10px] font-black uppercase tracking-widest text-orange-500 mb-1">{mango.section}</span>
+                  )}
                   <h2 className="text-2xl font-black text-gray-900 mb-2 group-hover:text-orange-500 transition-colors">{mango.name} ({mango.fixedWeight || 1}kg)</h2>
                   {mango.stats && (
                     <div className="flex items-center gap-3 text-xs font-bold text-gray-500 mb-3">

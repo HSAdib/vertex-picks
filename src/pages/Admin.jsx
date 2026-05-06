@@ -7,13 +7,14 @@ import { AnimatePresence } from 'framer-motion';
 import OrdersTab from '../components/admin/OrdersTab';
 import InventoryTab from '../components/admin/InventoryTab';
 import PromosTab from '../components/admin/PromosTab';
+import HomeTab from '../components/admin/HomeTab';
 
 export default function Admin() {
   const ADMIN_EMAIL = 'hasanshahriaradib@gmail.com';
   const navigate = useNavigate();
 
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState('orders');
+  const [activeTab, setActiveTab] = useState('home');
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
@@ -35,9 +36,9 @@ export default function Admin() {
       <div className="w-full bg-white shadow-md border-b-4 border-orange-500 px-6 py-4 flex flex-col md:flex-row justify-between items-center sticky top-0 z-50 gap-4">
         <h1 className="text-2xl font-black tracking-tighter">ADMIN <span className="text-orange-500">PRO</span></h1>
         
-        {/* TABS */}
-        <nav className="flex gap-4 md:gap-6 overflow-x-auto w-full md:w-auto justify-center">
-          {['orders', 'inventory', 'promos'].map(tab => (
+        {/* TABS & LOGOUT */}
+        <nav className="flex gap-4 md:gap-6 overflow-x-auto w-full md:w-auto justify-center items-center">
+          {['home', 'orders', 'inventory', 'promos'].map(tab => (
             <button 
               key={tab} 
               onClick={() => setActiveTab(tab)} 
@@ -50,15 +51,18 @@ export default function Admin() {
               {tab}
             </button>
           ))}
+          <button 
+            onClick={() => signOut(auth)} 
+            className="text-xs font-black uppercase tracking-widest whitespace-nowrap text-red-500 hover:text-red-700 transition-colors md:bg-black md:text-white md:px-4 md:py-2 md:rounded md:hover:bg-red-600"
+          >
+            Log Out
+          </button>
         </nav>
-
-        <button onClick={() => signOut(auth)} className="text-xs font-black bg-black text-white px-4 py-2 rounded hover:bg-orange-500 transition-colors hidden md:block">
-          Exit
-        </button>
       </div>
 
       <div className="max-w-7xl w-full mt-10 px-4">
         <AnimatePresence mode="wait">
+          {activeTab === 'home' && <HomeTab key="home" />}
           {activeTab === 'orders' && <OrdersTab key="orders" />}
           {activeTab === 'inventory' && <InventoryTab key="inventory" />}
           {activeTab === 'promos' && <PromosTab key="promos" />}
