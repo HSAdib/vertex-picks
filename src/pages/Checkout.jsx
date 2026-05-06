@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { collection, getDocs, addDoc, doc, getDoc } from 'firebase/firestore';
 import { db, auth } from '../firebaseConfig'; 
-import { signInAnonymously } from 'firebase/auth';
 import { useCart } from '../context/CartContext';
 import { Link, useNavigate } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
@@ -136,11 +135,6 @@ export default function Checkout() {
     }
 
     try {
-      // Ensure guest has an anonymous auth token to pass Firestore security rules
-      if (!auth.currentUser) {
-        await signInAnonymously(auth);
-      }
-
       const orderData = {
         customerEmail: auth.currentUser?.email ? auth.currentUser.email : 'guest@vertexpicks.com',
         customerName: customerName,
