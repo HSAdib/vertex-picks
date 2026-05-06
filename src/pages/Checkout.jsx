@@ -309,7 +309,7 @@ export default function Checkout() {
             </div>
 
           <div className="space-y-2 font-medium text-gray-500 text-sm">
-            <div className="flex justify-between"><span>Subtotal ({activeItems.length} items)</span><span className="font-bold text-gray-900">৳{subtotal}</span></div>
+            <div className="flex justify-between"><span>Subtotal ({activeItems.reduce((sum, item) => sum + item.quantity, 0)} items)</span><span className="font-bold text-gray-900">৳{subtotal}</span></div>
             <div className="flex justify-between text-blue-500"><span>Delivery ({totalWeight}kg)</span><span className="font-bold">৳{deliveryFee}</span></div>
             {appliedPromo && <div className="flex justify-between text-orange-500 font-black"><span>Discount ({appliedPromo.code})</span><span>- ৳{discountAmount}</span></div>}
           </div>
