@@ -110,7 +110,7 @@ export default function ProductDetails() {
         <div className="max-w-7xl mx-auto text-xs font-bold text-gray-500 uppercase tracking-widest">
           <Link to="/" className="hover:text-orange-500">Home</Link> <span className="mx-2">/</span> 
           <Link to="/shop" className="hover:text-orange-500">Shop</Link> <span className="mx-2">/</span> 
-          <span className="text-gray-900">{mango.name} {mango.fixedWeight ? `(${mango.fixedWeight}kg)` : ''}</span>
+          <span className="text-gray-900">{mango.name} ({mango.fixedWeight || 1}kg)</span>
         </div>
       </div>
 
@@ -135,7 +135,7 @@ export default function ProductDetails() {
           <div className="flex flex-col">
             
             <div className="flex items-center justify-between mb-4">
-              <h1 className="text-4xl sm:text-5xl font-black text-gray-900 uppercase tracking-tight">{mango.name} {mango.fixedWeight ? `(${mango.fixedWeight}kg)` : ''}</h1>
+              <h1 className="text-4xl sm:text-5xl font-black text-gray-900 uppercase tracking-tight">{mango.name} ({mango.fixedWeight || 1}kg)</h1>
               {/* GOD MODE BUTTON */}
               {isAdmin && (
                 <button onClick={handleGodModeEdit} className="bg-black text-white px-4 py-2 rounded font-black text-sm uppercase tracking-widest hover:bg-orange-500 shadow-md">

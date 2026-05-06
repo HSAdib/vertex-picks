@@ -63,7 +63,7 @@ export default function InventoryTab() {
         discountPrice: discountPrice ? Number(discountPrice) : null, 
         discountPercent: discountPercent ? Number(discountPercent) : null, 
         deliveryCharge: Number(deliveryCharge), 
-        fixedWeight: Number(fixedWeight), 
+        fixedWeight: Number(fixedWeight) || 1, 
         description, 
         images: finalImages, 
         stats: { sales: Number(fakeSales), rating: Number(fakeRating), reviewCount: Number(fakeReviewCount) }, 
@@ -141,7 +141,7 @@ export default function InventoryTab() {
             <input type="number" placeholder="Discount Price (৳) - Optional" value={discountPrice} onChange={e => handleDiscountPriceChange(e.target.value)} className="p-3 bg-gray-50 border rounded font-bold outline-none" />
             <input type="number" placeholder="Discount Percent (%) - Optional" value={discountPercent} onChange={e => handlePercentChange(e.target.value)} className="p-3 bg-gray-50 border rounded font-bold outline-none" />
             <input type="number" placeholder="Delivery Charge (৳)" required value={deliveryCharge} onChange={e => setDeliveryCharge(e.target.value)} className="p-3 bg-gray-50 border rounded font-bold outline-none" />
-            <input type="number" placeholder="Fixed Weight per Unit/Box (kg)" required value={fixedWeight} onChange={e => setFixedWeight(e.target.value)} className="p-3 bg-gray-50 border rounded font-bold outline-none" />
+            <input type="number" placeholder="Fixed Weight (kg) - Default 1kg" value={fixedWeight} onChange={e => setFixedWeight(e.target.value)} className="p-3 bg-gray-50 border rounded font-bold outline-none" />
           </div>
 
           <textarea placeholder="Product Description..." required value={description} onChange={e => setDescription(e.target.value)} rows="3" className="w-full p-3 bg-gray-50 border rounded font-bold outline-none" />

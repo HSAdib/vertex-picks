@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useEffect } from 'react';
 import { auth } from '../firebaseConfig';
 import { onAuthStateChanged } from 'firebase/auth';
+import { toast } from 'react-hot-toast';
 
 const CartContext = createContext();
 
@@ -27,6 +28,18 @@ export function CartProvider({ children }) {
         );
       }
       return [...prevCart, { id: productId, quantity: quantityToAdd, selected: true }];
+    });
+    toast.success('Item added to Cart!', { 
+      icon: '🛒',
+      style: {
+        borderRadius: '10px',
+        background: '#111',
+        color: '#fff',
+        fontWeight: 'bold',
+        textTransform: 'uppercase',
+        fontSize: '12px',
+        letterSpacing: '1px'
+      }
     });
   };
 
