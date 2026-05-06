@@ -231,29 +231,31 @@ export default function Checkout() {
           <div className="bg-white p-8 rounded-xl shadow-xl border-t-8 border-black">
             
             {/* DELIVERY DETAILS ACCORDION */}
-            <div className={`mb-8 p-6 rounded-xl border-2 transition-all duration-300 ${highlightDelivery ? 'border-red-500 shadow-[0_0_20px_rgba(239,68,68,0.8)] bg-red-50' : (showDeliveryForm ? 'border-orange-500 bg-orange-50 shadow-md' : 'border-gray-200 bg-gray-50 shadow-sm hover:border-orange-300')}`}>
+            <div className={`mb-4 p-3 rounded-xl border-2 transition-all duration-300 ${highlightDelivery ? 'border-red-500 shadow-[0_0_20px_rgba(239,68,68,0.8)] bg-red-50' : (showDeliveryForm ? 'border-orange-500 bg-orange-50 shadow-md' : 'border-gray-200 bg-gray-50 shadow-sm hover:border-orange-300')}`}>
               <button 
                 onClick={() => setShowDeliveryForm(!showDeliveryForm)} 
                 className="w-full flex justify-between items-center text-left focus:outline-none group"
               >
-                <div className="flex items-center gap-4">
-                  <div className={`w-12 h-12 rounded-full flex items-center justify-center font-black text-xl transition-colors ${showDeliveryForm ? 'bg-orange-500 text-white' : 'bg-white border-2 border-gray-200 text-gray-400 group-hover:border-orange-300 group-hover:text-orange-500'}`}>
+                <div className="flex items-center gap-3">
+                  <div className={`w-8 h-8 rounded-full flex items-center justify-center font-black text-sm transition-colors ${showDeliveryForm ? 'bg-orange-500 text-white' : 'bg-white border-2 border-gray-200 text-gray-400 group-hover:border-orange-300 group-hover:text-orange-500'}`}>
                     🚚
                   </div>
                   <div>
-                    <h2 className="font-black uppercase text-xl tracking-widest text-gray-900 group-hover:text-orange-500 transition-colors">Delivery Details</h2>
-                    <p className="text-xs font-bold mt-1 text-gray-500">
-                      {deliveryPhone && deliveryAddress ? 'Address is selected. Tap to change.' : 'Tap here to add delivery info'}
-                    </p>
+                    <h2 className="font-black uppercase text-base tracking-widest text-gray-900 group-hover:text-orange-500 transition-colors">Delivery Details</h2>
+                    {!showDeliveryForm && (
+                      <p className="text-[10px] font-bold mt-0.5 text-gray-500">
+                        {deliveryPhone && deliveryAddress ? 'Address is selected. Tap to change.' : 'Tap here to add delivery info'}
+                      </p>
+                    )}
                   </div>
                 </div>
-                <div className={`w-10 h-10 rounded-full flex items-center justify-center transition-colors ${showDeliveryForm ? 'bg-orange-100 text-orange-600' : 'bg-gray-200 text-gray-600 group-hover:bg-orange-100 group-hover:text-orange-500'}`}>
-                  <span className="font-black text-2xl leading-none">{showDeliveryForm ? '−' : '+'}</span>
+                <div className={`w-6 h-6 rounded-full flex items-center justify-center transition-colors ${showDeliveryForm ? 'bg-orange-100 text-orange-600' : 'bg-gray-200 text-gray-600 group-hover:bg-orange-100 group-hover:text-orange-500'}`}>
+                  <span className="font-black text-lg leading-none">{showDeliveryForm ? '−' : '+'}</span>
                 </div>
               </button>
 
               {showDeliveryForm && (
-                <div className="space-y-4 mt-6 animate-in fade-in slide-in-from-top-2">
+                <div className="space-y-3 mt-4 animate-in fade-in slide-in-from-top-2">
                   <div>
                     <label className="block text-xs font-black uppercase tracking-widest text-gray-500 mb-2">Full Name</label>
                     <input type="text" value={customerName} onChange={e => setCustomerName(e.target.value)} required placeholder="Your Name" className="w-full p-3 bg-gray-50 border border-gray-200 rounded font-bold outline-none focus:border-orange-500" />
@@ -297,27 +299,27 @@ export default function Checkout() {
               )}
             </div>
 
-            <div className="mb-8 pb-8 border-b border-gray-100">
-              <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-2">Gift Card or Promo Code</label>
+            <div className="mb-5 pb-5 border-b border-gray-100">
+              <label className="block text-[11px] font-black text-gray-400 uppercase tracking-widest mb-1.5">Gift Card or Promo Code</label>
               <div className="flex gap-2">
-                <input type="text" value={promoCode} onChange={(e) => setPromoCode(e.target.value)} placeholder="Enter Code" className="w-full px-4 py-3 bg-gray-50 border rounded font-bold uppercase outline-none focus:border-orange-500" />
-                <button onClick={handleApplyPromo} className="bg-gray-900 text-white px-6 font-black rounded hover:bg-orange-500 uppercase text-xs">Apply</button>
+                <input type="text" value={promoCode} onChange={(e) => setPromoCode(e.target.value)} placeholder="Enter Code" className="w-full px-3 py-1.5 text-sm bg-gray-50 border rounded font-bold uppercase outline-none focus:border-orange-500" />
+                <button onClick={handleApplyPromo} className="bg-gray-900 text-white px-5 py-1.5 font-black rounded hover:bg-orange-500 uppercase text-[11px]">Apply</button>
               </div>
               {promoMessage.text && <p className={`mt-3 text-sm font-bold ${promoMessage.type === 'success' ? 'text-green-600' : 'text-red-500'}`}>{promoMessage.text}</p>}
             </div>
 
-          <div className="space-y-3 font-medium text-gray-500">
+          <div className="space-y-2 font-medium text-gray-500 text-sm">
             <div className="flex justify-between"><span>Subtotal ({activeItems.length} items)</span><span className="font-bold text-gray-900">৳{subtotal}</span></div>
             <div className="flex justify-between text-blue-500"><span>Delivery ({totalWeight}kg)</span><span className="font-bold">৳{deliveryFee}</span></div>
             {appliedPromo && <div className="flex justify-between text-orange-500 font-black"><span>Discount ({appliedPromo.code})</span><span>- ৳{discountAmount}</span></div>}
           </div>
 
-          <div className="flex justify-between text-3xl font-black border-t-2 border-gray-100 pt-6 mt-6 text-gray-900"><span>Total</span><span>৳{total}</span></div>
+          <div className="flex justify-between text-2xl font-black border-t-2 border-gray-100 pt-4 mt-4 text-gray-900"><span>Total</span><span>৳{total}</span></div>
           
           <button 
             onClick={handleConfirmOrder} 
             disabled={activeItems.length === 0}
-            className="w-full bg-orange-500 text-white font-black py-5 rounded-md mt-8 uppercase tracking-widest hover:bg-black transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
+            className="w-full bg-orange-500 text-white font-black py-4 rounded-md mt-6 uppercase tracking-widest hover:bg-black transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
           >
             Confirm Order
           </button>
