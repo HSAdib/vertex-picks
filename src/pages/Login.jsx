@@ -215,9 +215,14 @@ export default function Login() {
                 </div>
               )}
 
-              <button type="submit" className="w-full py-4 rounded-md font-black text-white bg-black hover:bg-orange-500 transition-all uppercase tracking-widest shadow-lg">
-                {isLoginMode ? 'Log In' : 'Create Account'}
-              </button>
+              <div className="space-y-3">
+                <button type="submit" className="w-full py-4 rounded-md font-black text-white bg-black hover:bg-orange-500 transition-all uppercase tracking-widest shadow-lg">
+                  {isLoginMode ? 'Log In' : 'Create Account'}
+                </button>
+                <button type="button" onClick={() => navigate('/shop')} className="w-full py-4 rounded-md font-black text-gray-700 bg-gray-100 hover:bg-gray-200 transition-all uppercase tracking-widest">
+                  Continue as Guest
+                </button>
+              </div>
             </form>
           )}
         </div>
