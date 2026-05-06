@@ -1,25 +1,13 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useCart } from '../context/CartContext';
-import { auth } from '../firebaseConfig';
-import { onAuthStateChanged } from 'firebase/auth';
+import { useAuth } from '../context/AuthContext';
 
 export default function Navbar() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const { cart } = useCart();
-  const [user, setUser] = useState(null);
-  const [isAdmin, setIsAdmin] = useState(false);
+  const { user, isAdmin } = useAuth();
   const navigate = useNavigate();
-  
-  const ADMIN_EMAIL = 'hasanshahriaradib@gmail.com';
-
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
-      setUser(currentUser);
-      setIsAdmin(currentUser && currentUser.email?.toLowerCase() === ADMIN_EMAIL.toLowerCase());
-    });
-    return () => unsubscribe();
-  }, []);
 
   const handleProfileClick = (e) => {
     e.preventDefault();

@@ -1,13 +1,47 @@
 import { useState, useEffect } from 'react';
-import { signOut, onAuthStateChanged, updateProfile } from 'firebase/auth';
+import { signOut, updateProfile } from 'firebase/auth';
 import { doc, getDoc, setDoc, collection, query, where, getDocs, updateDoc } from 'firebase/firestore'; 
 import { auth, db } from '../firebaseConfig';
+import { useAuth } from '../context/AuthContext';
 import { Navigate, Link } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
 import { isValidBDPhoneNumber } from '../utils/phoneValidation';
 
+
+// VISUAL ORDER PIPELINE COMPONENT
+const ORDER_STEPS = ['Pending', 'Confirmed', 'Shipped', 'Delivered'];
+const OrderPipeline = ({ status }) => {
+  if (status === 'Cancelled') {
+    return (
+      <div className="flex items-center gap-2 bg-red-50 border border-red-200 rounded-lg px-4 py-2">
+        <span className="w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center text-xs font-black">✕</span>
+        <span className="text-red-600 font-black text-xs uppercase tracking-widest">Cancelled</span>
+      </div>
+    );
+  }
+  const currentIndex = ORDER_STEPS.indexOf(status);
+  return (
+    <div className="flex items-center w-full gap-1 my-4">
+      {ORDER_STEPS.map((step, idx) => (
+        <div key={step} className="flex items-center flex-1">
+          <div className={`w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-black shrink-0 transition-all duration-500 ${
+            idx < currentIndex ? 'bg-orange-500 text-white' :
+            idx === currentIndex ? 'bg-orange-500 text-white ring-4 ring-orange-200 animate-pulse' :
+            'bg-gray-200 text-gray-400'
+          }`}>
+            {idx < currentIndex ? '✓' : idx + 1}
+          </div>
+          {idx < ORDER_STEPS.length - 1 && (
+            <div className={`flex-1 h-1 mx-1 rounded transition-all duration-500 ${idx < currentIndex ? 'bg-orange-500' : 'bg-gray-200'}`}></div>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+};
+
 export default function Profile() {
-  const [user, setUser] = useState(null);
+  const { user, isAdmin, authLoading } = useAuth();
   const [loading, setLoading] = useState(true);
   
   // Profile Data
@@ -33,8 +67,6 @@ export default function Profile() {
   // --- CONFIRM MODAL STATE ---
   const [confirmModal, setConfirmModal] = useState({ isOpen: false, title: '', message: '', action: null });
 
-  const ADMIN_EMAIL = 'hasanshahriaradib@gmail.com';
-
   const cancellationReasons = [
     "ডেলিভারি অনেক দেরি হচ্ছে (Delivery is taking too long)",
     "ভুল করে অর্ডার দিয়ে ফেলেছি (Ordered by mistake)",
@@ -44,8 +76,8 @@ export default function Profile() {
   ];
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
-      setUser(currentUser);
+    const loadProfile = async () => {
+      const currentUser = user;
       if (currentUser) {
         try {
           // Fetch Profile
@@ -96,9 +128,9 @@ export default function Profile() {
         setMyOrders(localOrders.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
       }
       setLoading(false);
-    });
-    return () => unsubscribe();
-  }, []);
+    };
+    loadProfile();
+  }, [user]);
 
   const handleSaveName = async (e) => {
     e.preventDefault();
@@ -212,10 +244,10 @@ export default function Profile() {
     triggerConfirm("Delete History", "Remove this order from your history? It will no longer be visible here.", () => executeHideOrder(id));
   };
 
-  if (loading) return <div className="min-h-screen flex items-center justify-center bg-gray-50 font-bold">Loading Profile...</div>;
+  if (loading || authLoading) return <div className="min-h-screen flex items-center justify-center bg-gray-50 font-bold">Loading Profile...</div>;
   if (!user) return <Navigate to="/login" replace />;
 
-  const isAdmin = user.email?.toLowerCase() === ADMIN_EMAIL.toLowerCase();
+  const isAdminUser = isAdmin;
 
   return (
     <div className={`min-h-screen py-16 px-4 ${isAdmin ? 'bg-gray-900' : 'bg-gray-50'}`}>
@@ -376,19 +408,20 @@ export default function Profile() {
                <div className="space-y-4">
                  {myOrders.map(order => (
                    <div key={order.id} className={`border rounded-lg p-5 shadow-sm ${order.status === 'Cancelled' ? 'bg-red-50 border-red-200' : 'bg-white border-gray-200'}`}>
-                     <div className="flex justify-between items-start mb-4">
-                       <div>
-                         <p className="text-xs font-black text-gray-400 uppercase tracking-widest">Order #{order.id.slice(-6)}</p>
-                         <p className="font-bold text-gray-800 mt-1">Total: ৳{order.total} <span className="text-xs text-gray-500 font-bold">(incl. ৳{order.deliveryFee || 0} delivery)</span></p>
-                       </div>
-                       <div className="text-right">
-                         <span className={`px-3 py-1 rounded text-xs font-black uppercase tracking-widest ${
-                           order.status === 'Pending' ? 'bg-orange-100 text-orange-600' : 
-                           order.status === 'Done' ? 'bg-green-100 text-green-600' : 
-                           'bg-red-100 text-red-600'
-                         }`}>{order.status}</span>
-                       </div>
-                     </div>
+                     <div className="flex justify-between items-start mb-2">
+                        <div>
+                          <p className="text-xs font-black text-gray-400 uppercase tracking-widest">Order #{order.id.slice(-6)}</p>
+                          <p className="font-bold text-gray-800 mt-1">Total: ৳{order.total} <span className="text-xs text-gray-500 font-bold">(incl. ৳{order.deliveryFee || 0} delivery)</span></p>
+                        </div>
+                      </div>
+                      
+                      {/* VISUAL ORDER PIPELINE */}
+                      <OrderPipeline status={order.status} />
+                      <div className="flex justify-end">
+                        <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
+                          {ORDER_STEPS[ORDER_STEPS.indexOf(order.status)] || order.status}
+                        </span>
+                      </div>
                      
                      {/* Show items bought */}
                      <div className="mt-4 border-t border-gray-100 pt-4">

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { collection, getDocs } from 'firebase/firestore';
-import { db, auth } from '../firebaseConfig'; // Added auth
-import { onAuthStateChanged } from 'firebase/auth'; // Added to check who is viewing
+import { db } from '../firebaseConfig';
+import { useAuth } from '../context/AuthContext';
 import { useCart } from '../context/CartContext'; 
 import { Link, useNavigate } from 'react-router-dom';
 
@@ -12,19 +12,11 @@ export default function Shop() {
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
   const { addToCart } = useCart();
+  const { isAdmin } = useAuth();
   const [quantities, setQuantities] = useState({});
   const navigate = useNavigate();
 
-  // GOD MODE STATE
-  const [isAdmin, setIsAdmin] = useState(false);
-  const ADMIN_EMAIL = 'hasanshahriaradib@gmail.com';
-
   useEffect(() => {
-    // Check if God Mode should be active
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      setIsAdmin(user && user.email?.toLowerCase() === ADMIN_EMAIL.toLowerCase());
-    });
-
     const fetchMangoes = async () => {
       try {
         const querySnapshot = await getDocs(collection(db, 'mangoes'));
@@ -46,8 +38,6 @@ export default function Shop() {
       }
     };
     fetchMangoes();
-    
-    return () => unsubscribe();
   }, []);
 
   const updateQty = (id, amount) => {
@@ -72,7 +62,36 @@ export default function Shop() {
   };
 
   if (loading) {
-    return <div className="min-h-screen bg-gray-50 flex items-center justify-center"><p className="text-2xl font-black text-gray-800 animate-pulse uppercase tracking-widest">Harvesting Data...</p></div>;
+    return (
+      <div className="min-h-screen bg-gray-50 py-16 px-4 sm:px-6 lg:px-8">
+        <div className="max-w-7xl mx-auto">
+          <div className="text-center mb-10">
+            <div className="h-10 w-72 bg-gray-200 rounded-lg animate-pulse mx-auto mb-4"></div>
+            <div className="h-5 w-96 bg-gray-200 rounded animate-pulse mx-auto"></div>
+          </div>
+          <div className="max-w-4xl mx-auto mb-6">
+            <div className="h-14 bg-gray-200 rounded-md animate-pulse"></div>
+          </div>
+          <div className="h-10 bg-gray-200 rounded-md animate-pulse mb-12"></div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10">
+            {[...Array(6)].map((_, i) => (
+              <div key={i} className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+                <div className="h-64 bg-gray-200 animate-pulse"></div>
+                <div className="p-6 space-y-3">
+                  <div className="h-6 bg-gray-200 rounded animate-pulse w-3/4"></div>
+                  <div className="h-4 bg-gray-200 rounded animate-pulse w-full"></div>
+                  <div className="h-4 bg-gray-200 rounded animate-pulse w-1/2"></div>
+                  <div className="flex justify-between items-center pt-4 border-t border-gray-100">
+                    <div className="h-8 bg-gray-200 rounded animate-pulse w-20"></div>
+                    <div className="h-8 bg-gray-200 rounded animate-pulse w-24"></div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
   }
 
   return (

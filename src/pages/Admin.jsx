@@ -1,6 +1,5 @@
-import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { signOut, onAuthStateChanged } from 'firebase/auth';
+import { useState } from 'react';
+import { signOut } from 'firebase/auth';
 import { auth } from '../firebaseConfig';
 import { AnimatePresence } from 'framer-motion';
 
@@ -10,24 +9,9 @@ import PromosTab from '../components/admin/PromosTab';
 import HomeTab from '../components/admin/HomeTab';
 
 export default function Admin() {
-  const ADMIN_EMAIL = 'hasanshahriaradib@gmail.com';
-  const navigate = useNavigate();
-
-  const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('home');
 
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      if (user && user.email === ADMIN_EMAIL) { 
-        setLoading(false); 
-      } else { 
-        navigate('/login'); 
-      }
-    });
-    return () => unsubscribe();
-  }, [navigate]);
-
-  if (loading) return <div className="min-h-screen flex items-center justify-center font-black text-orange-500 uppercase tracking-widest">Securing Dashboard...</div>;
+  // Auth check is now handled by AdminRoute wrapper in App.jsx
 
   return (
     <div className="min-h-screen bg-gray-100 flex flex-col items-center pb-20">

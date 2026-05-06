@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { doc, getDoc, updateDoc, arrayUnion } from 'firebase/firestore';
+import { doc, getDoc, updateDoc, arrayUnion, collection, getDocs } from 'firebase/firestore';
 import { db, auth } from '../firebaseConfig';
-import { onAuthStateChanged } from 'firebase/auth'; // Added to check who is viewing
+import { useAuth } from '../context/AuthContext';
 import { useCart } from '../context/CartContext';
 import { toast } from 'react-hot-toast';
 
@@ -44,9 +44,11 @@ const ImageMagnifier = ({ src, alt }) => {
 export default function ProductDetails() {
   const { id } = useParams();
   const { addToCart } = useCart();
+  const { isAdmin } = useAuth();
   const navigate = useNavigate();
   
   const [mango, setMango] = useState(null);
+  const [relatedProducts, setRelatedProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [mainImage, setMainImage] = useState('');
   const [qty, setQty] = useState(1);
@@ -55,23 +57,28 @@ export default function ProductDetails() {
   const [userRating, setUserRating] = useState('5');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // GOD MODE STATE
-  const [isAdmin, setIsAdmin] = useState(false);
-  const ADMIN_EMAIL = 'hasanshahriaradib@gmail.com';
-
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      setIsAdmin(user && user.email?.toLowerCase() === ADMIN_EMAIL.toLowerCase());
-    });
-
-    const fetchMango = async () => {
+    const fetchData = async () => {
       try {
+        // Fetch the current product
         const docRef = doc(db, 'mangoes', id);
         const docSnap = await getDoc(docRef);
         if (docSnap.exists()) {
           const data = docSnap.data();
           setMango({ id: docSnap.id, ...data });
           setMainImage(data.images && data.images.length > 0 ? data.images[0] : data.image);
+
+          // Fetch all products for "You May Also Like"
+          const allSnap = await getDocs(collection(db, 'mangoes'));
+          const allProducts = allSnap.docs
+            .filter(d => d.id !== 'STORE_SECTIONS' && d.id !== id)
+            .map(d => ({ id: d.id, ...d.data() }));
+          
+          // Prefer same section, fill with random if needed
+          const sameSection = allProducts.filter(p => p.section && p.section === data.section);
+          const others = allProducts.filter(p => !p.section || p.section !== data.section);
+          const related = [...sameSection, ...others].slice(0, 4);
+          setRelatedProducts(related);
         }
         setLoading(false);
       } catch (error) {
@@ -79,8 +86,7 @@ export default function ProductDetails() {
         setLoading(false);
       }
     };
-    fetchMango();
-    return () => unsubscribe();
+    fetchData();
   }, [id]);
 
   const handleAddToCart = () => {
@@ -118,7 +124,27 @@ export default function ProductDetails() {
     setIsSubmitting(false);
   };
 
-  if (loading) return <div className="min-h-screen flex items-center justify-center font-black text-2xl animate-pulse text-orange-500 uppercase tracking-widest">Fetching Harvest Data...</div>;
+  if (loading) return (
+    <div className="min-h-screen bg-gray-50 py-16 px-4">
+      <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-12">
+        <div className="space-y-4">
+          <div className="h-96 bg-gray-200 rounded-2xl animate-pulse"></div>
+          <div className="flex gap-3">
+            {[...Array(4)].map((_, i) => <div key={i} className="w-20 h-20 bg-gray-200 rounded-lg animate-pulse"></div>)}
+          </div>
+        </div>
+        <div className="space-y-4 pt-4">
+          <div className="h-8 bg-gray-200 rounded animate-pulse w-3/4"></div>
+          <div className="h-5 bg-gray-200 rounded animate-pulse w-1/2"></div>
+          <div className="h-4 bg-gray-200 rounded animate-pulse w-full"></div>
+          <div className="h-4 bg-gray-200 rounded animate-pulse w-full"></div>
+          <div className="h-4 bg-gray-200 rounded animate-pulse w-2/3"></div>
+          <div className="h-12 bg-gray-200 rounded animate-pulse w-40 mt-6"></div>
+          <div className="h-14 bg-gray-200 rounded animate-pulse w-full mt-4"></div>
+        </div>
+      </div>
+    </div>
+  );
   if (!mango) return <div className="min-h-screen flex items-center justify-center font-black text-2xl text-gray-500">Mango not found.</div>;
 
   const imagesArray = mango.images || [mango.image];
@@ -279,6 +305,37 @@ export default function ProductDetails() {
             </div>
           </div>
         </div>
+
+        {/* YOU MAY ALSO LIKE */}
+        {relatedProducts.length > 0 && (
+          <div className="lg:col-span-3 mt-16">
+            <h2 className="text-2xl font-black uppercase tracking-tighter text-gray-900 mb-8">You May Also <span className="text-orange-500">Like</span></h2>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+              {relatedProducts.map(p => (
+                <Link key={p.id} to={`/product/${p.id}`} className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-lg hover:-translate-y-1 transition-all duration-300 group">
+                  <div className="h-40 bg-gray-100 overflow-hidden">
+                    <img src={p.images && p.images.length > 0 ? p.images[0] : p.image} alt={p.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                  </div>
+                  <div className="p-4">
+                    {p.section && <span className="text-[10px] font-black uppercase tracking-widest text-orange-500">{p.section}</span>}
+                    <h3 className="font-black text-sm text-gray-900 mt-1 line-clamp-1 group-hover:text-orange-500 transition-colors">{p.name}</h3>
+                    <div className="mt-2 flex items-baseline gap-2">
+                      {p.discountPrice ? (
+                        <>
+                          <span className="font-black text-orange-500">৳{p.discountPrice}</span>
+                          <span className="text-xs text-gray-400 line-through">৳{p.price}</span>
+                        </>
+                      ) : (
+                        <span className="font-black text-orange-500">৳{p.price}</span>
+                      )}
+                    </div>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          </div>
+        )}
+
       </div>
     </div>
   );

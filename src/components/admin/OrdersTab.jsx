@@ -3,6 +3,7 @@ import { collection, getDocs, updateDoc, deleteDoc, doc, addDoc, query, orderBy,
 import { db } from '../../firebaseConfig';
 import { motion, AnimatePresence } from 'framer-motion';
 import { isValidBDPhoneNumber } from '../../utils/phoneValidation';
+import { toast } from 'react-hot-toast';
 
 export default function OrdersTab() {
   const [orders, setOrders] = useState([]);
@@ -22,6 +23,13 @@ export default function OrdersTab() {
   // --- MODALS STATE ---
   const [confirmModal, setConfirmModal] = useState({ isOpen: false, title: '', message: '', action: null });
   const [promptModal, setPromptModal] = useState({ isOpen: false, title: '', placeholder: '', value: '', action: null });
+
+  // --- BATCH SELECTION STATE ---
+  const [selectedOrders, setSelectedOrders] = useState(new Set());
+  const [batchUpdating, setBatchUpdating] = useState(false);
+
+  // --- TRASH VIEW STATE ---
+  const [showTrash, setShowTrash] = useState(false);
 
   const fetchOrders = async (isLoadMore = false) => {
     try {
@@ -86,17 +94,39 @@ export default function OrdersTab() {
     });
   };
 
-  const executeDeleteOrder = async (id) => {
-    await deleteDoc(doc(db, 'orders', id)); 
-    setOrders(orders.filter(o => o.id !== id));
+  const executeSoftDelete = async (id) => {
+    await updateDoc(doc(db, 'orders', id), { deleted: true, deletedAt: new Date() });
+    setOrders(orders.map(o => o.id === id ? { ...o, deleted: true, deletedAt: new Date() } : o));
+    toast.success('Order moved to Trash');
   };
 
   const handleDeleteOrder = (id) => {
     setConfirmModal({
       isOpen: true,
-      title: 'Delete Order',
-      message: 'Are you sure you want to completely delete this order? This action cannot be undone.',
-      action: () => executeDeleteOrder(id)
+      title: 'Move to Trash',
+      message: 'This order will be moved to the trash bin. You can restore it later or permanently delete it.',
+      action: () => executeSoftDelete(id)
+    });
+  };
+
+  const handleRestoreOrder = async (id) => {
+    await updateDoc(doc(db, 'orders', id), { deleted: false, deletedAt: null });
+    setOrders(orders.map(o => o.id === id ? { ...o, deleted: false, deletedAt: null } : o));
+    toast.success('Order restored!');
+  };
+
+  const executePermanentDelete = async (id) => {
+    await deleteDoc(doc(db, 'orders', id));
+    setOrders(orders.filter(o => o.id !== id));
+    toast.success('Order permanently deleted');
+  };
+
+  const handlePermanentDelete = (id) => {
+    setConfirmModal({
+      isOpen: true,
+      title: 'Permanently Delete',
+      message: 'This will PERMANENTLY erase this order from the database. This cannot be undone!',
+      action: () => executePermanentDelete(id)
     });
   };
 
@@ -106,6 +136,69 @@ export default function OrdersTab() {
     if (cleanPhone.startsWith('0')) cleanPhone = '88' + cleanPhone;
     const message = `হ্যালো, Vertex Picks থেকে বলছি! আপনার ${total} টাকার অর্ডারটি কনফার্ম করার জন্য মেসেজ দিচ্ছি। আপনার ডেলিভারি ঠিকানা: ${address}। অর্ডারটি কি কনফার্ম করব?`;
     return `https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`;
+  };
+
+  // --- CSV EXPORT ---
+  const handleExportCSV = () => {
+    const activeOrders = orders.filter(o => !o.deleted);
+    if (!activeOrders || activeOrders.length === 0) return;
+    const headers = ['Order ID', 'Customer Name', 'Phone', 'Address', 'Items', 'Subtotal', 'Delivery Fee', 'Total', 'Status', 'Date'];
+    const rows = activeOrders.map(o => [
+      o.id,
+      o.customerName || o.customerEmail || 'Unknown',
+      o.deliveryPhone || o.customerPhone || 'N/A',
+      `"${(o.deliveryAddress || 'N/A').replace(/"/g, '""')}"`,
+      `"${(o.items || []).map(i => `${i.quantity || 1}x ${i.name || 'Item'}`).join(', ')}"`,
+      o.subtotal || 0,
+      o.deliveryFee || 0,
+      o.total || 0,
+      o.status || 'Pending',
+      o.createdAt?.toDate ? o.createdAt.toDate().toLocaleDateString() : 'N/A'
+    ]);
+    const csvContent = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `orders_export_${new Date().toISOString().slice(0, 10)}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+    toast.success('CSV exported successfully!');
+  };
+
+  // --- BATCH SELECTION HELPERS ---
+  const toggleSelectOrder = (id) => {
+    setSelectedOrders(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedOrders.size === orders.length) {
+      setSelectedOrders(new Set());
+    } else {
+      setSelectedOrders(new Set(orders.map(o => o.id)));
+    }
+  };
+
+  const handleBatchStatus = async (newStatus) => {
+    if (selectedOrders.size === 0) return;
+    setBatchUpdating(true);
+    try {
+      await Promise.all(
+        [...selectedOrders].map(id => updateDoc(doc(db, 'orders', id), { status: newStatus }))
+      );
+      setOrders(orders.map(o => selectedOrders.has(o.id) ? { ...o, status: newStatus } : o));
+      toast.success(`${selectedOrders.size} order(s) marked as ${newStatus}`);
+      setSelectedOrders(new Set());
+    } catch (err) {
+      console.error(err);
+      toast.error('Batch update failed.');
+    }
+    setBatchUpdating(false);
   };
 
   const handleManualOrderSubmit = async (e) => {
@@ -173,24 +266,116 @@ export default function OrdersTab() {
       )}
       </AnimatePresence>
 
-      <div className="flex justify-between items-center bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center bg-white p-6 rounded-xl shadow-sm border border-gray-200 gap-4">
         <div>
-          <h2 className="font-black uppercase text-xl">Order Management</h2>
-          <p className="text-gray-500 font-bold text-sm">Showing Latest Orders</p>
+          <h2 className="font-black uppercase text-xl">{showTrash ? '🗑️ Trash Bin' : 'Order Management'}</h2>
+          <p className="text-gray-500 font-bold text-sm">
+            {showTrash ? 'Restore or permanently delete trashed orders.' : `Showing Latest Orders (${orders.filter(o => !o.deleted).length} active)`}
+          </p>
         </div>
-        <button onClick={() => setShowManualModal(true)} className="bg-orange-500 text-white font-black px-6 py-3 rounded hover:bg-black uppercase text-sm tracking-widest shadow-md">
-          + Add Offline Sale
-        </button>
+        <div className="flex flex-wrap gap-3">
+          {showTrash ? (
+            <button 
+              onClick={() => { setShowTrash(false); setSelectedOrders(new Set()); setExpandedOrder(null); }}
+              className="bg-gray-800 text-white font-black px-5 py-3 rounded uppercase text-sm tracking-widest shadow-md hover:bg-gray-700"
+            >
+              ← Back to Orders
+            </button>
+          ) : (
+            <>
+              <button onClick={handleExportCSV} disabled={orders.filter(o => !o.deleted).length === 0} className="bg-green-600 text-white font-black px-5 py-3 rounded hover:bg-green-700 uppercase text-sm tracking-widest shadow-md disabled:opacity-40 flex items-center gap-2">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                Export CSV
+              </button>
+              <button onClick={() => setShowManualModal(true)} className="bg-orange-500 text-white font-black px-5 py-3 rounded hover:bg-black uppercase text-sm tracking-widest shadow-md">
+                + Add Offline Sale
+              </button>
+            </>
+          )}
+        </div>
       </div>
 
+      {/* BATCH ACTION BAR */}
+      <AnimatePresence>
+        {selectedOrders.size > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            className="bg-gray-900 text-white p-4 rounded-xl shadow-lg flex flex-col sm:flex-row items-center justify-between gap-4"
+          >
+            <span className="font-black text-sm uppercase tracking-widest">
+              {selectedOrders.size} order{selectedOrders.size > 1 ? 's' : ''} selected
+            </span>
+            <div className="flex flex-wrap gap-2">
+              <button onClick={() => handleBatchStatus('Confirmed')} disabled={batchUpdating} className="bg-blue-500 text-white font-black px-4 py-2 rounded text-xs uppercase tracking-widest hover:bg-blue-600 disabled:opacity-50">Mark Confirmed</button>
+              <button onClick={() => handleBatchStatus('Shipped')} disabled={batchUpdating} className="bg-purple-500 text-white font-black px-4 py-2 rounded text-xs uppercase tracking-widest hover:bg-purple-600 disabled:opacity-50">Mark Shipped</button>
+              <button onClick={() => handleBatchStatus('Delivered')} disabled={batchUpdating} className="bg-green-500 text-white font-black px-4 py-2 rounded text-xs uppercase tracking-widest hover:bg-green-600 disabled:opacity-50">Mark Delivered</button>
+              <button onClick={() => setSelectedOrders(new Set())} className="bg-gray-700 text-white font-black px-4 py-2 rounded text-xs uppercase tracking-widest hover:bg-gray-600">Clear</button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {loadingOrders ? (
-        <div className="text-center py-20 bg-white rounded-xl border-2 border-dashed font-bold text-gray-400">Loading Orders...</div>
-      ) : (!orders || orders.length === 0) ? (
-        <div className="text-center py-20 bg-white rounded-xl border-2 border-dashed font-bold text-gray-400">No active orders.</div>
-      ) : (
         <div className="space-y-4">
-        {orders.map(order => (
-          <div key={order.id} className={`bg-white rounded-xl shadow-sm border overflow-hidden transition-all ${order.status === 'Cancelled' ? 'border-red-300' : 'border-gray-200'}`}>
+          {[...Array(3)].map((_, i) => (
+            <div key={i} className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+              <div className="flex justify-between items-start mb-4">
+                <div className="space-y-2 flex-1">
+                  <div className="h-5 bg-gray-200 rounded animate-pulse w-1/3"></div>
+                  <div className="h-4 bg-gray-200 rounded animate-pulse w-1/2"></div>
+                  <div className="h-4 bg-gray-200 rounded animate-pulse w-2/5"></div>
+                </div>
+                <div className="h-8 bg-gray-200 rounded animate-pulse w-24"></div>
+              </div>
+              <div className="flex gap-3 mt-4">
+                <div className="h-9 bg-gray-200 rounded animate-pulse w-28"></div>
+                <div className="h-9 bg-gray-200 rounded animate-pulse w-28"></div>
+                <div className="h-9 bg-gray-200 rounded animate-pulse w-28"></div>
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : (() => {
+        const displayOrders = orders.filter(o => showTrash ? o.deleted : !o.deleted);
+        return displayOrders.length === 0 ? (
+          <div className="text-center py-20 bg-white rounded-xl border-2 border-dashed font-bold text-gray-400">
+            {showTrash ? 'Trash is empty. Deleted orders will appear here.' : 'No active orders.'}
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {/* SELECT ALL + TRASH ICON ROW */}
+            <div className="flex items-center justify-between px-2">
+              <div className="flex items-center gap-3">
+                <input
+                  type="checkbox"
+                  checked={selectedOrders.size === displayOrders.length && displayOrders.length > 0}
+                  onChange={() => {
+                    if (selectedOrders.size === displayOrders.length) setSelectedOrders(new Set());
+                    else setSelectedOrders(new Set(displayOrders.map(o => o.id)));
+                  }}
+                  className="w-5 h-5 accent-orange-500 cursor-pointer rounded"
+                />
+                <span className="text-xs font-black text-gray-500 uppercase tracking-widest">Select All ({displayOrders.length})</span>
+              </div>
+              {!showTrash && (
+                <button
+                  onClick={() => { setShowTrash(true); setSelectedOrders(new Set()); setExpandedOrder(null); }}
+                  className="relative w-10 h-10 bg-gray-100 border border-gray-200 rounded-full flex items-center justify-center text-gray-400 hover:text-red-500 hover:bg-red-50 hover:border-red-200 hover:drop-shadow-[0_0_10px_rgba(239,68,68,0.5)] transition-all"
+                  title="Open Trash Bin"
+                >
+                  <svg className="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                  {orders.filter(o => o.deleted).length > 0 && (
+                    <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[9px] font-black w-4 h-4 rounded-full flex items-center justify-center">
+                      {orders.filter(o => o.deleted).length}
+                    </span>
+                  )}
+                </button>
+              )}
+            </div>
+          {displayOrders.map(order => (
+          <div key={order.id} className={`bg-white rounded-xl shadow-sm border overflow-hidden transition-all ${selectedOrders.has(order.id) ? 'border-orange-400 ring-2 ring-orange-200' : order.status === 'Cancelled' ? 'border-red-300' : 'border-gray-200'}`}>
 
             {/* CANCELLATION BANNER */}
             {order.status === 'Cancelled' && (
@@ -201,10 +386,17 @@ export default function OrdersTab() {
 
             {/* MAIN ROW */}
             <div
-              onClick={() => setExpandedOrder(expandedOrder === order.id ? null : order.id)}
               className={`p-6 flex flex-col md:flex-row justify-between items-start md:items-center cursor-pointer hover:bg-gray-50 transition-colors ${order.isManual ? 'bg-blue-50' : ''}`}
             >
-              <div>
+              <div className="flex items-start gap-4 flex-1">
+                <input
+                  type="checkbox"
+                  checked={selectedOrders.has(order.id)}
+                  onChange={(e) => { e.stopPropagation(); toggleSelectOrder(order.id); }}
+                  onClick={(e) => e.stopPropagation()}
+                  className="w-5 h-5 mt-1 accent-orange-500 cursor-pointer rounded shrink-0"
+                />
+                <div onClick={() => setExpandedOrder(expandedOrder === order.id ? null : order.id)} className="flex-1 cursor-pointer">
                 <div className="flex items-center gap-3 mb-1">
                   <p className="text-xs font-black text-gray-400 uppercase tracking-widest">ID: {order.id?.slice(-6) || 'N/A'}</p>
                   {order.isManual && <span className="bg-blue-500 text-white text-[10px] px-2 py-0.5 rounded font-black uppercase tracking-widest">Offline Sale</span>}
@@ -220,8 +412,29 @@ export default function OrdersTab() {
                   Status: <span className={`${order.status === 'Done' ? 'text-green-500' : order.status === 'Cancelled' ? 'text-red-500' : 'text-orange-500'}`}>{order.status || 'Pending'}</span>
                 </p>
               </div>
-              <div className="text-gray-400 font-black mt-4 md:mt-0">
-                {expandedOrder === order.id ? '▲ CLOSE' : '▼ VIEW DETAILS'}
+              </div>
+              <div className="flex items-center gap-3 mt-4 md:mt-0 shrink-0">
+                {!showTrash && (
+                  <button 
+                    onClick={(e) => { e.stopPropagation(); handleDeleteOrder(order.id); }}
+                    className="text-red-400 hover:text-red-600 transition-colors drop-shadow-[0_0_8px_rgba(239,68,68,0.7)] hover:drop-shadow-[0_0_12px_rgba(239,68,68,0.9)]"
+                    title="Move to Trash"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                  </button>
+                )}
+                {showTrash && (
+                  <button 
+                    onClick={(e) => { e.stopPropagation(); handleRestoreOrder(order.id); }}
+                    className="text-green-500 hover:text-green-600 transition-colors drop-shadow-[0_0_8px_rgba(34,197,94,0.7)]"
+                    title="Restore Order"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 10h10a5 5 0 015 5v2M3 10l4-4m-4 4l4 4" /></svg>
+                  </button>
+                )}
+                <div onClick={() => setExpandedOrder(expandedOrder === order.id ? null : order.id)} className="text-gray-400 font-black cursor-pointer">
+                  {expandedOrder === order.id ? '▲ CLOSE' : '▼ VIEW DETAILS'}
+                </div>
               </div>
             </div>
 
@@ -282,9 +495,22 @@ export default function OrdersTab() {
                     {order.trackingLink && (
                        <a href={order.trackingLink?.startsWith('http') ? order.trackingLink : `https://${order.trackingLink}`} target="_blank" rel="noreferrer" className="text-xs font-bold text-blue-500 underline self-center">View Link</a>
                     )}
-                    <button onClick={() => handleDeleteOrder(order.id)} className="bg-red-100 text-red-600 font-black px-4 py-2 rounded text-xs uppercase tracking-widest hover:bg-red-600 hover:text-white ml-auto">
-                      Delete Record
-                    </button>
+
+                    {/* TRASH ACTIONS vs ACTIVE ACTIONS */}
+                    {showTrash ? (
+                      <>
+                        <button onClick={() => handleRestoreOrder(order.id)} className="bg-green-100 text-green-700 font-black px-4 py-2 rounded text-xs uppercase tracking-widest hover:bg-green-600 hover:text-white ml-auto">
+                          ↩ Restore
+                        </button>
+                        <button onClick={() => handlePermanentDelete(order.id)} className="bg-red-100 text-red-600 font-black px-4 py-2 rounded text-xs uppercase tracking-widest hover:bg-red-600 hover:text-white">
+                          🗑 Permanently Delete
+                        </button>
+                      </>
+                    ) : (
+                      <button onClick={() => handleDeleteOrder(order.id)} className="bg-red-100 text-red-600 font-black px-4 py-2 rounded text-xs uppercase tracking-widest hover:bg-red-600 hover:text-white ml-auto">
+                        Move to Trash
+                      </button>
+                    )}
                   </div>
                 </div>
               </motion.div>
@@ -293,7 +519,8 @@ export default function OrdersTab() {
           </div>
         ))}
         </div>
-      )}
+        );
+      })()}
 
       {hasMore && orders.length > 0 && !loadingOrders && (
         <button 
@@ -339,6 +566,8 @@ export default function OrdersTab() {
           </div>
         </div>
       )}
+
+
 
     </motion.div>
   );

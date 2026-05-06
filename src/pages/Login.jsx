@@ -11,10 +11,11 @@ import {
 } from 'firebase/auth';
 import { useNavigate } from 'react-router-dom';
 import { auth } from '../firebaseConfig';
+import { useAuth } from '../context/AuthContext';
 import { isValidBDPhoneNumber } from '../utils/phoneValidation';
 
 export default function Login() {
-  const ADMIN_EMAIL = 'hasanshahriaradib@gmail.com'; 
+  const { ADMIN_EMAIL } = useAuth(); 
 
   const [isLoginMode, setIsLoginMode] = useState(true);
   const [isForgotPasswordMode, setIsForgotPasswordMode] = useState(false);
