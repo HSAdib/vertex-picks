@@ -7,6 +7,7 @@ import OrdersTab from '../components/admin/OrdersTab';
 import InventoryTab from '../components/admin/InventoryTab';
 import PromosTab from '../components/admin/PromosTab';
 import HomeTab from '../components/admin/HomeTab';
+import UsersTab from '../components/admin/UsersTab';
 
 export default function Admin() {
   const [activeTab, setActiveTab] = useState('home');
@@ -17,12 +18,12 @@ export default function Admin() {
     <div className="min-h-screen bg-gray-100 flex flex-col items-center pb-20">
       
       {/* HEADER */}
-      <div className="w-full bg-white shadow-md border-b-4 border-orange-500 px-6 py-4 flex flex-col md:flex-row justify-between items-center sticky top-0 z-50 gap-4">
+      <div className="w-full bg-white shadow-md border-b-4 border-orange-500 px-6 py-4 flex flex-col md:flex-row justify-between items-center sticky top-0 z-50 gap-4 print:hidden">
         <h1 className="text-2xl font-black tracking-tighter">ADMIN <span className="text-orange-500">PRO</span></h1>
         
         {/* TABS & LOGOUT */}
         <nav className="flex gap-4 md:gap-6 overflow-x-auto w-full md:w-auto justify-center items-center">
-          {['home', 'orders', 'inventory', 'promos'].map(tab => (
+          {['home', 'orders', 'inventory', 'customers', 'promos'].map(tab => (
             <button 
               key={tab} 
               onClick={() => setActiveTab(tab)} 
@@ -49,6 +50,7 @@ export default function Admin() {
           {activeTab === 'home' && <HomeTab key="home" />}
           {activeTab === 'orders' && <OrdersTab key="orders" />}
           {activeTab === 'inventory' && <InventoryTab key="inventory" />}
+          {activeTab === 'customers' && <UsersTab key="customers" />}
           {activeTab === 'promos' && <PromosTab key="promos" />}
         </AnimatePresence>
       </div>

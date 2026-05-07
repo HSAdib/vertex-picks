@@ -294,7 +294,7 @@ export default function Profile() {
                     type="button"
                     onClick={() => fetchCurrentLocation(setNewAddress, setLocating, setNewCoords)}
                     disabled={locating}
-                    className="absolute top-3 right-3 w-8 h-8 bg-orange-500 text-white rounded-full flex items-center justify-center hover:bg-orange-600 transition-all disabled:opacity-50 disabled:animate-pulse shadow-md hover:shadow-lg hover:shadow-orange-500/30"
+                    className="absolute top-3 right-3 w-8 h-8 bg-orange-500 text-white rounded-full flex items-center justify-center transition-all hover:scale-110 active:scale-95 shadow-[0_0_10px_rgba(249,115,22,0.4)] hover:shadow-[0_0_15px_rgba(249,115,22,0.8)] disabled:opacity-50 disabled:animate-pulse disabled:hover:scale-100 disabled:hover:shadow-none"
                     title="Use current location"
                   >
                     {locating ? (

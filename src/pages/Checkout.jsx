@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { collection, getDocs, addDoc, doc, getDoc } from 'firebase/firestore';
+import { collection, getDocs, addDoc, doc, getDoc, setDoc, arrayUnion } from 'firebase/firestore';
 import { db, auth } from '../firebaseConfig'; 
 import { useCart } from '../context/CartContext';
 import { Link, useNavigate } from 'react-router-dom';
@@ -29,6 +29,8 @@ export default function Checkout() {
   const [phoneError, setPhoneError] = useState(false);
   const [locating, setLocating] = useState(false);
 
+  const [storeConfig, setStoreConfig] = useState({ baseDeliveryFee: 110, perKgFee: 21 });
+
   useEffect(() => {
     const fetchCheckoutData = async () => {
       try {
@@ -37,6 +39,14 @@ export default function Checkout() {
         
         const promoSnap = await getDocs(collection(db, 'promos'));
         setLivePromos(promoSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+
+        const configSnap = await getDoc(doc(db, 'mangoes', 'STORE_SETTINGS'));
+        if (configSnap.exists()) {
+          setStoreConfig({
+            baseDeliveryFee: configSnap.data().baseDeliveryFee ?? 110,
+            perKgFee: configSnap.data().perKgFee ?? 21
+          });
+        }
         
         // CHECK IF USER HAS SAVED THEIR PROFILE ADDRESS!
         if (auth.currentUser) {
@@ -60,9 +70,19 @@ export default function Checkout() {
           } else {
             setCustomerName(auth.currentUser.displayName || '');
           }
+        } else {
+          const guestAddrs = JSON.parse(localStorage.getItem('vertex_guest_addresses') || '[]');
+          if (guestAddrs.length > 0) {
+            setSavedAddresses(guestAddrs);
+            const defaultAddr = guestAddrs[0];
+            setDeliveryAddress(defaultAddr.address);
+            setDeliveryPhone(defaultAddr.phone);
+            setDeliveryCoords(defaultAddr.coords);
+            setSelectedAddressId(defaultAddr.id);
+          }
         }
-      } catch (error) {
-        console.error("Error fetching checkout data:", error);
+      } catch (err) {
+        console.error("Error fetching checkout data:", err);
       } finally {
         setLoading(false);
       }
@@ -105,9 +125,9 @@ export default function Checkout() {
     return sum + (activePrice * item.quantity);
   }, 0);
 
-  // NEW DYNAMIC WEIGHT MATH: 110 for 1st kg, + 21 for each additional kg
+  // DYNAMIC WEIGHT MATH using Store Config
   const totalWeight = activeItems.reduce((sum, item) => sum + (item.weight * item.quantity), 0);
-  const deliveryFee = totalWeight > 0 ? 110 + ((totalWeight - 1) * 21) : 0;
+  const deliveryFee = totalWeight > 0 ? storeConfig.baseDeliveryFee + ((totalWeight - 1) * storeConfig.perKgFee) : 0;
 
   let discountAmount = 0;
   if (appliedPromo) discountAmount = Math.round(subtotal * (appliedPromo.discountPercent / 100));
@@ -166,6 +186,28 @@ export default function Checkout() {
       if (!auth.currentUser?.email) {
         const localOrders = JSON.parse(localStorage.getItem('vertex_guest_orders') || '[]');
         localStorage.setItem('vertex_guest_orders', JSON.stringify([{ id: docRef.id, ...orderData }, ...localOrders]));
+      }
+
+      // NEW: Save address if user entered a new one
+      if (selectedAddressId === 'new') {
+        const newAddrObj = {
+          id: Date.now().toString(),
+          label: 'Saved from Checkout',
+          address: deliveryAddress,
+          phone: deliveryPhone,
+          coords: deliveryCoords || null,
+          isDefault: savedAddresses.length === 0
+        };
+
+        if (auth.currentUser) {
+          const userRef = doc(db, 'users', auth.currentUser.uid);
+          await setDoc(userRef, {
+            addresses: arrayUnion(newAddrObj)
+          }, { merge: true });
+        } else {
+          const guestAddresses = JSON.parse(localStorage.getItem('vertex_guest_addresses') || '[]');
+          localStorage.setItem('vertex_guest_addresses', JSON.stringify([newAddrObj, ...guestAddresses]));
+        }
       }
 
       clearCart();
@@ -305,7 +347,7 @@ export default function Checkout() {
                             type="button"
                             onClick={() => fetchCurrentLocation(setDeliveryAddress, setLocating, setDeliveryCoords)}
                             disabled={locating}
-                            className="absolute top-3 right-3 w-8 h-8 bg-orange-500 text-white rounded-full flex items-center justify-center hover:bg-orange-600 transition-all disabled:opacity-50 disabled:animate-pulse shadow-md hover:shadow-lg hover:shadow-orange-500/30"
+                            className="absolute top-3 right-3 w-8 h-8 bg-orange-500 text-white rounded-full flex items-center justify-center transition-all hover:scale-110 active:scale-95 shadow-[0_0_10px_rgba(249,115,22,0.4)] hover:shadow-[0_0_15px_rgba(249,115,22,0.8)] disabled:opacity-50 disabled:animate-pulse disabled:hover:scale-100 disabled:hover:shadow-none"
                             title="Use current location"
                           >
                             {locating ? (
@@ -342,7 +384,7 @@ export default function Checkout() {
           <button 
             onClick={handleConfirmOrder} 
             disabled={activeItems.length === 0}
-            className="w-full bg-orange-500 text-white font-black py-4 rounded-md mt-6 uppercase tracking-widest hover:bg-black transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
+            className="w-full bg-orange-500 text-white font-black py-4 rounded-md mt-6 uppercase tracking-widest transition-all hover:scale-[1.02] active:scale-95 shadow-[0_0_15px_rgba(249,115,22,0.3)] hover:shadow-[0_0_25px_rgba(249,115,22,0.6)] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 disabled:hover:shadow-none"
           >
             Confirm Order
           </button>

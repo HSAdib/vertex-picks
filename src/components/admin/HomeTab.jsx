@@ -7,6 +7,8 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 
 export default function HomeTab() {
   const [storeSections, setStoreSections] = useState([]);
+  const [storeConfig, setStoreConfig] = useState({ baseDeliveryFee: 110, perKgFee: 21 });
+  const [configSaving, setConfigSaving] = useState(false);
   const [newSectionName, setNewSectionName] = useState('');
   const [loading, setLoading] = useState(true);
   const [editingIndex, setEditingIndex] = useState(null);
@@ -27,6 +29,14 @@ export default function HomeTab() {
       const docSnap = await getDoc(docRef);
       if (docSnap.exists()) {
         setStoreSections(docSnap.data().list || []);
+      }
+      const configRef = doc(db, 'mangoes', 'STORE_SETTINGS');
+      const configSnap = await getDoc(configRef);
+      if (configSnap.exists()) {
+        setStoreConfig({
+          baseDeliveryFee: configSnap.data().baseDeliveryFee ?? 110,
+          perKgFee: configSnap.data().perKgFee ?? 21
+        });
       }
     } catch (err) {
       console.error('Failed to fetch sections:', err);
@@ -99,6 +109,19 @@ export default function HomeTab() {
   const saveSections = async (updatedSections) => {
     await setDoc(doc(db, 'mangoes', 'STORE_SECTIONS'), { list: updatedSections }, { merge: true });
     setStoreSections(updatedSections);
+  };
+
+  const handleSaveConfig = async (e) => {
+    e.preventDefault();
+    setConfigSaving(true);
+    try {
+      await setDoc(doc(db, 'mangoes', 'STORE_SETTINGS'), storeConfig, { merge: true });
+      toast.success("Delivery Configuration Saved!");
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to save configuration.");
+    }
+    setConfigSaving(false);
   };
 
   const handleAddSection = async (e) => {
@@ -248,6 +271,40 @@ export default function HomeTab() {
         ) : (
           <p className="text-gray-400 font-bold">Failed to load analytics.</p>
         )}
+      </div>
+
+      {/* ============ DELIVERY CONFIG ============ */}
+      <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+        <h2 className="font-black uppercase text-xl mb-4 text-gray-900">🚚 Delivery Configuration</h2>
+        <p className="text-sm text-gray-500 font-bold mb-6">Set the base delivery charge and the additional cost per kilogram.</p>
+        
+        <form onSubmit={handleSaveConfig} className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-xs font-black uppercase tracking-widest text-gray-500 mb-2">Base Delivery Fee (৳)</label>
+            <input 
+              type="number" 
+              value={storeConfig.baseDeliveryFee} 
+              onChange={e => setStoreConfig({...storeConfig, baseDeliveryFee: Number(e.target.value)})} 
+              className="w-full p-3 bg-gray-50 border border-gray-200 rounded font-bold outline-none focus:border-orange-500" 
+              min="0"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-black uppercase tracking-widest text-gray-500 mb-2">Additional Fee Per Kg (৳)</label>
+            <input 
+              type="number" 
+              value={storeConfig.perKgFee} 
+              onChange={e => setStoreConfig({...storeConfig, perKgFee: Number(e.target.value)})} 
+              className="w-full p-3 bg-gray-50 border border-gray-200 rounded font-bold outline-none focus:border-orange-500" 
+              min="0"
+            />
+          </div>
+          <div className="md:col-span-2 mt-2">
+            <button type="submit" disabled={configSaving} className="w-full bg-black text-white font-black py-4 rounded uppercase text-sm tracking-widest hover:bg-orange-500 transition-colors disabled:opacity-50">
+              {configSaving ? 'Saving...' : 'Save Configuration'}
+            </button>
+          </div>
+        </form>
       </div>
 
       {/* ============ MANAGE STORE SECTIONS ============ */}
