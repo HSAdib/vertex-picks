@@ -365,6 +365,18 @@ export default function OrdersTab() {
               <button onClick={() => setShowManualModal(true)} className="bg-orange-500 text-white font-black px-5 py-3 rounded hover:bg-black uppercase text-sm tracking-widest shadow-md">
                 + Add Offline Sale
               </button>
+              <button
+                onClick={() => { setShowTrash(true); setSelectedOrders(new Set()); setExpandedOrder(null); }}
+                className="relative bg-gray-100 border border-gray-200 rounded px-5 py-3 flex items-center justify-center text-gray-500 hover:text-gray-900 hover:bg-white hover:border-gray-300 hover:drop-shadow-[0_0_15px_rgba(192,192,192,1)] transition-all shadow-md"
+                title="Open Trash Bin"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 8v12a2 2 0 002 2h10a2 2 0 002-2V8m-9 4v6m4-6v6M6 4l12-2M9 2l4-.67" /></svg>
+                {orders.filter(o => o.deleted).length > 0 && (
+                  <span className="absolute -top-2 -right-2 bg-red-500 text-white text-[10px] font-black w-5 h-5 rounded-full flex items-center justify-center shadow">
+                    {orders.filter(o => o.deleted).length}
+                  </span>
+                )}
+              </button>
             </>
           )}
         </div>
@@ -442,20 +454,7 @@ export default function OrdersTab() {
                 />
                 <span className="text-xs font-black text-gray-500 uppercase tracking-widest">Select All ({displayOrders.length})</span>
               </div>
-              {!showTrash && (
-                <button
-                  onClick={() => { setShowTrash(true); setSelectedOrders(new Set()); setExpandedOrder(null); }}
-                  className="relative w-10 h-10 bg-gray-100 border border-gray-200 rounded-full flex items-center justify-center text-gray-400 hover:text-red-500 hover:bg-red-50 hover:border-red-200 hover:drop-shadow-[0_0_10px_rgba(239,68,68,0.5)] transition-all"
-                  title="Open Trash Bin"
-                >
-                  <svg className="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                  {orders.filter(o => o.deleted).length > 0 && (
-                    <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[9px] font-black w-4 h-4 rounded-full flex items-center justify-center">
-                      {orders.filter(o => o.deleted).length}
-                    </span>
-                  )}
-                </button>
-              )}
+              {/* Trash bin moved to top */}
             </div>
           {displayOrders.map(order => (
           <div key={order.id} className={`bg-white rounded-xl shadow-sm border overflow-hidden transition-all ${selectedOrders.has(order.id) ? 'border-orange-400 ring-2 ring-orange-200' : order.status === 'Cancelled' ? 'border-red-300' : 'border-gray-200'}`}>

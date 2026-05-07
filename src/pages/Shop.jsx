@@ -132,20 +132,20 @@ export default function Shop() {
           </div>
         </div>
 
-        {/* AMAZON-STYLE SECONDARY NAV BAR (STORE SECTIONS) */}
-        <div className="bg-[#232F3E] text-white flex items-center px-4 py-2 gap-6 overflow-x-auto whitespace-nowrap text-sm font-medium rounded-md shadow-md mb-12 scrollbar-hide">
+        {/* FLOATING STORE SECTION NAV BAR */}
+        <div className="fixed bottom-8 left-1/2 transform -translate-x-1/2 z-40 bg-[#232F3E] text-white flex items-center px-6 py-3 gap-6 overflow-x-auto whitespace-nowrap text-sm font-medium rounded-full shadow-[0_20px_50px_rgba(0,0,0,0.5)] border border-gray-700 w-max max-w-[95vw] scrollbar-hide">
           <button 
             onClick={() => setSelectedSection('All')} 
-            className={`flex items-center gap-2 hover:border-white border border-transparent px-2 py-1 rounded transition-all ${selectedSection === 'All' ? 'font-bold border-white' : ''}`}
+            className={`flex items-center gap-2 hover:text-orange-400 transition-colors ${selectedSection === 'All' ? 'font-black text-orange-500' : ''}`}
           >
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5"><path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" /></svg>
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-5 h-5"><path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" /></svg>
             All
           </button>
           {sections.map(sec => (
             <button 
               key={sec} 
               onClick={() => setSelectedSection(sec)} 
-              className={`hover:border-white border border-transparent px-2 py-1 rounded transition-all ${selectedSection === sec ? 'font-bold border-white' : ''}`}
+              className={`hover:text-orange-400 transition-colors ${selectedSection === sec ? 'font-black text-orange-500' : ''}`}
             >
               {sec}
             </button>
