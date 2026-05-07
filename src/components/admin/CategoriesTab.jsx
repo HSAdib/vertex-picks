@@ -122,10 +122,10 @@ export default function CategoriesTab() {
     setNavTabs(updated);
   };
 
-  const updateTabHero = async (tabId, field, value) => {
+  const updateTabHero = (tabId, field, value) => {
     const updated = navTabs.map(t => t.id === tabId ? { ...t, [field]: value } : t);
-    await setDoc(doc(db, 'mangoes', 'NAVBAR_TABS'), { list: updated });
     setNavTabs(updated);
+    setDoc(doc(db, 'mangoes', 'NAVBAR_TABS'), { list: updated });
   };
 
   // --- STORE SECTIONS MANAGEMENT ---
@@ -297,7 +297,7 @@ export default function CategoriesTab() {
                   <label className="block text-[10px] font-black uppercase tracking-widest text-gray-400 mb-1">Header Title</label>
                   <input
                     type="text"
-                    value={tab.heroTitle || tab.name}
+                    value={tab.heroTitle ?? tab.name}
                     onChange={e => updateTabHero(tab.id, 'heroTitle', e.target.value)}
                     className="w-full p-2 bg-gray-50 border border-gray-100 rounded font-black text-gray-800 text-sm outline-none focus:border-orange-500"
                   />
@@ -306,7 +306,7 @@ export default function CategoriesTab() {
                   <label className="block text-[10px] font-black uppercase tracking-widest text-gray-400 mb-1">Header Subtitle</label>
                   <textarea
                     rows="2"
-                    value={tab.heroSubtitle || 'Fresh from the orchards of Rajshahi. Hand-picked for excellence.'}
+                    value={tab.heroSubtitle ?? ''}
                     onChange={e => updateTabHero(tab.id, 'heroSubtitle', e.target.value)}
                     className="w-full p-2 bg-gray-50 border border-gray-100 rounded font-bold text-gray-500 text-xs outline-none focus:border-orange-500"
                   />
