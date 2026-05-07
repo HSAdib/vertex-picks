@@ -389,7 +389,7 @@ export default function OrdersTab() {
             initial={{ opacity: 0, y: 50 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 50 }}
-            className="fixed bottom-8 left-1/2 transform -translate-x-1/2 z-50 bg-gray-900 text-white rounded-full px-6 py-3 shadow-[0_20px_50px_rgba(0,0,0,0.5)] flex items-center gap-4 sm:gap-6 border border-gray-700 w-max max-w-[95vw] overflow-x-auto scrollbar-hide"
+            className="fixed bottom-8 left-1/2 transform -translate-x-1/2 z-50 bg-gray-900/80 backdrop-blur-lg text-white rounded-full px-6 py-3 shadow-[0_8px_30px_rgb(0,0,0,0.2)] flex items-center gap-4 sm:gap-6 border border-white/20 w-max max-w-[95vw] overflow-x-auto scrollbar-hide"
           >
             <span className="font-black text-sm uppercase tracking-widest bg-orange-500 text-white px-3 py-1 rounded-full shrink-0 shadow-inner">
               {selectedOrders.size}

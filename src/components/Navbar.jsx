@@ -1,13 +1,32 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
+import { doc, getDoc } from 'firebase/firestore';
+import { db } from '../firebaseConfig';
 
 export default function Navbar() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [navTabs, setNavTabs] = useState([]);
   const { cart } = useCart();
   const { user, isAdmin } = useAuth();
   const navigate = useNavigate();
+
+  useEffect(() => {
+    const fetchTabs = async () => {
+      try {
+        const docSnap = await getDoc(doc(db, 'mangoes', 'NAVBAR_TABS'));
+        if (docSnap.exists() && docSnap.data().list) {
+          setNavTabs(docSnap.data().list);
+        } else {
+          setNavTabs([{ id: 'default', name: 'Premium Mangoes', sections: [] }]);
+        }
+      } catch (err) {
+        console.error("Error loading tabs", err);
+      }
+    };
+    fetchTabs();
+  }, []);
 
   const handleProfileClick = (e) => {
     e.preventDefault();
@@ -23,9 +42,9 @@ export default function Navbar() {
   const totalItems = cart.reduce((total, item) => total + item.quantity, 0);
 
   return (
-    <nav className="bg-white border-b border-gray-100 sticky top-0 z-50 print:hidden">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between items-center h-16">
+    <nav className="fixed top-4 left-1/2 -translate-x-1/2 w-[95%] max-w-6xl z-50 rounded-full bg-white/70 backdrop-blur-lg border border-white/60 shadow-[0_8px_30px_rgb(0,0,0,0.06)] print:hidden">
+      <div className="w-full mx-auto px-6 py-2">
+        <div className="flex justify-between items-center h-14">
           
           {/* Logo Section */}
           <Link to="/" className="flex-shrink-0 flex items-center gap-1">
@@ -38,9 +57,11 @@ export default function Navbar() {
             <Link to="/" className="text-sm font-bold text-gray-800 hover:text-orange-500 transition-colors uppercase tracking-wider">
               Home
             </Link>
-            <Link to="/shop" className="text-sm font-bold text-gray-800 hover:text-orange-500 transition-colors uppercase tracking-wider">
-              Premium Mangoes
-            </Link>
+            {navTabs.map(tab => (
+              <Link key={tab.id} to={`/shop?tabId=${tab.id}`} className="text-sm font-bold text-gray-800 hover:text-orange-500 transition-colors uppercase tracking-wider">
+                {tab.name}
+              </Link>
+            ))}
           </div>
 
           {/* Icons Section (Home + Profile + Cart + Mobile Menu Toggle) */}
@@ -101,13 +122,16 @@ export default function Navbar() {
             >
               Home
             </Link>
-            <Link 
-              to="/shop" 
-              onClick={() => setIsMobileMenuOpen(false)}
-              className="block px-3 py-3 text-base font-bold text-gray-800 hover:text-orange-500 hover:bg-gray-50 rounded-md uppercase tracking-wider"
-            >
-              Premium Mangoes
-            </Link>
+            {navTabs.map(tab => (
+              <Link 
+                key={tab.id}
+                to={`/shop?tabId=${tab.id}`} 
+                onClick={() => setIsMobileMenuOpen(false)}
+                className="block px-3 py-3 text-base font-bold text-gray-800 hover:text-orange-500 hover:bg-gray-50 rounded-md uppercase tracking-wider"
+              >
+                {tab.name}
+              </Link>
+            ))}
             {/* NEW: Mobile Profile Link */}
             <button 
               onClick={(e) => { setIsMobileMenuOpen(false); handleProfileClick(e); }}

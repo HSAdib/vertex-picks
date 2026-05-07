@@ -1,44 +1,81 @@
 import { useState, useEffect } from 'react';
-import { collection, getDocs } from 'firebase/firestore';
+import { collection, getDocs, doc, getDoc } from 'firebase/firestore';
 import { db } from '../firebaseConfig';
 import { useAuth } from '../context/AuthContext';
 import { useCart } from '../context/CartContext'; 
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 
 export default function Shop() {
   const [mangoes, setMangoes] = useState([]);
   const [sections, setSections] = useState([]);
   const [selectedSection, setSelectedSection] = useState('All');
   const [searchQuery, setSearchQuery] = useState('');
+  const [activeTabObj, setActiveTabObj] = useState(null);
   const [loading, setLoading] = useState(true);
   const { addToCart } = useCart();
   const { isAdmin } = useAuth();
   const [quantities, setQuantities] = useState({});
   const navigate = useNavigate();
+  const location = useLocation();
+
+  // Parse URL query
+  const queryParams = new URLSearchParams(location.search);
+  const tabId = queryParams.get('tabId');
 
   useEffect(() => {
     const fetchMangoes = async () => {
       try {
+        // 1. Fetch NAVBAR_TABS to know which sections belong to this tabId
+        let allowedSections = [];
+        if (tabId) {
+          const navDoc = await getDoc(doc(db, 'mangoes', 'NAVBAR_TABS'));
+          if (navDoc.exists() && navDoc.data().list) {
+            const activeTab = navDoc.data().list.find(t => t.id === tabId);
+            if (activeTab) {
+              setActiveTabObj(activeTab);
+              if (activeTab.sections) {
+                allowedSections = activeTab.sections;
+              }
+            }
+          }
+        } else {
+          setActiveTabObj(null);
+        }
+
+        // 2. Fetch all mangoes and STORE_SECTIONS
         const querySnapshot = await getDocs(collection(db, 'mangoes'));
         const productsArray = [];
         let fetchedSections = [];
-        querySnapshot.docs.forEach(doc => {
-          if (doc.id === 'STORE_SECTIONS') {
-            fetchedSections = doc.data().list || [];
-          } else {
-            productsArray.push({ id: doc.id, ...doc.data() });
+        
+        querySnapshot.docs.forEach(d => {
+          if (d.id === 'STORE_SECTIONS') {
+            fetchedSections = d.data().list || [];
+          } else if (d.id !== 'NAVBAR_TABS' && d.id !== 'STORE_SETTINGS') {
+            productsArray.push({ id: d.id, ...d.data() });
           }
         });
+
+        // Filter sections if a tab is active
+        if (tabId && allowedSections.length > 0) {
+          fetchedSections = fetchedSections.filter(s => allowedSections.includes(s));
+        }
+
+        // Sort products by their manual `order`
+        productsArray.sort((a, b) => (a.order || 0) - (b.order || 0));
+
         setSections(fetchedSections);
         setMangoes(productsArray);
+        
+        // Reset selected section when tab changes
+        setSelectedSection('All');
         setLoading(false);
       } catch (error) {
-        console.error("Error fetching mangoes: ", error);
+        console.error("Error fetching shop data: ", error);
         setLoading(false);
       }
     };
     fetchMangoes();
-  }, []);
+  }, [tabId]);
 
   const updateQty = (id, amount) => {
     setQuantities(prev => {
@@ -98,8 +135,12 @@ export default function Shop() {
     <div className="min-h-screen bg-gray-50 py-16 px-4 sm:px-6 lg:px-8">
       <div className="max-w-7xl mx-auto">
         <div className="text-center mb-10">
-          <h1 className="text-4xl font-black text-gray-900 tracking-tight sm:text-5xl uppercase">Premium <span className="text-orange-500">Selection</span></h1>
-          <p className="mt-4 text-lg text-gray-500 font-medium">Fresh from the orchards of Rajshahi. Hand-picked for excellence.</p>
+          <h1 className="text-4xl font-black text-gray-900 tracking-tight sm:text-5xl uppercase">
+            {activeTabObj?.heroTitle ? activeTabObj.heroTitle : <>Premium <span className="text-orange-500">Selection</span></>}
+          </h1>
+          <p className="mt-4 text-lg text-gray-500 font-medium">
+            {activeTabObj?.heroSubtitle ? activeTabObj.heroSubtitle : 'Fresh from the orchards of Rajshahi. Hand-picked for excellence.'}
+          </p>
         </div>
 
         {/* AMAZON-STYLE SEARCH BAR */}
@@ -133,7 +174,7 @@ export default function Shop() {
         </div>
 
         {/* FLOATING STORE SECTION NAV BAR */}
-        <div className="fixed bottom-8 left-1/2 transform -translate-x-1/2 z-40 bg-[#232F3E] text-white flex items-center px-6 py-3 gap-6 overflow-x-auto whitespace-nowrap text-sm font-medium rounded-full shadow-[0_20px_50px_rgba(0,0,0,0.5)] border border-gray-700 w-max max-w-[95vw] scrollbar-hide">
+        <div className="fixed bottom-8 left-1/2 transform -translate-x-1/2 z-40 bg-[#232F3E]/80 backdrop-blur-lg text-white flex items-center px-6 py-3 gap-6 overflow-x-auto whitespace-nowrap text-sm font-medium rounded-full shadow-[0_8px_30px_rgb(0,0,0,0.2)] border border-white/20 w-max max-w-[95vw] scrollbar-hide">
           <button 
             onClick={() => setSelectedSection('All')} 
             className={`flex items-center gap-2 hover:text-orange-400 transition-colors ${selectedSection === 'All' ? 'font-black text-orange-500' : ''}`}
@@ -155,7 +196,14 @@ export default function Shop() {
         {/* PRODUCT GRID */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10">
           {mangoes
-            .filter(mango => selectedSection === 'All' || mango.section === selectedSection || (!mango.section && selectedSection === 'Uncategorized'))
+            .filter(mango => {
+              // Only show products belonging to the sections allowed in this Tab
+              if (tabId && sections.length > 0 && !sections.includes(mango.section)) {
+                return false;
+              }
+              // Normal section filter
+              return selectedSection === 'All' || mango.section === selectedSection || (!mango.section && selectedSection === 'Uncategorized');
+            })
             .filter(mango => mango.name?.toLowerCase().includes(searchQuery.toLowerCase()))
             .map((mango) => (
             <div key={mango.id} className="bg-white rounded-xl shadow-md overflow-hidden hover:shadow-xl transition-shadow duration-300 border border-gray-100 flex flex-col relative">

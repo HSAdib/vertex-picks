@@ -8,6 +8,7 @@ import InventoryTab from '../components/admin/InventoryTab';
 import PromosTab from '../components/admin/PromosTab';
 import HomeTab from '../components/admin/HomeTab';
 import UsersTab from '../components/admin/UsersTab';
+import CategoriesTab from '../components/admin/CategoriesTab';
 
 export default function Admin() {
   const [activeTab, setActiveTab] = useState('home');
@@ -22,8 +23,8 @@ export default function Admin() {
         <h1 className="text-2xl font-black tracking-tighter">ADMIN <span className="text-orange-500">PRO</span></h1>
         
         {/* TABS & LOGOUT */}
-        <nav className="flex gap-4 md:gap-6 overflow-x-auto w-full md:w-auto justify-center items-center">
-          {['home', 'orders', 'inventory', 'customers', 'promos'].map(tab => (
+        <nav className="flex gap-4 md:gap-6 overflow-x-auto w-full md:w-auto justify-start items-center max-w-full pb-2 md:pb-0">
+          {['home', 'categories', 'orders', 'inventory', 'customers', 'promos'].map(tab => (
             <button 
               key={tab} 
               onClick={() => setActiveTab(tab)} 
@@ -48,6 +49,7 @@ export default function Admin() {
       <div className="max-w-7xl w-full mt-10 px-4">
         <AnimatePresence mode="wait">
           {activeTab === 'home' && <HomeTab key="home" />}
+          {activeTab === 'categories' && <CategoriesTab key="categories" />}
           {activeTab === 'orders' && <OrdersTab key="orders" />}
           {activeTab === 'inventory' && <InventoryTab key="inventory" />}
           {activeTab === 'customers' && <UsersTab key="customers" />}

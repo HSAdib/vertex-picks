@@ -307,68 +307,7 @@ export default function HomeTab() {
         </form>
       </div>
 
-      {/* ============ MANAGE STORE SECTIONS ============ */}
-      <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-        <h2 className="font-black uppercase text-xl mb-4 text-gray-900">Manage Store Sections</h2>
-        <p className="text-sm text-gray-500 font-bold mb-6">Create, delete, rename, and arrange the order of your shop's categories. The order here determines the layout of your Shop's navigation bar.</p>
-        
-        <form onSubmit={handleAddSection} className="flex gap-2 mb-8">
-          <input type="text" placeholder="New Section Name (e.g. Sweets)" value={newSectionName} onChange={e => setNewSectionName(e.target.value)} className="p-3 bg-gray-50 border rounded font-bold outline-none flex-grow" />
-          <button type="submit" className="bg-black text-white font-black px-6 py-3 rounded uppercase text-sm hover:bg-orange-500 transition-colors">Add</button>
-        </form>
 
-        {storeSections.length > 0 ? (
-          <div className="space-y-3">
-            {storeSections.map((sec, idx) => (
-              <div key={idx} className="bg-gray-50 p-4 rounded-lg flex items-center justify-between border border-gray-200 shadow-sm gap-3">
-                {editingIndex === idx ? (
-                  <div className="flex items-center gap-2 flex-grow">
-                    <input 
-                      type="text" 
-                      value={editingName} 
-                      onChange={e => setEditingName(e.target.value)} 
-                      className="p-2 bg-white border-2 border-orange-400 rounded font-bold outline-none flex-grow"
-                      autoFocus
-                    />
-                    <button onClick={() => handleRenameSection(idx)} className="bg-orange-500 text-white px-4 py-2 rounded font-black text-xs uppercase hover:bg-orange-600 transition-colors">Save</button>
-                    <button onClick={() => { setEditingIndex(null); setEditingName(''); }} className="bg-gray-200 text-gray-600 px-4 py-2 rounded font-black text-xs uppercase hover:bg-gray-300 transition-colors">Cancel</button>
-                  </div>
-                ) : (
-                  <span className="font-black text-lg text-gray-800">{sec}</span>
-                )}
-
-                {editingIndex !== idx && (
-                  <div className="flex items-center gap-2 md:gap-4 flex-shrink-0">
-                    <div className="flex gap-1 bg-white border border-gray-200 rounded overflow-hidden">
-                      <button 
-                        onClick={() => moveSection(idx, 'up')} 
-                        disabled={idx === 0}
-                        className={`px-3 py-2 ${idx === 0 ? 'text-gray-300 cursor-not-allowed' : 'text-gray-600 hover:bg-gray-100 hover:text-black'} transition-colors font-bold border-r border-gray-200`}
-                      >
-                        ▲
-                      </button>
-                      <button 
-                        onClick={() => moveSection(idx, 'down')} 
-                        disabled={idx === storeSections.length - 1}
-                        className={`px-3 py-2 ${idx === storeSections.length - 1 ? 'text-gray-300 cursor-not-allowed' : 'text-gray-600 hover:bg-gray-100 hover:text-black'} transition-colors font-bold`}
-                      >
-                        ▼
-                      </button>
-                    </div>
-                    <button onClick={() => { setEditingIndex(idx); setEditingName(sec); }} className="bg-blue-50 text-blue-600 px-4 py-2 rounded font-black text-xs uppercase hover:bg-blue-500 hover:text-white transition-colors border border-blue-100 shadow-sm">Edit</button>
-                    <button onClick={() => handleRemoveSection(sec)} className="bg-red-50 text-red-600 px-4 py-2 rounded font-black text-xs uppercase hover:bg-red-500 hover:text-white transition-colors border border-red-100 shadow-sm">Delete</button>
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-        ) : (
-          <div className="text-center py-10 text-gray-400 font-bold">
-            <p className="text-lg">No sections yet.</p>
-            <p className="text-sm mt-1">Use the input above to create your first store section!</p>
-          </div>
-        )}
-      </div>
     </motion.div>
   );
 }
