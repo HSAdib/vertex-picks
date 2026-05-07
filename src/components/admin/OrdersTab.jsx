@@ -452,7 +452,20 @@ export default function OrdersTab() {
                     <div>
                       <h4 className="text-xs font-black text-gray-400 uppercase tracking-widest mb-2">Delivery Info</h4>
                       <p className="font-bold text-gray-800">Phone: <span className="text-blue-600">{order.deliveryPhone || 'N/A'}</span></p>
-                      <p className="font-bold text-gray-800 mt-1">Address: {order.deliveryAddress || 'N/A'}</p>
+                      <div className="font-bold text-gray-800 mt-1">
+                        <p className="whitespace-pre-line leading-relaxed">Address: {order.deliveryAddress || 'N/A'}</p>
+                        {order.deliveryCoords && (
+                          <a 
+                            href={`https://www.google.com/maps?q=${order.deliveryCoords.lat},${order.deliveryCoords.lng}`} 
+                            target="_blank" 
+                            rel="noreferrer" 
+                            className="inline-flex items-center gap-1 mt-2 text-[10px] font-black text-orange-600 hover:text-white hover:bg-orange-500 uppercase tracking-widest bg-orange-100 border border-orange-200 px-3 py-1.5 rounded transition-colors"
+                          >
+                            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+                            View on Map
+                          </a>
+                        )}
+                      </div>
                     </div>
                     <div>
                       <h4 className="text-xs font-black text-gray-400 uppercase tracking-widest mb-2">Items Ordered</h4>

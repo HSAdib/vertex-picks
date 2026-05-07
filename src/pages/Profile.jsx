@@ -6,6 +6,7 @@ import { useAuth } from '../context/AuthContext';
 import { Navigate, Link } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
 import { isValidBDPhoneNumber } from '../utils/phoneValidation';
+import { fetchCurrentLocation } from '../utils/geolocation';
 
 
 // VISUAL ORDER PIPELINE COMPONENT
@@ -56,7 +57,9 @@ export default function Profile() {
   const [newLabel, setNewLabel] = useState('Home');
   const [newPhone, setNewPhone] = useState('');
   const [newAddress, setNewAddress] = useState('');
+  const [newCoords, setNewCoords] = useState(null);
   const [phoneError, setPhoneError] = useState(false);
+  const [locating, setLocating] = useState(false);
 
   // --- ORDER HISTORY STATE ---
   const [myOrders, setMyOrders] = useState([]);
@@ -164,7 +167,8 @@ export default function Profile() {
         ...addr,
         label: newLabel,
         phone: newPhone,
-        address: newAddress
+        address: newAddress,
+        coords: newCoords
       } : addr);
     } else {
       const newAddrObj = {
@@ -172,6 +176,7 @@ export default function Profile() {
         label: newLabel,
         phone: newPhone,
         address: newAddress,
+        coords: newCoords,
         isDefault: addresses.length === 0
       };
       updated = [...addresses, newAddrObj];
@@ -179,7 +184,7 @@ export default function Profile() {
     await saveAddressesToDB(updated);
     setShowAddressModal(false);
     setEditAddressId(null);
-    setNewLabel('Home'); setNewPhone(''); setNewAddress('');
+    setNewLabel('Home'); setNewPhone(''); setNewAddress(''); setNewCoords(null);
   };
 
   const handleEditAddress = (addr) => {
@@ -187,13 +192,14 @@ export default function Profile() {
     setNewLabel(addr.label);
     setNewPhone(addr.phone);
     setNewAddress(addr.address);
+    setNewCoords(addr.coords || null);
     setShowAddressModal(true);
   };
 
   const closeAddressModal = () => {
     setShowAddressModal(false);
     setEditAddressId(null);
-    setNewLabel('Home'); setNewPhone(''); setNewAddress('');
+    setNewLabel('Home'); setNewPhone(''); setNewAddress(''); setNewCoords(null);
   };
 
   const handleSetDefault = async (id) => {
@@ -282,7 +288,22 @@ export default function Profile() {
               </div>
               <div>
                 <label className="block text-xs font-black uppercase tracking-widest text-gray-500 mb-2">Full Address</label>
-                <textarea value={newAddress} onChange={e => setNewAddress(e.target.value)} required placeholder="House, Road, Area, City" className="w-full p-3 border rounded font-bold outline-none focus:border-orange-500 h-24"></textarea>
+                <div className="relative">
+                  <textarea value={newAddress} onChange={e => { setNewAddress(e.target.value); setNewCoords(null); }} required placeholder="House, Road, Area, City" className="w-full p-3 pr-12 border rounded font-bold outline-none focus:border-orange-500 h-24"></textarea>
+                  <button
+                    type="button"
+                    onClick={() => fetchCurrentLocation(setNewAddress, setLocating, setNewCoords)}
+                    disabled={locating}
+                    className="absolute top-3 right-3 w-8 h-8 bg-orange-500 text-white rounded-full flex items-center justify-center hover:bg-orange-600 transition-all disabled:opacity-50 disabled:animate-pulse shadow-md hover:shadow-lg hover:shadow-orange-500/30"
+                    title="Use current location"
+                  >
+                    {locating ? (
+                      <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>
+                    ) : (
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+                    )}
+                  </button>
+                </div>
               </div>
               <div className="flex gap-4 mt-6">
                 <button type="button" onClick={closeAddressModal} className="flex-1 bg-gray-200 font-black py-3 rounded uppercase text-sm hover:bg-gray-300">Cancel</button>

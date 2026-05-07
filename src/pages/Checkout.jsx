@@ -5,6 +5,7 @@ import { useCart } from '../context/CartContext';
 import { Link, useNavigate } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
 import { isValidBDPhoneNumber } from '../utils/phoneValidation';
+import { fetchCurrentLocation } from '../utils/geolocation';
 
 export default function Checkout() {
   const { cart, removeFromCart, updateQuantity, toggleSelection, clearCart } = useCart();
@@ -20,11 +21,13 @@ export default function Checkout() {
   const [customerName, setCustomerName] = useState('');
   const [deliveryAddress, setDeliveryAddress] = useState('');
   const [deliveryPhone, setDeliveryPhone] = useState('');
+  const [deliveryCoords, setDeliveryCoords] = useState(null);
   const [showDeliveryForm, setShowDeliveryForm] = useState(false);
   const [savedAddresses, setSavedAddresses] = useState([]);
   const [selectedAddressId, setSelectedAddressId] = useState('new');
   const [highlightDelivery, setHighlightDelivery] = useState(false);
   const [phoneError, setPhoneError] = useState(false);
+  const [locating, setLocating] = useState(false);
 
   useEffect(() => {
     const fetchCheckoutData = async () => {
@@ -48,9 +51,11 @@ export default function Checkout() {
               setSelectedAddressId(defaultAddr.id);
               setDeliveryAddress(defaultAddr.address);
               setDeliveryPhone(defaultAddr.phone);
+              setDeliveryCoords(defaultAddr.coords || null);
             } else if (data.address) {
               setDeliveryAddress(data.address);
               setDeliveryPhone(data.phone || '');
+              setDeliveryCoords(null);
             }
           } else {
             setCustomerName(auth.currentUser.displayName || '');
@@ -70,11 +75,13 @@ export default function Checkout() {
     if (addrId === 'new') {
       setDeliveryAddress('');
       setDeliveryPhone('');
+      setDeliveryCoords(null);
     } else {
       const addr = savedAddresses.find(a => a.id === addrId);
       if (addr) {
         setDeliveryAddress(addr.address);
         setDeliveryPhone(addr.phone);
+        setDeliveryCoords(addr.coords || null);
       }
     }
   };
@@ -140,6 +147,7 @@ export default function Checkout() {
         customerName: customerName,
         deliveryAddress: deliveryAddress,
         deliveryPhone: deliveryPhone,
+        deliveryCoords: deliveryCoords,
         items: activeItems,
         subtotal: subtotal,
         totalWeight: totalWeight,
@@ -291,7 +299,22 @@ export default function Checkout() {
                       </div>
                       <div>
                         <label className="block text-xs font-black uppercase tracking-widest text-gray-500 mb-2">Full Address</label>
-                        <textarea value={deliveryAddress} onChange={e => setDeliveryAddress(e.target.value)} required placeholder="House, Road, Area..." className="w-full p-3 bg-gray-50 border border-gray-200 rounded font-bold outline-none focus:border-orange-500 h-24"></textarea>
+                        <div className="relative">
+                          <textarea value={deliveryAddress} onChange={e => { setDeliveryAddress(e.target.value); setDeliveryCoords(null); }} required placeholder="House, Road, Area..." className="w-full p-3 pr-12 bg-gray-50 border border-gray-200 rounded font-bold outline-none focus:border-orange-500 h-24"></textarea>
+                          <button
+                            type="button"
+                            onClick={() => fetchCurrentLocation(setDeliveryAddress, setLocating, setDeliveryCoords)}
+                            disabled={locating}
+                            className="absolute top-3 right-3 w-8 h-8 bg-orange-500 text-white rounded-full flex items-center justify-center hover:bg-orange-600 transition-all disabled:opacity-50 disabled:animate-pulse shadow-md hover:shadow-lg hover:shadow-orange-500/30"
+                            title="Use current location"
+                          >
+                            {locating ? (
+                              <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>
+                            ) : (
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+                            )}
+                          </button>
+                        </div>
                       </div>
                     </>
                   )}
