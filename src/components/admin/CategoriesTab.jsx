@@ -12,7 +12,7 @@ export default function CategoriesTab() {
 
   // Tab Editing
   const [newTabName, setNewTabName] = useState('');
-  
+
   // Section Editing Modal
   const [editingSection, setEditingSection] = useState(null); // The original section string name
   const [newSectionName, setNewSectionName] = useState(''); // For renaming
@@ -68,13 +68,25 @@ export default function CategoriesTab() {
     fetchData();
   }, []);
 
+  // Helper to open edit mode
+  const openEditForm = (prod) => {
+    setEditingProductId(prod.id);
+    setProdForm({
+      name: prod.name || '',
+      price: prod.price || '',
+      discountPrice: prod.discountPrice || '',
+      description: prod.description || '',
+      images: prod.images?.length ? prod.images : ['']
+    });
+  };
+
   // --- NAVBAR TABS MANAGEMENT ---
   const handleAddTab = async (e) => {
     e.preventDefault();
     if (!newTabName.trim()) return;
-    const newTab = { 
-      id: Date.now().toString(), 
-      name: newTabName.trim(), 
+    const newTab = {
+      id: Date.now().toString(),
+      name: newTabName.trim(),
       sections: [],
       heroTitle: newTabName.trim(),
       heroSubtitle: 'Fresh from the orchards of Rajshahi. Hand-picked for excellence.'
@@ -143,11 +155,11 @@ export default function CategoriesTab() {
   const handleRenameSection = async () => {
     if (!newSectionName.trim() || newSectionName === editingSection) return;
     if (storeSections.includes(newSectionName)) return toast.error("Name already exists");
-    
+
     // Update STORE_SECTIONS list
     const updatedSecs = storeSections.map(s => s === editingSection ? newSectionName : s);
     await setDoc(doc(db, 'mangoes', 'STORE_SECTIONS'), { list: updatedSecs }, { merge: true });
-    
+
     // Update NAVBAR_TABS references
     const updatedTabs = navTabs.map(t => ({
       ...t,
@@ -160,6 +172,7 @@ export default function CategoriesTab() {
       await updateDoc(doc(db, 'mangoes', p.id), { section: newSectionName });
     }
 
+    setProducts(prev => prev.map(p => p.section === editingSection ? { ...p, section: newSectionName } : p));
     setStoreSections(updatedSecs);
     setNavTabs(updatedTabs);
     setEditingSection(newSectionName);
@@ -181,7 +194,7 @@ export default function CategoriesTab() {
       p.order = i;
       return updateDoc(doc(db, 'mangoes', p.id), { order: i });
     });
-    
+
     setSectionProducts(newProds);
     await Promise.all(batchPromises);
     toast.success("Order Saved");
@@ -191,6 +204,8 @@ export default function CategoriesTab() {
     try {
       await updateDoc(doc(db, 'mangoes', prodId), { section: 'Uncategorized' });
       setSectionProducts(sectionProducts.filter(p => p.id !== prodId));
+      // Fix: Update main products list so it instantly appears in "Add Existing" view
+      setProducts(prev => prev.map(p => p.id === prodId ? { ...p, section: 'Uncategorized' } : p));
       toast.success("Removed from section");
     } catch (err) {
       toast.error("Failed to remove");
@@ -201,7 +216,8 @@ export default function CategoriesTab() {
     try {
       await updateDoc(doc(db, 'mangoes', prod.id), { section: editingSection, order: sectionProducts.length });
       setSectionProducts([...sectionProducts, { ...prod, section: editingSection, order: sectionProducts.length }]);
-      setShowAddExisting(false);
+      // Fix: Update main products list so it instantly disappears from "Add Existing" view
+      setProducts(prev => prev.map(p => p.id === prod.id ? { ...p, section: editingSection } : p));
       toast.success("Added to section");
     } catch (err) {
       toast.error("Failed to add");
@@ -212,7 +228,7 @@ export default function CategoriesTab() {
   const handleSaveProduct = async (e) => {
     e.preventDefault();
     const isNew = editingProductId === 'new';
-    
+
     const prodData = {
       name: prodForm.name,
       price: prodForm.price,
@@ -227,11 +243,14 @@ export default function CategoriesTab() {
       if (isNew) {
         const newRef = doc(collection(db, 'mangoes'));
         await setDoc(newRef, prodData);
-        setSectionProducts([...sectionProducts, { id: newRef.id, ...prodData }]);
+        const newProductWithId = { id: newRef.id, ...prodData };
+        setSectionProducts([...sectionProducts, newProductWithId]);
+        setProducts([...products, newProductWithId]);
         toast.success("Product Added");
       } else {
         await updateDoc(doc(db, 'mangoes', editingProductId), prodData);
         setSectionProducts(sectionProducts.map(p => p.id === editingProductId ? { id: p.id, ...prodData } : p));
+        setProducts(products.map(p => p.id === editingProductId ? { id: p.id, ...prodData } : p));
         toast.success("Product Updated");
       }
       setEditingProductId(null);
@@ -250,11 +269,11 @@ export default function CategoriesTab() {
         <h2 className="font-black uppercase text-xl mb-6 flex items-center gap-2">
           🌐 Top Navigation Tabs
         </h2>
-        
+
         <form onSubmit={handleAddTab} className="flex gap-4 mb-6">
-          <input 
-            type="text" 
-            placeholder="New Tab Name (e.g., Premium Mangoes)" 
+          <input
+            type="text"
+            placeholder="New Tab Name (e.g., Premium Mangoes)"
             value={newTabName}
             onChange={e => setNewTabName(e.target.value)}
             className="flex-1 p-3 bg-gray-50 border border-gray-200 rounded-lg font-bold outline-none focus:border-orange-500"
@@ -276,24 +295,24 @@ export default function CategoriesTab() {
               <div className="mb-4 p-3 bg-white border border-gray-200 rounded-lg shadow-sm space-y-3">
                 <div>
                   <label className="block text-[10px] font-black uppercase tracking-widest text-gray-400 mb-1">Header Title</label>
-                  <input 
-                    type="text" 
-                    value={tab.heroTitle || tab.name} 
+                  <input
+                    type="text"
+                    value={tab.heroTitle || tab.name}
                     onChange={e => updateTabHero(tab.id, 'heroTitle', e.target.value)}
                     className="w-full p-2 bg-gray-50 border border-gray-100 rounded font-black text-gray-800 text-sm outline-none focus:border-orange-500"
                   />
                 </div>
                 <div>
                   <label className="block text-[10px] font-black uppercase tracking-widest text-gray-400 mb-1">Header Subtitle</label>
-                  <textarea 
+                  <textarea
                     rows="2"
-                    value={tab.heroSubtitle || 'Fresh from the orchards of Rajshahi. Hand-picked for excellence.'} 
+                    value={tab.heroSubtitle || 'Fresh from the orchards of Rajshahi. Hand-picked for excellence.'}
                     onChange={e => updateTabHero(tab.id, 'heroSubtitle', e.target.value)}
                     className="w-full p-2 bg-gray-50 border border-gray-100 rounded font-bold text-gray-500 text-xs outline-none focus:border-orange-500"
                   />
                 </div>
               </div>
-              
+
               <div className="mb-2 text-xs font-black uppercase tracking-widest text-gray-500">Assigned Sections</div>
               <div className="flex flex-wrap gap-2">
                 {storeSections.map(sec => {
@@ -302,11 +321,10 @@ export default function CategoriesTab() {
                     <button
                       key={sec}
                       onClick={() => toggleSectionInTab(tab.id, sec)}
-                      className={`px-3 py-1 rounded-full text-xs font-bold border transition-colors ${
-                        isAssigned 
-                          ? 'bg-orange-500 border-orange-500 text-white shadow-md' 
-                          : 'bg-white border-gray-300 text-gray-600 hover:border-gray-400'
-                      }`}
+                      className={`px-3 py-1 rounded-full text-xs font-bold border transition-colors ${isAssigned
+                        ? 'bg-orange-500 border-orange-500 text-white shadow-md'
+                        : 'bg-white border-gray-300 text-gray-600 hover:border-gray-400'
+                        }`}
                     >
                       {isAssigned ? '✓ ' : '+ '}{sec}
                     </button>
@@ -343,12 +361,12 @@ export default function CategoriesTab() {
       <AnimatePresence>
         {editingSection && (
           <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6">
-            <motion.div 
+            <motion.div
               initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
               onClick={closeSectionModal}
               className="absolute inset-0 bg-black/60 backdrop-blur-sm"
             ></motion.div>
-            
+
             <motion.div
               initial={{ scale: 0.95, opacity: 0, y: 20 }}
               animate={{ scale: 1, opacity: 1, y: 0 }}
@@ -358,9 +376,9 @@ export default function CategoriesTab() {
               {/* MODAL HEADER */}
               <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50">
                 <div className="flex items-center gap-4 flex-1">
-                  <input 
-                    type="text" 
-                    value={newSectionName} 
+                  <input
+                    type="text"
+                    value={newSectionName}
                     onChange={e => setNewSectionName(e.target.value)}
                     className="font-black text-2xl bg-transparent outline-none border-b-2 border-transparent focus:border-orange-500 transition-colors w-1/2"
                   />
@@ -373,7 +391,7 @@ export default function CategoriesTab() {
 
               {/* MODAL BODY */}
               <div className="p-6 overflow-y-auto flex-1 bg-gray-100 flex flex-col min-h-[60vh]">
-                
+
                 {/* 1. ADD EXISTING PRODUCT VIEW */}
                 {showAddExisting && !editingProductId && (
                   <div className="flex-1 flex flex-col">
@@ -381,21 +399,39 @@ export default function CategoriesTab() {
                       <h3 className="font-black text-xl uppercase tracking-tight text-gray-800">Add Product to {editingSection}</h3>
                       <button onClick={() => setShowAddExisting(false)} className="text-gray-500 text-sm font-bold hover:text-black">Cancel</button>
                     </div>
-                    
-                    <button 
+
+                    <button
                       onClick={() => { setShowAddExisting(false); setEditingProductId('new'); setProdForm({ name: '', price: '', discountPrice: '', description: '', images: [''] }); }}
                       className="w-full bg-black text-white font-black py-4 rounded-xl uppercase hover:bg-orange-500 transition-colors mb-8 shadow-md"
                     >
                       + Create Brand New Product
                     </button>
 
-                    <h4 className="font-bold text-xs text-gray-500 uppercase tracking-widest mb-4">Or click to add an existing product:</h4>
+                    <h4 className="font-bold text-xs text-gray-500 uppercase tracking-widest mb-4">Or select an existing product:</h4>
                     <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                       {products.filter(p => p.section !== editingSection).map(prod => (
-                        <div key={prod.id} className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex flex-col hover:border-orange-500 transition-colors group cursor-pointer" onClick={() => addExistingProductToSection(prod)}>
-                          <span className="font-black text-sm truncate text-gray-800 group-hover:text-orange-600">{prod.name}</span>
-                          <span className="text-xs text-gray-400 font-bold mt-1">Currently in: {prod.section || 'Uncategorized'}</span>
-                          <span className="mt-3 bg-orange-50 text-orange-600 text-[10px] font-black uppercase text-center py-1.5 rounded opacity-0 group-hover:opacity-100 transition-opacity">Click to Add</span>
+                        <div key={prod.id} className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden flex flex-col relative group hover:border-orange-500 transition-colors">
+                          <div
+                            className="h-32 w-full bg-gray-100 relative cursor-pointer"
+                            onClick={() => { setShowAddExisting(false); openEditForm(prod); }}
+                          >
+                            <img src={prod.images?.[0] || 'https://via.placeholder.com/150'} className="w-full h-full object-cover group-hover:scale-105 transition-transform" alt="" />
+                          </div>
+
+                          <div className="p-3 flex-1 flex flex-col">
+                            <h4 className="font-black text-sm text-gray-800 line-clamp-2">{prod.name}</h4>
+                            <p className="font-bold text-gray-500 text-xs mt-1">৳{prod.discountPrice || prod.price}</p>
+                            <span className="text-[10px] text-gray-400 font-bold mt-1">In: {prod.section || 'Uncategorized'}</span>
+                          </div>
+
+                          {/* Floating Plus Icon Bottom Right */}
+                          <button
+                            onClick={() => addExistingProductToSection(prod)}
+                            className="absolute bottom-2 right-2 w-8 h-8 bg-black text-white rounded-full flex items-center justify-center shadow hover:bg-orange-500 hover:scale-110 transition-all font-black text-lg pb-0.5"
+                            title="Add to Section"
+                          >
+                            +
+                          </button>
                         </div>
                       ))}
                       {products.filter(p => p.section !== editingSection).length === 0 && (
@@ -412,15 +448,15 @@ export default function CategoriesTab() {
                       <h3 className="font-black text-xl uppercase tracking-tight text-gray-800">{editingProductId === 'new' ? 'Create New Product' : 'Edit Product'}</h3>
                       <button onClick={() => setEditingProductId(null)} className="text-gray-500 text-sm font-bold hover:text-black">Cancel</button>
                     </div>
-                    
+
                     <form onSubmit={handleSaveProduct} className="space-y-5">
-                      <input type="text" placeholder="Product Name" required value={prodForm.name} onChange={e => setProdForm({...prodForm, name: e.target.value})} className="w-full p-4 bg-white border border-gray-200 shadow-sm rounded-xl font-bold outline-none focus:border-orange-500" />
+                      <input type="text" placeholder="Product Name" required value={prodForm.name} onChange={e => setProdForm({ ...prodForm, name: e.target.value })} className="w-full p-4 bg-white border border-gray-200 shadow-sm rounded-xl font-bold outline-none focus:border-orange-500" />
                       <div className="flex flex-col md:flex-row gap-5">
-                        <input type="number" placeholder="Base Price (৳)" required value={prodForm.price} onChange={e => setProdForm({...prodForm, price: e.target.value})} className="flex-1 p-4 bg-white border border-gray-200 shadow-sm rounded-xl font-bold outline-none focus:border-orange-500" />
-                        <input type="number" placeholder="Discount Price (৳) (Optional)" value={prodForm.discountPrice} onChange={e => setProdForm({...prodForm, discountPrice: e.target.value})} className="flex-1 p-4 bg-white border border-gray-200 shadow-sm rounded-xl font-bold outline-none focus:border-orange-500" />
+                        <input type="number" placeholder="Base Price (৳)" required value={prodForm.price} onChange={e => setProdForm({ ...prodForm, price: e.target.value })} className="flex-1 p-4 bg-white border border-gray-200 shadow-sm rounded-xl font-bold outline-none focus:border-orange-500" />
+                        <input type="number" placeholder="Discount Price (৳) (Optional)" value={prodForm.discountPrice} onChange={e => setProdForm({ ...prodForm, discountPrice: e.target.value })} className="flex-1 p-4 bg-white border border-gray-200 shadow-sm rounded-xl font-bold outline-none focus:border-orange-500" />
                       </div>
-                      <textarea placeholder="Product Description..." required rows="4" value={prodForm.description} onChange={e => setProdForm({...prodForm, description: e.target.value})} className="w-full p-4 bg-white border border-gray-200 shadow-sm rounded-xl font-bold outline-none focus:border-orange-500"></textarea>
-                      
+                      <textarea placeholder="Product Description..." required rows="4" value={prodForm.description} onChange={e => setProdForm({ ...prodForm, description: e.target.value })} className="w-full p-4 bg-white border border-gray-200 shadow-sm rounded-xl font-bold outline-none focus:border-orange-500"></textarea>
+
                       <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm">
                         <label className="block font-black text-xs uppercase tracking-widest text-gray-500 mb-3">Product Images (URLs)</label>
                         <div className="space-y-3">
@@ -428,13 +464,13 @@ export default function CategoriesTab() {
                             <input key={idx} type="url" placeholder="https://..." value={img} onChange={e => {
                               const newImgs = [...prodForm.images];
                               newImgs[idx] = e.target.value;
-                              setProdForm({...prodForm, images: newImgs});
+                              setProdForm({ ...prodForm, images: newImgs });
                             }} className="w-full p-3 bg-gray-50 border border-gray-200 rounded-lg font-bold text-sm outline-none focus:border-orange-500" />
                           ))}
                         </div>
-                        <button type="button" onClick={() => setProdForm({...prodForm, images: [...prodForm.images, '']})} className="mt-3 text-orange-500 font-black text-xs uppercase hover:text-orange-600 transition-colors">+ Add another image URL</button>
+                        <button type="button" onClick={() => setProdForm({ ...prodForm, images: [...prodForm.images, ''] })} className="mt-3 text-orange-500 font-black text-xs uppercase hover:text-orange-600 transition-colors">+ Add another image URL</button>
                       </div>
-                      
+
                       <button type="submit" className="w-full bg-black text-white font-black py-4 rounded-xl uppercase text-lg shadow-md hover:bg-orange-500 hover:shadow-lg transition-all mt-4">
                         Save Product
                       </button>
@@ -445,23 +481,23 @@ export default function CategoriesTab() {
                 {/* 3. GRID LIST VIEW */}
                 {!editingProductId && !showAddExisting && (
                   <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-                    
+
                     {/* ADD NEW SQUARED BOX */}
-                    <div 
+                    <div
                       onClick={() => setShowAddExisting(true)}
                       className="bg-white border-2 border-dashed border-gray-300 rounded-xl flex flex-col items-center justify-center text-gray-400 hover:text-orange-500 hover:border-orange-500 hover:bg-orange-50 cursor-pointer aspect-square transition-all shadow-sm"
                     >
-                      <svg className="w-8 h-8 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M12 4v16m8-8H4"/></svg>
+                      <svg className="w-8 h-8 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M12 4v16m8-8H4" /></svg>
                       <span className="font-black text-[10px] uppercase tracking-widest text-center px-2">Add Product</span>
                     </div>
 
                     {/* PRODUCTS IN THIS SECTION */}
                     {sectionProducts.map((prod, idx) => (
                       <div key={prod.id} className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden flex flex-col relative group">
-                        
+
                         {/* Remove from section button */}
-                        <button 
-                          onClick={() => removeFromSection(prod.id)} 
+                        <button
+                          onClick={() => removeFromSection(prod.id)}
                           className="absolute top-2 right-2 z-10 bg-white shadow border border-red-100 text-red-500 w-6 h-6 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 hover:bg-red-500 hover:text-white hover:border-red-500 transition-all text-xs font-black"
                           title="Remove from Section"
                         >
@@ -474,25 +510,23 @@ export default function CategoriesTab() {
                           <button onClick={() => moveProduct(idx, 1)} disabled={idx === sectionProducts.length - 1} className="w-6 h-6 flex items-center justify-center rounded bg-white shadow border border-gray-200 text-gray-600 font-black text-xs hover:bg-gray-100 disabled:opacity-50">↓</button>
                         </div>
 
-                        <div className="h-32 w-full bg-gray-100 relative">
-                          <img src={prod.images?.[0] || 'https://via.placeholder.com/150'} className="w-full h-full object-cover" alt="" />
+                        {/* Clickable Image to Edit */}
+                        <div
+                          className="h-32 w-full bg-gray-100 relative cursor-pointer"
+                          onClick={() => openEditForm(prod)}
+                        >
+                          <img src={prod.images?.[0] || 'https://via.placeholder.com/150'} className="w-full h-full object-cover group-hover:opacity-90 transition-opacity" alt="" />
+                          <div className="absolute inset-0 bg-black/10 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center pointer-events-none">
+                            <span className="bg-black/70 text-white text-[10px] uppercase font-black px-2 py-1 rounded tracking-widest">Edit</span>
+                          </div>
                         </div>
-                        
+
                         <div className="p-3 flex-1 flex flex-col">
                           <h4 className="font-black text-sm text-gray-800 line-clamp-2 leading-tight">{prod.name}</h4>
                           <p className="font-bold text-gray-500 text-xs mt-1">৳{prod.discountPrice || prod.price}</p>
                           <div className="mt-auto pt-3">
-                            <button 
-                              onClick={() => {
-                                setEditingProductId(prod.id);
-                                setProdForm({ 
-                                  name: prod.name || '', 
-                                  price: prod.price || '', 
-                                  discountPrice: prod.discountPrice || '', 
-                                  description: prod.description || '', 
-                                  images: prod.images?.length ? prod.images : [''] 
-                                });
-                              }}
+                            <button
+                              onClick={() => openEditForm(prod)}
                               className="w-full bg-gray-100 text-gray-700 py-1.5 rounded font-black text-[10px] uppercase tracking-widest hover:bg-gray-200 transition-colors"
                             >
                               Edit Details
