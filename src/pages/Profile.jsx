@@ -253,8 +253,6 @@ export default function Profile() {
   if (loading || authLoading) return <div className="min-h-screen flex items-center justify-center bg-gray-50 font-bold">Loading Profile...</div>;
   if (!user) return <Navigate to="/login" replace />;
 
-  const isAdminUser = isAdmin;
-
   return (
     <div className={`min-h-screen py-16 px-4 ${isAdmin ? 'bg-gray-900' : 'bg-gray-50'}`}>
       

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { collection, getDocs, updateDoc, deleteDoc, doc, addDoc } from 'firebase/firestore';
 import { db } from '../../firebaseConfig';
 import { motion } from 'framer-motion';
@@ -53,7 +53,9 @@ export default function InventoryTab() {
   };
 
   useEffect(() => {
-    fetchProducts();
+    Promise.resolve().then(() => {
+      fetchProducts();
+    });
   }, []);
 
   const handleDiscountPriceChange = (val) => { setDiscountPrice(val); if (price && val) setDiscountPercent(Math.round(((price - val) / price) * 100)); else setDiscountPercent(''); };

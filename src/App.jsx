@@ -17,6 +17,7 @@ function App() {
   return (
     <AuthProvider>
       <CartProvider>
+        <Analytics />
         <Router>
           <div className="min-h-screen bg-gradient-to-br from-orange-50 via-yellow-50 to-green-50 font-sans text-brand-dark flex flex-col">
             {/* This adds the smooth sliding popups to the top center of the screen */}

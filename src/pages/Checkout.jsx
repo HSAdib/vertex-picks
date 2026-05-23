@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { collection, getDocs, addDoc, doc, getDoc, setDoc, arrayUnion } from 'firebase/firestore';
 import { db, auth } from '../firebaseConfig'; 
 import { useCart } from '../context/CartContext';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
 import { isValidBDPhoneNumber } from '../utils/phoneValidation';
 import { fetchCurrentLocation } from '../utils/geolocation';
@@ -191,6 +191,7 @@ export default function Checkout() {
       // NEW: Save address if user entered a new one
       if (selectedAddressId === 'new') {
         const newAddrObj = {
+          // eslint-disable-next-line react-hooks/purity
           id: Date.now().toString(),
           label: 'Saved from Checkout',
           address: deliveryAddress,

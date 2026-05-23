@@ -14,7 +14,7 @@ export default function Home() {
           <p className="text-lg md:text-2xl font-light text-gray-300 mb-10 max-w-2xl mx-auto">
             Hand-picked. Bagged on the tree. Delivered flawlessly to your doorstep. Experience the premium standard.
           </p>
-          <Link to="/shop" className="inline-block bg-brand-gold text-brand-dark font-black text-lg px-8 py-4 uppercase tracking-widest hover:bg-yellow-400 hover:scale-105 transition-all duration-200">
+          <Link to="/shop" className="inline-block bg-brand-gold text-brand-dark font-black text-lg px-8 py-4 uppercase tracking-widest transition-all duration-200 glow-btn hover:scale-105">
             Reserve Your Box
           </Link>
         </div>

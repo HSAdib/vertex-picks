@@ -6,30 +6,16 @@ import { toast } from 'react-hot-toast';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
 export default function HomeTab() {
-  const [storeSections, setStoreSections] = useState([]);
   const [storeConfig, setStoreConfig] = useState({ baseDeliveryFee: 110, perKgFee: 21 });
   const [configSaving, setConfigSaving] = useState(false);
-  const [newSectionName, setNewSectionName] = useState('');
   const [loading, setLoading] = useState(true);
-  const [editingIndex, setEditingIndex] = useState(null);
-  const [editingName, setEditingName] = useState('');
 
   // --- ANALYTICS STATE ---
   const [analytics, setAnalytics] = useState(null);
   const [analyticsLoading, setAnalyticsLoading] = useState(true);
 
-  useEffect(() => {
-    fetchSections();
-    fetchAnalytics();
-  }, []);
-
-  const fetchSections = async () => {
+  const fetchConfig = async () => {
     try {
-      const docRef = doc(db, 'mangoes', 'STORE_SECTIONS');
-      const docSnap = await getDoc(docRef);
-      if (docSnap.exists()) {
-        setStoreSections(docSnap.data().list || []);
-      }
       const configRef = doc(db, 'mangoes', 'STORE_SETTINGS');
       const configSnap = await getDoc(configRef);
       if (configSnap.exists()) {
@@ -39,8 +25,8 @@ export default function HomeTab() {
         });
       }
     } catch (err) {
-      console.error('Failed to fetch sections:', err);
-      toast.error("Failed to load sections. Check Firestore rules.");
+      console.error('Failed to fetch config:', err);
+      toast.error("Failed to load settings.");
     } finally {
       setLoading(false);
     }
@@ -106,10 +92,12 @@ export default function HomeTab() {
     }
   };
 
-  const saveSections = async (updatedSections) => {
-    await setDoc(doc(db, 'mangoes', 'STORE_SECTIONS'), { list: updatedSections }, { merge: true });
-    setStoreSections(updatedSections);
-  };
+  useEffect(() => {
+    Promise.resolve().then(() => {
+      fetchConfig();
+      fetchAnalytics();
+    });
+  }, []);
 
   const handleSaveConfig = async (e) => {
     e.preventDefault();
@@ -122,63 +110,6 @@ export default function HomeTab() {
       toast.error("Failed to save configuration.");
     }
     setConfigSaving(false);
-  };
-
-  const handleAddSection = async (e) => {
-    e.preventDefault();
-    if (!newSectionName.trim()) return;
-    if (storeSections.includes(newSectionName.trim())) return toast.error("Section already exists!");
-    try {
-      await saveSections([...storeSections, newSectionName.trim()]);
-      setNewSectionName('');
-      toast.success("Section Added!");
-    } catch (err) {
-      console.error(err);
-      toast.error("Failed to add section.");
-    }
-  };
-
-  const handleRemoveSection = async (sec) => {
-    try {
-      await saveSections(storeSections.filter(s => s !== sec));
-      toast.success("Section Removed!");
-    } catch (err) {
-      console.error(err);
-      toast.error("Failed to remove section.");
-    }
-  };
-
-  const handleRenameSection = async (idx) => {
-    if (!editingName.trim()) return;
-    if (storeSections.includes(editingName.trim())) return toast.error("That name already exists!");
-    try {
-      const updated = [...storeSections];
-      updated[idx] = editingName.trim();
-      await saveSections(updated);
-      setEditingIndex(null);
-      setEditingName('');
-      toast.success("Section Renamed!");
-    } catch (err) {
-      console.error(err);
-      toast.error("Failed to rename section.");
-    }
-  };
-
-  const moveSection = async (index, direction) => {
-    const newSections = [...storeSections];
-    if (direction === 'up' && index > 0) {
-      [newSections[index - 1], newSections[index]] = [newSections[index], newSections[index - 1]];
-    } else if (direction === 'down' && index < newSections.length - 1) {
-      [newSections[index + 1], newSections[index]] = [newSections[index], newSections[index + 1]];
-    } else {
-      return;
-    }
-    try {
-      await saveSections(newSections);
-    } catch (err) {
-      console.error(err);
-      toast.error("Failed to rearrange sections.");
-    }
   };
 
   if (loading) return <div className="text-center p-10 font-black text-gray-500 uppercase tracking-widest">Loading Tools...</div>;

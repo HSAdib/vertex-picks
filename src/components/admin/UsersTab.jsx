@@ -7,10 +7,6 @@ export default function UsersTab() {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    fetchUsers();
-  }, []);
-
   const fetchUsers = async () => {
     try {
       const snap = await getDocs(collection(db, 'users'));
@@ -36,6 +32,12 @@ export default function UsersTab() {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    Promise.resolve().then(() => {
+      fetchUsers();
+    });
+  }, []);
 
   if (loading) {
     return <div className="text-center p-10 font-black text-gray-500 uppercase tracking-widest animate-pulse">Loading Customers...</div>;

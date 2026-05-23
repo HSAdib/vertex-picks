@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { collection, doc, getDoc, getDocs, setDoc, deleteDoc, updateDoc } from 'firebase/firestore';
+import { collection, doc, getDoc, getDocs, setDoc, updateDoc } from 'firebase/firestore';
 import { db } from '../../firebaseConfig';
 import { motion, AnimatePresence } from 'framer-motion';
 import toast from 'react-hot-toast';
@@ -65,7 +65,9 @@ export default function CategoriesTab() {
   };
 
   useEffect(() => {
-    fetchData();
+    Promise.resolve().then(() => {
+      fetchData();
+    });
   }, []);
 
   // Helper to open edit mode
@@ -207,7 +209,7 @@ export default function CategoriesTab() {
       // Fix: Update main products list so it instantly appears in "Add Existing" view
       setProducts(prev => prev.map(p => p.id === prodId ? { ...p, section: 'Uncategorized' } : p));
       toast.success("Removed from section");
-    } catch (err) {
+    } catch {
       toast.error("Failed to remove");
     }
   };
@@ -219,7 +221,7 @@ export default function CategoriesTab() {
       // Fix: Update main products list so it instantly disappears from "Add Existing" view
       setProducts(prev => prev.map(p => p.id === prod.id ? { ...p, section: editingSection } : p));
       toast.success("Added to section");
-    } catch (err) {
+    } catch {
       toast.error("Failed to add");
     }
   };

@@ -11,3 +11,53 @@ body {
   background-color: var(--color-brand-light);
   color: var(--color-brand-dark);
 }
+
+@keyframes pulse-gold {
+  0%, 100% {
+    box-shadow: 0 0 15px rgba(245, 158, 11, 0.4), 0 0 30px rgba(245, 158, 11, 0.2);
+  }
+  50% {
+    box-shadow: 0 0 25px rgba(245, 158, 11, 0.8), 0 0 50px rgba(245, 158, 11, 0.4);
+  }
+}
+
+.glow-btn {
+  position: relative;
+  overflow: hidden;
+  animation: pulse-gold 2.5s infinite;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 0 15px rgba(245, 158, 11, 0.5);
+  cursor: pointer;
+}
+
+.glow-btn::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -60%;
+  width: 150%;
+  height: 100%;
+  background: linear-gradient(
+    to right,
+    rgba(255, 255, 255, 0) 0%,
+    rgba(255, 255, 255, 0.4) 50%,
+    rgba(255, 255, 255, 0) 100%
+  );
+  transform: skewX(-25deg);
+  transition: all 0.75s ease-in-out;
+  opacity: 0;
+}
+
+.glow-btn:hover {
+  box-shadow: 0 0 30px rgba(245, 158, 11, 0.9), 0 0 60px rgba(245, 158, 11, 0.5);
+  background-color: #fbbf24 !important; /* Tailwind's yellow-400 */
+}
+
+.glow-btn:hover::after {
+  left: 125%;
+  opacity: 1;
+}
+
+.glow-btn:active {
+  transform: scale(0.97) translateY(1px) !important;
+}

@@ -71,7 +71,10 @@ export default function OrdersTab() {
   };
 
   useEffect(() => {
-    fetchOrders();
+    Promise.resolve().then(() => {
+      fetchOrders();
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleUpdateStatus = async (id, newStatus) => {
@@ -176,14 +179,6 @@ export default function OrdersTab() {
       else next.add(id);
       return next;
     });
-  };
-
-  const toggleSelectAll = () => {
-    if (selectedOrders.size === orders.length) {
-      setSelectedOrders(new Set());
-    } else {
-      setSelectedOrders(new Set(orders.map(o => o.id)));
-    }
   };
 
   const handleBatchStatus = async (newStatus) => {

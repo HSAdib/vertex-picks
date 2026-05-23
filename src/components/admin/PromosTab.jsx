@@ -22,7 +22,9 @@ export default function PromosTab() {
   };
 
   useEffect(() => {
-    fetchPromos();
+    Promise.resolve().then(() => {
+      fetchPromos();
+    });
   }, []);
 
   const handleAddPromo = async (e) => { 

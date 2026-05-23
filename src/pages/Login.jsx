@@ -45,7 +45,7 @@ export default function Login() {
       }
     });
     return () => unsubscribe();
-  }, [navigate]);
+  }, [navigate, ADMIN_EMAIL]);
 
   // GOOGLE LOGIN HANDLER
   const handleGoogleLogin = async () => {
@@ -86,7 +86,7 @@ export default function Login() {
         const userCredential = await signInWithEmailAndPassword(auth, emailToUse, password);
         const isAdmin = userCredential.user.email.toLowerCase() === ADMIN_EMAIL.toLowerCase();
         if (isEmail && !userCredential.user.emailVerified && !isAdmin) {
-          try { await sendEmailVerification(userCredential.user); } catch (e) {}
+          try { await sendEmailVerification(userCredential.user); } catch { /* ignore */ }
           await signOut(auth);
           setError('Please verify your email. Check your inbox!');
         }
@@ -121,7 +121,7 @@ export default function Login() {
       await sendPasswordResetEmail(auth, emailToUse);
       setMessage('Password reset link sent! Check your inbox.');
       setIsForgotPasswordMode(false);
-    } catch (err) { setError('Failed to send reset email.'); }
+    } catch { setError('Failed to send reset email.'); }
   };
 
   if (showPortal) {
