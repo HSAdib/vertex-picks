@@ -125,7 +125,7 @@ export default function ProductDetails() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[var(--white)] flex items-center justify-center py-20 font-['Sora']">
+      <div className="min-h-screen bg-[var(--white)] flex items-center justify-center py-20 font-['Sora']" style={{ paddingTop: 'var(--nav-height)' }}>
         <div className="text-center">
           <span className="inline-block w-10 h-10 border-4 border-[var(--primary)] border-t-transparent rounded-full animate-spin mb-4" />
           <h3 className="font-bold text-[var(--gray4)] uppercase tracking-widest text-sm animate-pulse">Syncing Harvest Details...</h3>
@@ -136,7 +136,7 @@ export default function ProductDetails() {
 
   if (!mango) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-[var(--white)] text-center p-6 font-['Sora']">
+      <div className="min-h-screen flex flex-col items-center justify-center bg-[var(--white)] text-center p-6 font-['Sora']" style={{ paddingTop: 'var(--nav-height)' }}>
         <div className="text-6xl mb-4">🥭</div>
         <h2 className="text-2xl font-['Fraunces'] font-black uppercase text-[var(--dark)] mb-4">Harvest selection Not Found</h2>
         <Link to="/shop" className="btn-primary rounded-full font-bold uppercase tracking-wider text-xs px-6 py-3 shadow-md">Return to Shop</Link>
@@ -162,7 +162,7 @@ export default function ProductDetails() {
   const displaySales = mango.stats?.sales || 0;
 
   return (
-    <div className="bg-[var(--white)] min-h-screen pb-20 pt-24 font-['Sora'] select-none">
+    <div className="bg-[var(--white)] min-h-screen pb-20 font-['Sora'] select-none" style={{ paddingTop: 'var(--nav-height)' }}>
       
       {/* DIRECTORY BREADCRUMBS TRAILS */}
       <div className="bg-[var(--gray1)] border-b border-[var(--gray2)] py-4 px-4 sm:px-6 lg:px-8 mb-8">
@@ -351,7 +351,7 @@ export default function ProductDetails() {
 
           {/* Write a review right block */}
           <div>
-            <div className="dash-card bg-white p-6 sticky top-24 shadow-sm border border-[var(--gray2)] rounded-brand">
+            <div className="dash-card bg-white p-6 sticky top-32 shadow-sm border border-[var(--gray2)] rounded-brand">
               <h4 className="font-['Fraunces'] font-black text-sm uppercase tracking-wide text-[var(--dark)] mb-4">
                 Write a Review
               </h4>

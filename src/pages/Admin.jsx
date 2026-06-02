@@ -123,7 +123,7 @@ export default function Admin() {
   const [prodMinThreshold, setProdMinThreshold] = useState(10);
   const [prodSeason, setProdSeason] = useState('Peak');
   const [prodGrade, setProdGrade] = useState('Premium');
-  const [prodImage, setProdImage] = useState('');
+  const [prodImages, setProdImages] = useState(['']);
   const [prodDescription, setProdDescription] = useState('');
   const [prodFeatured, setProdFeatured] = useState(false);
   const [prodFixedWeight, setProdFixedWeight] = useState(1);
@@ -284,12 +284,23 @@ export default function Admin() {
     }
   }, [mangoes]);
 
+  const handleProdImageChange = (index, value) => {
+    const next = [...prodImages];
+    next[index] = value;
+    setProdImages(next);
+  };
+  const addProdImageField = () => setProdImages([...prodImages, '']);
+  const removeProdImageField = (index) => setProdImages(prodImages.filter((_, i) => i !== index));
+
   // --- CRUD ACTIONS METHODS ---
   // Product Save/Update
   const handleSaveProduct = async (e) => {
     e.preventDefault();
     try {
       const pId = editProductId || generateUniqueId();
+      const defaultImage = 'https://images.unsplash.com/photo-1553279768-865429fa0078';
+      const cleanImages = prodImages.map(img => img?.trim()).filter(Boolean);
+      const finalImages = cleanImages.length > 0 ? cleanImages : [defaultImage];
       const pData = {
         name: prodName,
         price: Number(prodPrice),
@@ -301,7 +312,8 @@ export default function Admin() {
         minThreshold: Number(prodMinThreshold),
         season: prodSeason,
         grade: prodGrade,
-        image: prodImage || 'https://images.unsplash.com/photo-1553279768-865429fa0078',
+        images: finalImages,
+        image: finalImages[0],
         description: prodDescription || 'Fresh premium bagged mango from Rajshahi orchards.',
         featured: prodFeatured,
         fixedWeight: Number(prodFixedWeight) || 1,
@@ -332,7 +344,10 @@ export default function Admin() {
     setProdMinThreshold(p.minThreshold || 10);
     setProdSeason(p.season || 'Peak');
     setProdGrade(p.grade || 'Premium');
-    setProdImage(p.image || '');
+    const loadedImages = Array.isArray(p.images) && p.images.length > 0
+      ? p.images
+      : (p.image ? [p.image] : ['']);
+    setProdImages(loadedImages);
     setProdDescription(p.description || '');
     setProdFeatured(p.featured || false);
     setProdFixedWeight(p.fixedWeight || 1);
@@ -362,7 +377,7 @@ export default function Admin() {
     setProdMinThreshold(10);
     setProdSeason('Peak');
     setProdGrade('Premium');
-    setProdImage('');
+    setProdImages(['']);
     setProdDescription('');
     setProdFeatured(false);
     setProdFixedWeight(1);
@@ -889,14 +904,37 @@ export default function Admin() {
                     />
                   </div>
                   <div className="col-span-2">
-                    <label className="block text-[10px] font-black uppercase tracking-widest text-[var(--gray4)] mb-1.5 font-['Sora']">Product Display Image URL</label>
-                    <input 
-                      type="url" 
-                      value={prodImage} 
-                      onChange={e => setProdImage(e.target.value)} 
-                      placeholder="https://..." 
-                      className="form-input font-bold text-xs" 
-                    />
+                    <label className="block text-[10px] font-black uppercase tracking-widest text-[var(--gray4)] mb-1.5 font-['Sora']">Product Images (URLs)</label>
+                    <div className="bg-[var(--gray1)] p-3 rounded-2xl border border-[var(--gray2)] space-y-2">
+                      {prodImages.map((img, idx) => (
+                        <div key={idx} className="flex gap-2">
+                          <input
+                            type="url"
+                            value={img}
+                            onChange={e => handleProdImageChange(idx, e.target.value)}
+                            placeholder="https://..."
+                            className="form-input font-bold text-xs flex-1"
+                          />
+                          {prodImages.length > 1 && (
+                            <button
+                              type="button"
+                              onClick={() => removeProdImageField(idx)}
+                              className="shrink-0 px-3 rounded-full bg-red-50 text-red-600 text-xs font-black hover:bg-red-600 hover:text-white transition-colors"
+                              aria-label="Remove image URL"
+                            >
+                              ✕
+                            </button>
+                          )}
+                        </div>
+                      ))}
+                      <button
+                        type="button"
+                        onClick={addProdImageField}
+                        className="text-[10px] font-black text-[var(--primary)] uppercase tracking-wider hover:opacity-80"
+                      >
+                        + Add Another Image URL
+                      </button>
+                    </div>
                   </div>
                   <div className="col-span-2">
                     <label className="block text-[10px] font-black uppercase tracking-widest text-[var(--gray4)] mb-1.5 font-['Sora']">Detailed Description</label>
@@ -1574,8 +1612,8 @@ export default function Admin() {
                         <td>
                           <div className="at-product-cell">
                             <div className="at-product-emoji bg-gray1">
-                              {p.image ? (
-                                <img src={p.image} alt={p.name} className="w-full h-full object-cover rounded-brand-sm" />
+                              {(p.images?.[0] || p.image) ? (
+                                <img src={p.images?.[0] || p.image} alt={p.name} className="w-full h-full object-cover rounded-brand-sm" />
                               ) : (
                                 '🥭'
                               )}

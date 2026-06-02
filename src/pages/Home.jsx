@@ -265,8 +265,8 @@ export default function Home() {
                 )}
                 <button className="pc-wishlist" onClick={(e) => e.stopPropagation()}>♡</button>
                 <div className="pc-img" style={{ background: 'linear-gradient(135deg,#FFF3C4,#FFE082)', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  {p.image
-                    ? <img src={p.image} alt={p.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  {(p.images?.[0] || p.image)
+                    ? <img src={p.images?.[0] || p.image} alt={p.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                     : <span style={{ fontSize: '3rem' }}>🥭</span>
                   }
                 </div>
