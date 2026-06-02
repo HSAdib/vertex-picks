@@ -19,21 +19,21 @@ const ImageMagnifier = ({ src, alt }) => {
 
   return (
     <div 
-      className="relative w-full h-full cursor-zoom-in"
+      className="relative w-full h-full cursor-zoom-in overflow-hidden rounded-brand"
       onMouseEnter={() => setShowMagnifier(true)}
       onMouseLeave={() => setShowMagnifier(false)}
       onMouseMove={handleMouseMove}
     >
-      <img src={src} alt={alt} className="w-full h-full object-cover" />
+      <img src={src} alt={alt} className="w-full h-full object-cover animate-fade-in duration-300" />
       
       {showMagnifier && (
         <div 
-          className="absolute inset-0 pointer-events-none shadow-inner z-10"
+          className="absolute inset-0 pointer-events-none shadow-inner z-10 animate-in fade-in duration-200"
           style={{
             backgroundImage: `url(${src})`,
             backgroundPosition: `${position.x}% ${position.y}%`,
-            backgroundSize: '200%',
-            backgroundColor: '#f3f4f6'
+            backgroundSize: '220%',
+            backgroundColor: '#f7f7f7'
           }}
         />
       )}
@@ -60,7 +60,6 @@ export default function ProductDetails() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        // Fetch the current product
         const docRef = doc(db, 'mangoes', id);
         const docSnap = await getDoc(docRef);
         if (docSnap.exists()) {
@@ -68,13 +67,11 @@ export default function ProductDetails() {
           setMango({ id: docSnap.id, ...data });
           setMainImage(data.images && data.images.length > 0 ? data.images[0] : data.image);
 
-          // Fetch all products for "You May Also Like"
           const allSnap = await getDocs(collection(db, 'mangoes'));
           const allProducts = allSnap.docs
             .filter(d => d.id !== 'STORE_SECTIONS' && d.id !== id)
             .map(d => ({ id: d.id, ...d.data() }));
           
-          // Prefer same section, fill with random if needed
           const sameSection = allProducts.filter(p => p.section && p.section === data.section);
           const others = allProducts.filter(p => !p.section || p.section !== data.section);
           const related = [...sameSection, ...others].slice(0, 4);
@@ -82,7 +79,7 @@ export default function ProductDetails() {
         }
         setLoading(false);
       } catch (error) {
-        console.error("Error fetching mango:", error);
+        console.error("Error fetching mango details:", error);
         setLoading(false);
       }
     };
@@ -94,7 +91,6 @@ export default function ProductDetails() {
     toast.success(`Added ${qty} box(es) to cart!`); 
   };
 
-  // GOD MODE TELEPORT
   const handleGodModeEdit = () => {
     localStorage.setItem('teleportEditId', mango.id);
     navigate('/admin');
@@ -107,7 +103,7 @@ export default function ProductDetails() {
 
     const newReview = {
       id: Date.now().toString(),
-      name: auth.currentUser.email.split('@')[0], 
+      name: auth.currentUser.displayName || auth.currentUser.email.split('@')[0], 
       rating: Number(userRating),
       text: userReviewText,
       date: new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }),
@@ -120,37 +116,38 @@ export default function ProductDetails() {
       setMango(prev => ({ ...prev, reviews: [newReview, ...(prev.reviews || [])] }));
       setUserReviewText('');
       toast.success("Review posted successfully!");
-    } catch (error) { console.error("Failed to post review", error); }
+    } catch (error) { 
+      console.error("Failed to post review", error); 
+      toast.error("Failed to submit review");
+    }
     setIsSubmitting(false);
   };
 
-  if (loading) return (
-    <div className="min-h-screen bg-gray-50 py-16 px-4">
-      <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-12">
-        <div className="space-y-4">
-          <div className="h-96 bg-gray-200 rounded-2xl animate-pulse"></div>
-          <div className="flex gap-3">
-            {[...Array(4)].map((_, i) => <div key={i} className="w-20 h-20 bg-gray-200 rounded-lg animate-pulse"></div>)}
-          </div>
-        </div>
-        <div className="space-y-4 pt-4">
-          <div className="h-8 bg-gray-200 rounded animate-pulse w-3/4"></div>
-          <div className="h-5 bg-gray-200 rounded animate-pulse w-1/2"></div>
-          <div className="h-4 bg-gray-200 rounded animate-pulse w-full"></div>
-          <div className="h-4 bg-gray-200 rounded animate-pulse w-full"></div>
-          <div className="h-4 bg-gray-200 rounded animate-pulse w-2/3"></div>
-          <div className="h-12 bg-gray-200 rounded animate-pulse w-40 mt-6"></div>
-          <div className="h-14 bg-gray-200 rounded animate-pulse w-full mt-4"></div>
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-[var(--white)] flex items-center justify-center py-20 font-['Sora']">
+        <div className="text-center">
+          <span className="inline-block w-10 h-10 border-4 border-[var(--primary)] border-t-transparent rounded-full animate-spin mb-4" />
+          <h3 className="font-bold text-[var(--gray4)] uppercase tracking-widest text-sm animate-pulse">Syncing Harvest Details...</h3>
         </div>
       </div>
-    </div>
-  );
-  if (!mango) return <div className="min-h-screen flex items-center justify-center font-black text-2xl text-gray-500">Mango not found.</div>;
+    );
+  }
+
+  if (!mango) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-[var(--white)] text-center p-6 font-['Sora']">
+        <div className="text-6xl mb-4">🥭</div>
+        <h2 className="text-2xl font-['Fraunces'] font-black uppercase text-[var(--dark)] mb-4">Harvest selection Not Found</h2>
+        <Link to="/shop" className="btn-primary rounded-full font-bold uppercase tracking-wider text-xs px-6 py-3 shadow-md">Return to Shop</Link>
+      </div>
+    );
+  }
 
   const imagesArray = mango.images || [mango.image];
   const reviewsList = mango.reviews || [];
 
-  let displayRating = 0;
+  let displayRating = 5;
   let displayReviewCount = reviewsList.length;
 
   if (reviewsList.length > 0) {
@@ -165,140 +162,238 @@ export default function ProductDetails() {
   const displaySales = mango.stats?.sales || 0;
 
   return (
-    <div className="bg-white min-h-screen pb-20">
+    <div className="bg-[var(--white)] min-h-screen pb-20 pt-24 font-['Sora'] select-none">
       
-      <div className="bg-gray-50 border-b border-gray-200 py-4 px-4 sm:px-6 lg:px-8">
-        <div className="max-w-7xl mx-auto text-xs font-bold text-gray-500 uppercase tracking-widest">
-          <Link to="/" className="hover:text-orange-500">Home</Link> <span className="mx-2">/</span> 
-          <Link to="/shop" className="hover:text-orange-500">Shop</Link> <span className="mx-2">/</span> 
-          <span className="text-gray-900">{mango.name} ({mango.fixedWeight || 1}kg)</span>
+      {/* DIRECTORY BREADCRUMBS TRAILS */}
+      <div className="bg-[var(--gray1)] border-b border-[var(--gray2)] py-4 px-4 sm:px-6 lg:px-8 mb-8">
+        <div className="max-w-[1200px] mx-auto text-xs font-bold text-[var(--gray4)] uppercase tracking-widest flex items-center gap-2">
+          <Link to="/" className="hover:text-[var(--primary)] transition-colors">Home</Link>
+          <span>/</span> 
+          <Link to="/shop" className="hover:text-[var(--primary)] transition-colors">Shop</Link>
+          <span>/</span> 
+          <span className="text-[var(--dark)] truncate">{mango.name} ({mango.fixedWeight || 1}kg)</span>
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
+      <div className="max-w-[1200px] mx-auto px-4 sm:px-6 lg:px-8 py-4">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-start">
           
+          {/* IMAGE MAGNIFIER PANEL & CAROUSEL */}
           <div className="space-y-4">
-            <div className="bg-gray-100 rounded-2xl overflow-hidden shadow-sm border border-gray-200 h-[500px]">
+            <div className="bg-[var(--gray1)] rounded-brand border border-[var(--gray2)] overflow-hidden shadow-sm h-[400px] sm:h-[500px]">
               <ImageMagnifier src={mainImage} alt={mango.name} />
             </div>
             {imagesArray.length > 1 && (
-              <div className="flex gap-4 overflow-x-auto pb-2">
+              <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-none">
                 {imagesArray.map((img, idx) => (
-                  <button key={idx} onClick={() => setMainImage(img)} className={`w-24 h-24 flex-shrink-0 rounded-lg overflow-hidden border-2 transition-all ${mainImage === img ? 'border-orange-500 opacity-100' : 'border-transparent opacity-60 hover:opacity-100'}`}>
-                    <img src={img} className="w-full h-full object-cover" />
+                  <button 
+                    key={idx} 
+                    onClick={() => setMainImage(img)} 
+                    className={`w-20 h-20 flex-shrink-0 rounded-brand overflow-hidden border-2 transition-all cursor-pointer ${
+                      mainImage === img ? 'border-[var(--primary)] opacity-100 scale-105 shadow-sm' : 'border-transparent opacity-60 hover:opacity-100'
+                    }`}
+                  >
+                    <img src={img} className="w-full h-full object-cover" alt="" />
                   </button>
                 ))}
               </div>
             )}
           </div>
 
+          {/* MAIN HARVEST STATS OVERVIEW */}
           <div className="flex flex-col">
-            
-            <div className="flex items-center justify-between mb-4">
-              <h1 className="text-4xl sm:text-5xl font-black text-gray-900 uppercase tracking-tight">{mango.name} ({mango.fixedWeight || 1}kg)</h1>
-              {/* GOD MODE BUTTON */}
+            <div className="flex items-start justify-between gap-4 mb-4">
+              <div>
+                {mango.section && (
+                  <span className="text-[11px] font-black uppercase tracking-widest text-[var(--primary)] mb-1.5 block">
+                    {mango.section}
+                  </span>
+                )}
+                <h1 className="text-3xl sm:text-4xl font-['Fraunces'] font-black text-[var(--dark)] uppercase leading-none">
+                  {mango.name}
+                </h1>
+                <div className="text-sm font-semibold text-[var(--gray4)] mt-2">
+                  ⚖️ Box Net Weight: {mango.fixedWeight || 1}kg
+                </div>
+              </div>
+              
+              {/* ADMIN GOD MODE WARP TRIGGER */}
               {isAdmin && (
-                <button onClick={handleGodModeEdit} className="bg-black text-white px-4 py-2 rounded font-black text-sm uppercase tracking-widest hover:bg-orange-500 shadow-md">
-                  ⚡ Edit Item
+                <button 
+                  onClick={handleGodModeEdit} 
+                  className="btn-secondary text-xs uppercase px-4 py-2 border border-[var(--gray2)] shadow-sm flex-shrink-0 font-bold rounded-full hover:bg-[var(--dark)] hover:text-white transition-all duration-200"
+                >
+                  ⚡ Quick Edit
                 </button>
               )}
             </div>
             
-            <div className="flex items-center gap-4 mb-6 pb-6 border-b border-gray-100">
-              <div className="flex text-orange-400 text-lg">
+            {/* Reviews indicators rows */}
+            <div className="flex flex-wrap items-center gap-4 mb-6 pb-6 border-b border-[var(--gray2)] text-xs font-bold text-[var(--gray4)]">
+              <div className="flex text-[var(--gold)] text-sm">
                 {'★'.repeat(roundedRating)}{'☆'.repeat(5 - roundedRating)}
               </div>
-              <span className="text-sm font-bold text-gray-600">{displayRating} Rating</span>
-              <span className="text-gray-300">|</span>
-              <span className="text-sm font-bold text-gray-600 underline cursor-pointer">{displayReviewCount} Reviews</span>
-              <span className="text-gray-300">|</span>
-              <span className="text-sm font-black text-green-600 bg-green-50 px-2 py-1 rounded">{displaySales} Sold</span>
+              <span className="text-[var(--dark)]">{displayRating} Rating</span>
+              <span className="text-[var(--gray3)]">|</span>
+              <span className="underline cursor-pointer hover:text-[var(--primary)] transition-colors">{displayReviewCount} Customer Reviews</span>
+              <span className="text-[var(--gray3)]">|</span>
+              <span className="text-[var(--green)] bg-[var(--green)]/10 px-2.5 py-1 rounded-full uppercase tracking-wider text-[10px]">
+                🔥 {displaySales}+ Sold
+              </span>
             </div>
 
-            <div className="mb-8">
+            {/* Pricing metrics layouts */}
+            <div className="mb-6">
               {mango.discountPrice ? (
-                <div className="flex items-end gap-4">
-                  <span className="text-5xl font-black text-orange-500">৳{mango.discountPrice}</span>
-                  <span className="text-2xl font-bold text-gray-400 line-through mb-1">৳{mango.price}</span>
-                  <span className="bg-black text-white text-sm font-black px-3 py-1.5 rounded-md uppercase tracking-wider mb-2">Save {mango.discountPercent}%</span>
+                <div className="flex items-end gap-3 flex-wrap">
+                  <span className="text-4xl font-['Fraunces'] font-black text-[var(--primary)] leading-none">
+                    ৳{mango.discountPrice}
+                  </span>
+                  <span className="text-lg font-bold text-[var(--gray3)] line-through">
+                    ৳{mango.price}
+                  </span>
+                  <span className="badge bg-[var(--primary-pale)] text-[var(--primary)] border border-[var(--primary)]/20 text-xs px-2.5 py-0.5 rounded-full font-black uppercase tracking-wider">
+                    Save {mango.discountPercent}%
+                  </span>
                 </div>
               ) : (
-                <span className="text-5xl font-black text-orange-500">৳{mango.price}</span>
+                <span className="text-4xl font-['Fraunces'] font-black text-[var(--primary)] leading-none">
+                  ৳{mango.price}
+                </span>
               )}
             </div>
 
-            <p className="text-gray-600 text-lg mb-8 leading-relaxed font-medium">{mango.description}</p>
+            <p className="text-[var(--gray4)] text-sm sm:text-base leading-relaxed mb-8 font-medium">
+              {mango.description}
+            </p>
 
-            <div className="mt-auto bg-gray-50 p-6 rounded-xl border border-gray-200">
-              <label className="block text-xs font-black text-gray-500 uppercase tracking-widest mb-3">Quantity (Boxes)</label>
-              <div className="flex gap-4">
-                <div className="flex items-center bg-white border border-gray-300 rounded-md">
-                  <button onClick={() => setQty(Math.max(1, qty - 1))} className="px-5 py-3 text-gray-500 hover:text-black font-black text-lg">-</button>
-                  <span className="px-5 py-3 font-black text-lg border-l border-r border-gray-200 w-16 text-center">{qty}</span>
-                  <button onClick={() => setQty(qty + 1)} className="px-5 py-3 text-gray-500 hover:text-black font-black text-lg">+</button>
+            {/* ADD TO CART ACTION BAR */}
+            <div className="bg-[var(--gray1)] p-6 rounded-brand border border-[var(--gray2)] shadow-sm relative overflow-hidden">
+              <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-br from-[var(--primary-pale)] to-transparent rounded-full opacity-40 -mr-8 -mt-8 pointer-events-none" />
+              
+              <label className="block text-[10px] font-black text-[var(--gray4)] uppercase tracking-widest mb-2.5">
+                Quantity (Boxes)
+              </label>
+              <div className="flex gap-3 flex-wrap sm:flex-nowrap">
+                <div className="flex items-center bg-white border border-[var(--gray2)] rounded-brand shadow-inner overflow-hidden">
+                  <button 
+                    onClick={() => setQty(Math.max(1, qty - 1))} 
+                    className="px-4 py-2 text-[var(--gray4)] hover:text-[var(--primary)] hover:bg-[var(--gray1)] font-black text-lg cursor-pointer transition-colors"
+                  >
+                    -
+                  </button>
+                  <span className="px-4 py-2 font-bold text-[var(--dark)] text-base min-w-[50px] text-center select-none">
+                    {qty}
+                  </span>
+                  <button 
+                    onClick={() => setQty(qty + 1)} 
+                    className="px-4 py-2 text-[var(--gray4)] hover:text-[var(--primary)] hover:bg-[var(--gray1)] font-black text-lg cursor-pointer transition-colors"
+                  >
+                    +
+                  </button>
                 </div>
-                <button onClick={handleAddToCart} className="flex-grow bg-black text-white font-black text-xl rounded-md hover:bg-orange-500 transition-colors uppercase tracking-widest shadow-lg hover:shadow-xl">Add to Cart</button>
+                
+                <button 
+                  onClick={handleAddToCart} 
+                  className="flex-grow btn-primary text-center font-bold uppercase py-3.5 tracking-widest shadow-md text-xs flex items-center justify-center gap-2 rounded-full transition-all duration-300 hover:scale-[1.02]"
+                >
+                  Reserve Box 📦
+                </button>
               </div>
-              <p className="text-center text-xs font-bold text-green-600 mt-4 uppercase tracking-widest">✓ Guaranteed Fresh Delivery</p>
+              <p className="text-center text-[10px] font-bold text-[var(--green)] mt-3.5 uppercase tracking-wider">
+                ✓ Season 2026 Handpicked Premium Orchard Freshness Guaranteed
+              </p>
             </div>
 
           </div>
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-16 pt-16 border-t-4 border-gray-100">
+      {/* REVIEWS AND WRITE FEEDBACK BLOCKS */}
+      <div className="max-w-[1200px] mx-auto px-4 sm:px-6 lg:px-8 mt-16 pt-16 border-t border-[var(--gray2)]">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
           
+          {/* Reviews list left panel */}
           <div className="lg:col-span-2 space-y-6">
-            <h2 className="text-3xl font-black uppercase tracking-tight mb-8">Customer Reviews</h2>
+            <h3 className="text-2xl font-['Fraunces'] font-black text-[var(--dark)] uppercase tracking-tight mb-6">
+              Customer <span className="text-[var(--primary)]">Feedback</span>
+            </h3>
             {reviewsList.length === 0 ? (
-              <p className="text-gray-500 font-bold">No reviews yet. Be the first to review this harvest!</p>
+              <p className="text-[var(--gray4)] font-bold text-sm">No reviews yet for this harvest. Be the first to leave verified feedback!</p>
             ) : (
-              reviewsList.map(review => (
-                <div key={review.id} className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-                  <div className="flex items-center justify-between mb-4">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 bg-gray-200 rounded-full flex items-center justify-center font-black text-gray-500 uppercase">{review.name.charAt(0)}</div>
+              <div className="reviews-row grid grid-cols-1 gap-4">
+                {reviewsList.map(review => (
+                  <div key={review.id} className="review-card hover:shadow-md transition-all duration-300">
+                    <div className="rv-stars text-[var(--gold)] text-sm font-black">
+                      {'★'.repeat(review.rating)}{'☆'.repeat(5 - review.rating)}
+                    </div>
+                    <p className="rv-text text-sm font-semibold text-[var(--gray4)] my-3.5 leading-relaxed font-['Sora']">
+                      "{review.text}"
+                    </p>
+                    <div className="rv-author flex items-center gap-3 mt-4">
+                      <div className="rv-avatar w-9 h-9 rounded-full bg-[var(--primary-pale)] text-[var(--primary)] font-bold flex items-center justify-center text-xs shrink-0 select-none">
+                        {review.name.charAt(0).toUpperCase()}
+                      </div>
                       <div>
-                        <h4 className="font-black text-gray-900">{review.name} {review.isVerified && <span className="text-xs text-blue-500 font-bold ml-1">✓ Verified</span>}</h4>
-                        <p className="text-xs text-gray-400 font-bold">{review.date}</p>
+                        <div className="rv-name font-bold text-xs text-[var(--dark)]">
+                          {review.name}
+                        </div>
+                        <div className="rv-loc text-[10px] text-[var(--gray4)] font-semibold mt-0.5">
+                          {review.isVerified ? '✓ Verified Buyer' : 'Customer'} • {review.date}
+                        </div>
                       </div>
                     </div>
-                    <div className="flex text-orange-400">{'★'.repeat(review.rating)}{'☆'.repeat(5 - review.rating)}</div>
                   </div>
-                  <p className="text-gray-700 font-medium">{review.text}</p>
-                </div>
-              ))
+                ))}
+              </div>
             )}
           </div>
 
-          <div className="lg:col-span-1">
-            <div className="bg-gray-50 p-8 rounded-2xl border border-gray-200 sticky top-24">
-              <h3 className="text-xl font-black uppercase mb-6">Write a Review</h3>
+          {/* Write a review right block */}
+          <div>
+            <div className="dash-card bg-white p-6 sticky top-24 shadow-sm border border-[var(--gray2)] rounded-brand">
+              <h4 className="font-['Fraunces'] font-black text-sm uppercase tracking-wide text-[var(--dark)] mb-4">
+                Write a Review
+              </h4>
               {!auth.currentUser ? (
-                <div className="text-center">
-                  <p className="text-gray-500 font-bold mb-4">You must be logged in to leave a review.</p>
-                  <Link to="/login" className="inline-block bg-black text-white px-6 py-3 rounded font-black uppercase tracking-widest text-sm hover:bg-orange-500 transition-colors">Log In Here</Link>
+                <div className="text-center py-4">
+                  <p className="text-xs text-[var(--gray4)] font-bold mb-4">Please log in with your account to leave verified feedback.</p>
+                  <Link to="/login" className="btn-secondary text-[10px] uppercase w-full text-center inline-block py-2.5 shadow-sm rounded-full font-bold">
+                    Log In Here
+                  </Link>
                 </div>
               ) : (
                 <form onSubmit={handleCustomerReviewSubmit} className="space-y-4">
                   <div>
-                    <label className="block text-xs font-black text-gray-500 uppercase tracking-widest mb-2">Rating</label>
-                    <select value={userRating} onChange={(e) => setUserRating(e.target.value)} className="w-full p-3 bg-white border border-gray-300 rounded font-bold outline-none">
-                      <option value="5">5 Stars - Excellent</option>
-                      <option value="4">4 Stars - Very Good</option>
-                      <option value="3">3 Stars - Average</option>
-                      <option value="2">2 Stars - Poor</option>
-                      <option value="1">1 Star - Terrible</option>
+                    <label className="form-label block text-[10px] font-black uppercase tracking-widest text-[var(--gray4)] mb-1.5">Harvest Rating</label>
+                    <select 
+                      value={userRating} 
+                      onChange={(e) => setUserRating(e.target.value)} 
+                      className="form-input w-full p-3 bg-white border border-[var(--gray2)] rounded font-bold text-xs outline-none focus:border-[var(--primary)] shadow-sm cursor-pointer"
+                    >
+                      <option value="5">★★★★★ 5 Stars - Absolutely Perfect</option>
+                      <option value="4">★★★★☆ 4 Stars - Sweet & Tasty</option>
+                      <option value="3">★★★☆☆ 3 Stars - Average Quality</option>
+                      <option value="2">★★☆☆☆ 2 Stars - Minor Spots</option>
+                      <option value="1">★☆☆☆☆ 1 Star - Damaged Harvest</option>
                     </select>
                   </div>
                   <div>
-                    <label className="block text-xs font-black text-gray-500 uppercase tracking-widest mb-2">Your Review</label>
-                    <textarea value={userReviewText} onChange={(e) => setUserReviewText(e.target.value)} placeholder="What did you think of these mangoes?" className="w-full p-3 bg-white border border-gray-300 rounded font-medium outline-none h-32" required></textarea>
+                    <label className="form-label block text-[10px] font-black uppercase tracking-widest text-[var(--gray4)] mb-1.5">Your Feedback</label>
+                    <textarea 
+                      value={userReviewText} 
+                      onChange={(e) => setUserReviewText(e.target.value)} 
+                      placeholder="Share your experience about this Rajshahi mango standard..." 
+                      className="form-input w-full p-3 bg-white border border-[var(--gray2)] rounded font-medium text-xs outline-none focus:border-[var(--primary)] shadow-sm h-24 resize-none" 
+                      required 
+                    />
                   </div>
-                  <button type="submit" disabled={isSubmitting} className="w-full bg-orange-500 text-white font-black py-4 rounded uppercase tracking-widest hover:bg-black transition-colors">
-                    {isSubmitting ? 'Posting...' : 'Submit Review'}
+                  <button 
+                    type="submit" 
+                    disabled={isSubmitting} 
+                    className="w-full btn-primary text-center text-xs font-black uppercase tracking-widest py-3.5 disabled:opacity-50 shadow-md rounded-full transition-all duration-300"
+                  >
+                    {isSubmitting ? 'Posting...' : 'Submit Verified Review'}
                   </button>
                 </form>
               )}
@@ -306,32 +401,77 @@ export default function ProductDetails() {
           </div>
         </div>
 
-        {/* YOU MAY ALSO LIKE */}
+        {/* RELATED HARVEST RECOMMENDATIONS GRID */}
         {relatedProducts.length > 0 && (
-          <div className="lg:col-span-3 mt-16">
-            <h2 className="text-2xl font-black uppercase tracking-tighter text-gray-900 mb-8">You May Also <span className="text-orange-500">Like</span></h2>
+          <div className="mt-16 pt-16 border-t border-[var(--gray2)]">
+            <h3 className="text-2xl font-['Fraunces'] font-black text-[var(--dark)] uppercase tracking-tight mb-8">
+              You May Also <span className="text-[var(--primary)]">Like</span>
+            </h3>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-              {relatedProducts.map(p => (
-                <Link key={p.id} to={`/product/${p.id}`} className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-lg hover:-translate-y-1 transition-all duration-300 group">
-                  <div className="h-40 bg-gray-100 overflow-hidden">
-                    <img src={p.images && p.images.length > 0 ? p.images[0] : p.image} alt={p.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
-                  </div>
-                  <div className="p-4">
-                    {p.section && <span className="text-[10px] font-black uppercase tracking-widest text-orange-500">{p.section}</span>}
-                    <h3 className="font-black text-sm text-gray-900 mt-1 line-clamp-1 group-hover:text-orange-500 transition-colors">{p.name}</h3>
-                    <div className="mt-2 flex items-baseline gap-2">
-                      {p.discountPrice ? (
-                        <>
-                          <span className="font-black text-orange-500">৳{p.discountPrice}</span>
-                          <span className="text-xs text-gray-400 line-through">৳{p.price}</span>
-                        </>
+              {relatedProducts.map(p => {
+                const mainImage = p.images && p.images.length > 0 ? p.images[0] : p.image;
+                const oldPrice = p.discountPrice ? p.price : null;
+                const displayPrice = p.discountPrice || p.price;
+                const ratingStars = Math.round(Number(p.stats?.rating) || 5);
+                
+                return (
+                  <Link 
+                    key={p.id} 
+                    to={`/product/${p.id}`} 
+                    className="product-card"
+                  >
+                    {p.discountPercent && (
+                      <div className="tag-strip">
+                        <span className="badge badge-orange">-{p.discountPercent}%</span>
+                      </div>
+                    )}
+                    
+                    <div className="pc-img bg-[var(--gray1)]">
+                      {mainImage ? (
+                        <img 
+                          src={mainImage} 
+                          alt={p.name} 
+                          className="w-full h-full object-cover transition-transform duration-500 hover:scale-105" 
+                        />
                       ) : (
-                        <span className="font-black text-orange-500">৳{p.price}</span>
+                        <span className="text-4xl">🥭</span>
                       )}
                     </div>
-                  </div>
-                </Link>
-              ))}
+                    
+                    <div className="pc-body">
+                      {p.section && (
+                        <div className="text-[9px] font-black uppercase tracking-widest text-[var(--primary)] mb-1">
+                          {p.section}
+                        </div>
+                      )}
+                      
+                      <h4 className="pc-name line-clamp-1 hover:text-[var(--primary)] transition-colors">
+                        {p.name}
+                      </h4>
+                      
+                      <div className="pc-sub">
+                        <span>⚖️ {p.fixedWeight || 1}kg Box</span>
+                        {p.grade && <span>• {p.grade}</span>}
+                      </div>
+                      
+                      <div className="pc-rating">
+                        <span className="stars text-[var(--gold)] text-xs">
+                          {'★'.repeat(ratingStars)}
+                          {'☆'.repeat(5 - ratingStars)}
+                        </span>
+                        <span>({p.stats?.reviewCount || 0})</span>
+                      </div>
+                      
+                      <div className="pc-price-row">
+                        <div className="pc-price font-['Fraunces'] text-sm sm:text-base font-bold text-[var(--primary)]">
+                          ৳{displayPrice}
+                          {oldPrice && <span className="old ml-1.5 text-xs text-[var(--gray3)] line-through">৳{oldPrice}</span>}
+                        </div>
+                      </div>
+                    </div>
+                  </Link>
+                );
+              })}
             </div>
           </div>
         )}

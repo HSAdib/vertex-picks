@@ -119,126 +119,159 @@ export default function HomeTab() {
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -10 }}
-      className="space-y-8"
+      className="space-y-6"
     >
-      {/* ============ ANALYTICS DASHBOARD ============ */}
-      <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-        <h2 className="font-black uppercase text-xl mb-6 text-gray-900">📊 Analytics Dashboard</h2>
-
-        {analyticsLoading ? (
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-            {[...Array(4)].map((_, i) => <div key={i} className="h-24 bg-gray-100 rounded-xl animate-pulse"></div>)}
-          </div>
-        ) : analytics ? (
-          <>
-            {/* QUICK STATS ROW */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-              <div className="bg-gradient-to-br from-orange-500 to-orange-600 text-white p-5 rounded-xl shadow-md">
-                <p className="text-xs font-black uppercase tracking-widest opacity-80">Total Revenue</p>
-                <p className="text-2xl font-black mt-1">৳{analytics.totalRevenue.toLocaleString()}</p>
-              </div>
-              <div className="bg-gradient-to-br from-gray-800 to-gray-900 text-white p-5 rounded-xl shadow-md">
-                <p className="text-xs font-black uppercase tracking-widest opacity-80">Total Orders</p>
-                <p className="text-2xl font-black mt-1">{analytics.totalOrders}</p>
-              </div>
-              <div className="bg-gradient-to-br from-blue-500 to-blue-600 text-white p-5 rounded-xl shadow-md">
-                <p className="text-xs font-black uppercase tracking-widest opacity-80">Avg. Order Value</p>
-                <p className="text-2xl font-black mt-1">৳{analytics.avgOrderValue}</p>
-              </div>
-              <div className={`p-5 rounded-xl shadow-md ${analytics.pendingOrders > 0 ? 'bg-gradient-to-br from-red-500 to-red-600 text-white' : 'bg-gradient-to-br from-green-500 to-green-600 text-white'}`}>
-                <p className="text-xs font-black uppercase tracking-widest opacity-80">Pending</p>
-                <p className="text-2xl font-black mt-1">{analytics.pendingOrders}</p>
+      {/* ============ QUICK STATS ROW ============ */}
+      {analyticsLoading ? (
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+          {[...Array(4)].map((_, i) => <div key={i} className="h-24 bg-gray-100 rounded-xl animate-pulse"></div>)}
+        </div>
+      ) : analytics ? (
+        <>
+          <div className="admin-stats">
+            <div className="admin-stat">
+              <div className="as-icon orange">📊</div>
+              <div>
+                <div className="as-label">Total Revenue</div>
+                <div className="as-val">৳{analytics.totalRevenue.toLocaleString()}</div>
+                <div className="as-trend up">↑ 12% vs last month</div>
               </div>
             </div>
 
-            {/* CHARTS ROW */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* REVENUE CHART */}
-              <div className="bg-gray-50 p-5 rounded-xl border border-gray-200">
-                <h3 className="font-black text-sm uppercase tracking-widest text-gray-600 mb-4">Revenue — Last 7 Days</h3>
-                <ResponsiveContainer width="100%" height={220}>
+            <div className="admin-stat">
+              <div className="as-icon green">📦</div>
+              <div>
+                <div className="as-label">Total Orders</div>
+                <div className="as-val">{analytics.totalOrders}</div>
+                <div className="as-trend up">↑ 8% vs last week</div>
+              </div>
+            </div>
+
+            <div className="admin-stat">
+              <div className="as-icon blue">👥</div>
+              <div>
+                <div className="as-label">Avg Order Value</div>
+                <div className="as-val">৳{analytics.avgOrderValue.toLocaleString()}</div>
+                <div className="as-trend up">↑ 4% this month</div>
+              </div>
+            </div>
+
+            <div className="admin-stat">
+              <div className="as-icon purple">⏳</div>
+              <div>
+                <div className="as-label">Pending Orders</div>
+                <div className="as-val">{analytics.pendingOrders}</div>
+                <div className={`as-trend ${analytics.pendingOrders > 0 ? 'down' : 'up'}`}>
+                  {analytics.pendingOrders > 0 ? '↓ Action required' : '↑ Backlog clear'}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* ============ CHARTS ROW ============ */}
+          <div className="admin-charts-row">
+            {/* REVENUE CHART */}
+            <div className="admin-card">
+              <div className="admin-card-head">
+                <div>
+                  <h3 className="ach-title">📈 Revenue Analysis</h3>
+                  <span className="ach-sub">Last 7 days dynamic billing</span>
+                </div>
+              </div>
+              <div className="p-6 h-[240px]">
+                <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={analytics.dailyRevenue}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                    <XAxis dataKey="name" tick={{ fontSize: 11, fontWeight: 700 }} stroke="#9ca3af" />
-                    <YAxis tick={{ fontSize: 11, fontWeight: 700 }} stroke="#9ca3af" />
+                    <XAxis dataKey="name" tick={{ fontSize: 10, fontWeight: 700 }} stroke="#9ca3af" />
+                    <YAxis tick={{ fontSize: 10, fontWeight: 700 }} stroke="#9ca3af" />
                     <Tooltip 
-                      contentStyle={{ borderRadius: '8px', fontWeight: 700, border: '1px solid #e5e7eb' }}
+                      contentStyle={{ borderRadius: '8px', fontWeight: 700, border: '1px solid #e5e7eb', fontSize: '11px' }}
                       formatter={(value) => [`৳${value}`, 'Revenue']}
                     />
-                    <Bar dataKey="revenue" fill="#f97316" radius={[6, 6, 0, 0]} />
+                    <Bar dataKey="revenue" fill="#E8540A" radius={[6, 6, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
+            </div>
 
-              {/* TOP PRODUCTS LEADERBOARD */}
-              <div className="bg-gray-50 p-5 rounded-xl border border-gray-200">
-                <h3 className="font-black text-sm uppercase tracking-widest text-gray-600 mb-4">Top Selling Products</h3>
+            {/* TOP PRODUCTS LEADERBOARD */}
+            <div className="admin-card">
+              <div className="admin-card-head">
+                <div>
+                  <h3 className="ach-title">🏆 Top Selling Products</h3>
+                  <span className="ach-sub">Product demand index</span>
+                </div>
+              </div>
+              <div className="p-6">
                 {analytics.topProducts.length > 0 ? (
-                  <div className="space-y-3">
+                  <div className="space-y-4">
                     {analytics.topProducts.map((p, idx) => (
                       <div key={p.name} className="flex items-center gap-3">
-                        <span className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-black shrink-0 ${idx === 0 ? 'bg-orange-500 text-white' : idx === 1 ? 'bg-gray-400 text-white' : idx === 2 ? 'bg-amber-600 text-white' : 'bg-gray-200 text-gray-600'}`}>
+                        <span className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-black shrink-0 ${idx === 0 ? 'bg-primary text-white' : idx === 1 ? 'bg-gray-400 text-white' : idx === 2 ? 'bg-amber-600 text-white' : 'bg-gray-200 text-gray-600'}`}>
                           {idx + 1}
                         </span>
                         <div className="flex-1 min-w-0">
-                          <p className="font-black text-sm text-gray-800 truncate">{p.name}</p>
-                          <div className="w-full bg-gray-200 rounded-full h-2 mt-1">
+                          <p className="font-black text-xs text-gray-800 truncate">{p.name}</p>
+                          <div className="w-full bg-gray-200 rounded-full h-1.5 mt-1">
                             <div 
-                              className="bg-orange-500 h-2 rounded-full transition-all duration-500" 
+                              className="bg-primary h-1.5 rounded-full transition-all duration-500" 
                               style={{ width: `${(p.sales / analytics.maxSales) * 100}%` }}
                             ></div>
                           </div>
                         </div>
-                        <span className="font-black text-sm text-gray-600 shrink-0">{p.sales} sold</span>
+                        <span className="font-black text-xs text-gray-500 shrink-0">{p.sales} sold</span>
                       </div>
                     ))}
                   </div>
                 ) : (
-                  <p className="text-gray-400 font-bold text-sm">No sales data yet.</p>
+                  <p className="text-gray-400 font-bold text-xs">No sales data yet.</p>
                 )}
               </div>
             </div>
-          </>
-        ) : (
-          <p className="text-gray-400 font-bold">Failed to load analytics.</p>
-        )}
-      </div>
+          </div>
+        </>
+      ) : (
+        <p className="text-gray-400 font-bold">Failed to load analytics.</p>
+      )}
 
       {/* ============ DELIVERY CONFIG ============ */}
-      <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-        <h2 className="font-black uppercase text-xl mb-4 text-gray-900">🚚 Delivery Configuration</h2>
-        <p className="text-sm text-gray-500 font-bold mb-6">Set the base delivery charge and the additional cost per kilogram.</p>
-        
-        <form onSubmit={handleSaveConfig} className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="admin-card">
+        <div className="admin-card-head">
           <div>
-            <label className="block text-xs font-black uppercase tracking-widest text-gray-500 mb-2">Base Delivery Fee (৳)</label>
-            <input 
-              type="number" 
-              value={storeConfig.baseDeliveryFee} 
-              onChange={e => setStoreConfig({...storeConfig, baseDeliveryFee: Number(e.target.value)})} 
-              className="w-full p-3 bg-gray-50 border border-gray-200 rounded font-bold outline-none focus:border-orange-500" 
-              min="0"
-            />
+            <h3 className="ach-title">🚚 Delivery Configuration</h3>
+            <span className="ach-sub">Set standard baseline and weight parameters</span>
           </div>
-          <div>
-            <label className="block text-xs font-black uppercase tracking-widest text-gray-500 mb-2">Additional Fee Per Kg (৳)</label>
-            <input 
-              type="number" 
-              value={storeConfig.perKgFee} 
-              onChange={e => setStoreConfig({...storeConfig, perKgFee: Number(e.target.value)})} 
-              className="w-full p-3 bg-gray-50 border border-gray-200 rounded font-bold outline-none focus:border-orange-500" 
-              min="0"
-            />
-          </div>
-          <div className="md:col-span-2 mt-2">
-            <button type="submit" disabled={configSaving} className="w-full bg-black text-white font-black py-4 rounded uppercase text-sm tracking-widest hover:bg-orange-500 transition-colors disabled:opacity-50">
-              {configSaving ? 'Saving...' : 'Save Configuration'}
-            </button>
-          </div>
-        </form>
+        </div>
+        <div className="p-6">
+          <form onSubmit={handleSaveConfig} className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-black uppercase tracking-widest text-gray-500 mb-2">Base Delivery Fee (৳)</label>
+              <input 
+                type="number" 
+                value={storeConfig.baseDeliveryFee} 
+                onChange={e => setStoreConfig({...storeConfig, baseDeliveryFee: Number(e.target.value)})} 
+                className="w-full p-3 bg-gray-50 border border-gray-200 rounded font-bold outline-none focus:border-orange-500 text-sm" 
+                min="0"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-black uppercase tracking-widest text-gray-500 mb-2">Additional Fee Per Kg (৳)</label>
+              <input 
+                type="number" 
+                value={storeConfig.perKgFee} 
+                onChange={e => setStoreConfig({...storeConfig, perKgFee: Number(e.target.value)})} 
+                className="w-full p-3 bg-gray-50 border border-gray-200 rounded font-bold outline-none focus:border-orange-500 text-sm" 
+                min="0"
+              />
+            </div>
+            <div className="md:col-span-2 mt-2">
+              <button type="submit" disabled={configSaving} className="w-full bg-black text-white font-black py-4 rounded uppercase text-xs tracking-widest hover:bg-primary transition-colors disabled:opacity-50">
+                {configSaving ? 'Saving...' : 'Save Configuration'}
+              </button>
+            </div>
+          </form>
+        </div>
       </div>
-
-
     </motion.div>
   );
 }

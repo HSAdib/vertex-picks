@@ -1,39 +1,106 @@
-import { ShoppingBag } from 'lucide-react';
 import { useCart } from '../context/CartContext';
+import { useAuth } from '../context/AuthContext';
+import { Link, useNavigate } from 'react-router-dom';
 
 export default function ProductCard({ product }) {
-  const { addToCart } = useCart();
+  const { addToCart, cart } = useCart();
+  const { isAdmin } = useAuth();
+  const navigate = useNavigate();
+
+  const isAdded = cart.some(item => item.id === product.id);
+
+  // God Mode Edit Teleport
+  const handleGodModeEdit = (e) => {
+    e.preventDefault();
+    localStorage.setItem('teleportEditId', product.id);
+    navigate('/admin');
+  };
+
+  const handleAdd = (e) => {
+    e.preventDefault(); // Prevents clicking the outer detail link routing
+    addToCart(product.id, 1);
+  };
+
+  const mainImage = product.images && product.images.length > 0 ? product.images[0] : product.image;
+  const oldPrice = product.discountPrice ? product.price : null;
+  const displayPrice = product.discountPrice || product.price;
+
+  // Star Rating Calculation
+  const ratingStars = Math.round(Number(product.stats?.rating) || 5);
 
   return (
-    <div className="bg-white border border-gray-100 rounded-sm shadow-sm hover:shadow-2xl transition-all duration-300 overflow-hidden flex flex-col group">
+    <div className="product-card">
       
-      {/* The Image Area */}
-      <div className="h-72 relative overflow-hidden bg-gray-100">
-        <img 
-          src={product.image} 
-          alt={product.name} 
-          className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
-        />
-      </div>
-      
-      <div className="p-6 flex flex-col flex-grow">
-        <h3 className="text-2xl font-black text-brand-dark mb-1">{product.name}</h3>
-        <p className="text-xs text-brand-green font-bold mb-4 uppercase tracking-widest">{product.grade}</p>
-        <p className="text-gray-600 mb-8 text-sm leading-relaxed">{product.description}</p>
-        
-        <div className="flex items-center justify-between mt-auto pt-4 border-t border-gray-100">
-          <div className="flex flex-col">
-            <span className="text-2xl font-black text-brand-dark">৳{product.price}</span>
-            <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Per {product.unit}</span>
-          </div>
-          <button 
-            onClick={() => addToCart(product)}
-            className="bg-brand-dark text-brand-light p-4 rounded hover:bg-brand-gold hover:text-brand-dark transition-colors duration-200"
-          >
-            <ShoppingBag className="h-6 w-6" />
-          </button>
+      {/* GOD MODE BUTTON FOR ADMINS */}
+      {isAdmin && (
+        <button 
+          onClick={handleGodModeEdit}
+          className="absolute top-3 right-12 z-20 bg-black text-white px-2.5 py-0.5 rounded font-black text-[10px] uppercase tracking-widest hover:bg-primary shadow-lg border border-gray-800"
+        >
+          ⚡ Quick Edit
+        </button>
+      )}
+
+      {/* Discount Badge Alert */}
+      {product.discountPercent && (
+        <div className="tag-strip">
+          <span className="badge badge-orange">-{product.discountPercent}%</span>
         </div>
-      </div>
+      )}
+
+      {/* Favorite Wishlist Icon Button */}
+      <button 
+        className="pc-wishlist" 
+        onClick={(e) => { e.preventDefault(); alert(`${product.name} added to your wishlist!`); }}
+      >
+        🤍
+      </button>
+
+      {/* Primary Detail Navigation Link */}
+      <Link to={`/product/${product.id}`} className="block">
+        <div className="pc-img bg-gray1">
+          {mainImage ? (
+            <img src={mainImage} alt={product.name} className="w-full h-full object-cover" />
+          ) : (
+            <span className="text-4xl">🥭</span>
+          )}
+        </div>
+
+        <div className="pc-body">
+          {product.section && (
+            <div className="text-[10px] font-bold uppercase tracking-wider text-primary mb-1">
+              {product.section}
+            </div>
+          )}
+          <h4 className="pc-name line-clamp-1">{product.name}</h4>
+          
+          <div className="pc-sub">
+            <span>⚖️ {product.fixedWeight || 1}kg Box</span>
+            {product.grade && <span>• {product.grade}</span>}
+          </div>
+
+          <div className="pc-rating">
+            <span className="stars">
+              {'★'.repeat(ratingStars)}
+              {'☆'.repeat(5 - ratingStars)}
+            </span>
+            <span>({product.stats?.reviewCount || 0})</span>
+          </div>
+
+          <div className="pc-price-row">
+            <div className="pc-price font-display">
+              ৳{displayPrice}
+              {oldPrice && <span className="old">৳{oldPrice}</span>}
+            </div>
+            <button 
+              onClick={handleAdd}
+              className={`pc-add ${isAdded ? 'added' : ''}`}
+            >
+              {isAdded ? '✓' : '+'}
+            </button>
+          </div>
+        </div>
+      </Link>
     </div>
   );
 }

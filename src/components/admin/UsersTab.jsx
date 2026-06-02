@@ -9,22 +9,39 @@ export default function UsersTab() {
 
   const fetchUsers = async () => {
     try {
-      const snap = await getDocs(collection(db, 'users'));
-      const fetchedUsers = snap.docs.map(doc => {
+      setLoading(true);
+      // 1. Fetch all users
+      const userSnap = await getDocs(collection(db, 'users'));
+      
+      // 2. Fetch all orders to compute stats
+      const orderSnap = await getDocs(collection(db, 'orders'));
+      const allOrders = orderSnap.docs.map(doc => doc.data());
+
+      const fetchedUsers = userSnap.docs.map(doc => {
         const data = doc.data();
-        // Find default address or first address to extract phone
-        const defaultAddress = data.addresses?.find(a => a.isDefault) || data.addresses?.[0];
+        const email = data.email || '';
         
+        // Compute LTV and order counts by email
+        const userOrders = allOrders.filter(o => o.customerEmail && o.customerEmail.toLowerCase() === email.toLowerCase() && !o.deleted);
+        const totalSpent = userOrders.reduce((sum, o) => sum + (Number(o.total) || 0), 0);
+        const orderCount = userOrders.length;
+
+        const defaultAddress = data.addresses?.find(a => a.isDefault) || data.addresses?.[0];
+
         return {
           id: doc.id,
-          name: data.name || 'N/A',
-          email: data.email || 'N/A',
-          phone: defaultAddress?.phone || 'N/A',
+          name: data.name || 'Anonymous Connoisseur',
+          email: email || 'N/A',
+          phone: defaultAddress?.phone || data.phone || 'N/A',
           createdAt: data.createdAt ? new Date(data.createdAt).toLocaleDateString() : 'Unknown',
-          addressCount: data.addresses?.length || 0
+          addressCount: data.addresses?.length || 0,
+          totalSpent,
+          orderCount
         };
       });
-      // Sort by newest first, assuming createdAt exists. Otherwise, just keep order.
+
+      // Sort by total spent to find highest LTV customers
+      fetchedUsers.sort((a, b) => b.totalSpent - a.totalSpent);
       setUsers(fetchedUsers);
     } catch (error) {
       console.error("Failed to fetch users:", error);
@@ -40,55 +57,124 @@ export default function UsersTab() {
   }, []);
 
   if (loading) {
-    return <div className="text-center p-10 font-black text-gray-500 uppercase tracking-widest animate-pulse">Loading Customers...</div>;
+    return (
+      <div className="text-center p-12 font-black text-gray-500 uppercase tracking-widest animate-pulse">
+        Loading Customers CRM...
+      </div>
+    );
   }
+
+  // Get Top 3 Highest Spending Customers for the top cards grid
+  const topCustomers = users.slice(0, 3);
 
   return (
     <motion.div 
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -10 }}
-      className="space-y-6"
+      className="space-y-6 select-none"
     >
-      <div className="flex justify-between items-center bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+      {/* ============ HIGHEST SPENDING CUSTOMERS GRID ============ */}
+      {topCustomers.length > 0 && (
         <div>
-          <h2 className="font-black uppercase text-xl">👥 Customer CRM</h2>
-          <p className="text-gray-500 font-bold text-sm">Showing all registered users ({users.length})</p>
+          <h4 className="text-[10px] font-black text-gray4 uppercase tracking-widest mb-3">👑 Highest Value Customers</h4>
+          
+          <div className="customer-grid">
+            {topCustomers.map((cust) => {
+              const initial = cust.name.charAt(0).toUpperCase();
+              return (
+                <div key={cust.id} className="cust-card">
+                  <div className="cust-card-head">
+                    <div className="cust-avatar">
+                      {initial}
+                    </div>
+                    <div>
+                      <div className="cust-name">{cust.name}</div>
+                      <div className="cust-email">{cust.email}</div>
+                    </div>
+                  </div>
+                  
+                  <div className="cust-stats">
+                    <div className="cs-item">
+                      <strong>৳{cust.totalSpent.toLocaleString()}</strong>
+                      Lifetime Value
+                    </div>
+                    <div className="cs-item">
+                      <strong>{cust.orderCount}</strong>
+                      Orders
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* ============ CUSTOMERS DIRECTORY CRM ============ */}
+      <div className="admin-card">
+        <div className="admin-card-head">
+          <div>
+            <h3 className="ach-title">👥 Customer Directory CRM</h3>
+            <span className="ach-sub">Track customer registration dates, contact directories, and lifetime values</span>
+          </div>
+          <span className="bg-primary-pale text-primary text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-wider">
+            {users.length} Registered Users
+          </span>
+        </div>
+
+        <div className="p-6">
+          {users.length === 0 ? (
+            <div className="text-center py-10 border-2 border-dashed border-gray2 rounded-brand text-gray4 font-bold text-xs">
+              No registered customers found.
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="admin-table">
+                <thead>
+                  <tr>
+                    <th>Customer Name</th>
+                    <th>Email Address</th>
+                    <th>Primary Phone</th>
+                    <th>Joined Date</th>
+                    <th>Addresses</th>
+                    <th>Total Orders</th>
+                    <th>Lifetime Value</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {users.map(user => {
+                    const initialsAvatar = user.name.charAt(0).toUpperCase();
+                    return (
+                      <tr key={user.id}>
+                        <td>
+                          <div className="flex items-center gap-3">
+                            <div className="cust-avatar">
+                              {initialsAvatar}
+                            </div>
+                            <span className="font-bold text-sm text-dark">{user.name}</span>
+                          </div>
+                        </td>
+                        <td className="font-medium text-xs text-gray-600">{user.email}</td>
+                        <td className="font-semibold text-xs text-blue">{user.phone}</td>
+                        <td className="font-medium text-xs text-gray4">{user.createdAt}</td>
+                        <td>
+                          <span className="bg-gray1 text-gray-700 border border-gray2 px-2.5 py-0.5 rounded text-[10px] font-bold">
+                            {user.addressCount} saved
+                          </span>
+                        </td>
+                        <td className="font-bold text-xs text-gray-800">{user.orderCount}</td>
+                        <td className="font-bold text-sm text-primary">৳{user.totalSpent.toLocaleString()}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       </div>
 
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="bg-gray-100 text-gray-500 text-xs font-black uppercase tracking-widest border-b border-gray-200">
-                <th className="p-4">Name</th>
-                <th className="p-4">Email</th>
-                <th className="p-4">Primary Phone</th>
-                <th className="p-4">Joined Date</th>
-                <th className="p-4">Saved Addresses</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100">
-              {users.length > 0 ? users.map((user) => (
-                <tr key={user.id} className="hover:bg-gray-50 transition-colors">
-                  <td className="p-4 font-black text-gray-900">{user.name}</td>
-                  <td className="p-4 font-bold text-gray-600">{user.email}</td>
-                  <td className="p-4 font-bold text-blue-600">{user.phone}</td>
-                  <td className="p-4 font-bold text-gray-500">{user.createdAt}</td>
-                  <td className="p-4 font-bold text-gray-500">
-                    <span className="bg-gray-200 px-2 py-1 rounded text-xs">{user.addressCount}</span>
-                  </td>
-                </tr>
-              )) : (
-                <tr>
-                  <td colSpan="5" className="p-8 text-center text-gray-400 font-bold">No customers found.</td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
     </motion.div>
   );
 }

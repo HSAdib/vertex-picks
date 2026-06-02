@@ -4,6 +4,10 @@ import { db } from '../../firebaseConfig';
 import { motion, AnimatePresence } from 'framer-motion';
 import toast from 'react-hot-toast';
 
+function generateUniqueId() {
+  return Date.now().toString();
+}
+
 export default function CategoriesTab() {
   const [navTabs, setNavTabs] = useState([]);
   const [storeSections, setStoreSections] = useState([]);
@@ -87,7 +91,7 @@ export default function CategoriesTab() {
     e.preventDefault();
     if (!newTabName.trim()) return;
     const newTab = {
-      id: Date.now().toString(),
+      id: generateUniqueId(),
       name: newTabName.trim(),
       sections: [],
       heroTitle: newTabName.trim(),
@@ -233,8 +237,8 @@ export default function CategoriesTab() {
 
     const prodData = {
       name: prodForm.name,
-      price: prodForm.price,
-      discountPrice: prodForm.discountPrice || '',
+      price: Number(prodForm.price),
+      discountPrice: prodForm.discountPrice ? Number(prodForm.discountPrice) : '',
       description: prodForm.description,
       images: prodForm.images.filter(i => i.trim() !== ''),
       section: editingSection,
@@ -262,174 +266,203 @@ export default function CategoriesTab() {
     }
   };
 
-  if (loading) return <div className="p-10 text-center font-bold text-gray-500">Loading Categories...</div>;
+  if (loading) return <div className="p-10 text-center font-bold text-gray-500 uppercase tracking-widest text-sm animate-pulse">Loading Categories...</div>;
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
+      
       {/* NAVBAR TABS MANAGER */}
-      <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-        <h2 className="font-black uppercase text-xl mb-6 flex items-center gap-2">
-          🌐 Top Navigation Tabs
-        </h2>
+      <div className="admin-card">
+        <div className="admin-card-head">
+          <div>
+            <h3 className="ach-title">🌐 Top Navigation Tabs</h3>
+            <span className="ach-sub">Map storefront header columns and varieties</span>
+          </div>
+        </div>
 
-        <form onSubmit={handleAddTab} className="flex gap-4 mb-6">
-          <input
-            type="text"
-            placeholder="New Tab Name (e.g., Premium Mangoes)"
-            value={newTabName}
-            onChange={e => setNewTabName(e.target.value)}
-            className="flex-1 p-3 bg-gray-50 border border-gray-200 rounded-lg font-bold outline-none focus:border-orange-500"
-          />
-          <button type="submit" className="bg-black text-white font-black px-6 py-3 rounded-lg uppercase hover:bg-orange-500 transition-colors">
-            + Add Tab
-          </button>
-        </form>
+        <div className="p-6">
+          <form onSubmit={handleAddTab} className="flex flex-col sm:flex-row gap-3 mb-6">
+            <input
+              type="text"
+              placeholder="New Tab Name (e.g., Premium Varieties)"
+              value={newTabName}
+              onChange={e => setNewTabName(e.target.value)}
+              className="flex-1 p-3 bg-gray-50 border border-gray-200 rounded font-bold text-sm outline-none focus:border-primary shadow-sm"
+            />
+            <button type="submit" className="bg-black text-white font-black px-6 py-3 rounded uppercase text-xs tracking-wider hover:bg-primary transition-all shadow-md shrink-0">
+              + Add Tab
+            </button>
+          </form>
 
-        <div className="space-y-4">
-          {navTabs.map(tab => (
-            <div key={tab.id} className="border border-gray-200 rounded-lg p-5 bg-gray-50">
-              <div className="flex justify-between items-center mb-4">
-                <h3 className="font-black text-lg text-gray-800">{tab.name}</h3>
-                <button onClick={() => handleDeleteTab(tab.id)} className="text-red-500 font-bold text-sm uppercase hover:underline">Delete Tab</button>
-              </div>
-
-              {/* HERO TEXT EDITING */}
-              <div className="mb-4 p-3 bg-white border border-gray-200 rounded-lg shadow-sm space-y-3">
-                <div>
-                  <label className="block text-[10px] font-black uppercase tracking-widest text-gray-400 mb-1">Header Title</label>
-                  <input
-                    type="text"
-                    value={tab.heroTitle ?? tab.name}
-                    onChange={e => updateTabHero(tab.id, 'heroTitle', e.target.value)}
-                    className="w-full p-2 bg-gray-50 border border-gray-100 rounded font-black text-gray-800 text-sm outline-none focus:border-orange-500"
-                  />
+          <div className="space-y-4">
+            {navTabs.map(tab => (
+              <div key={tab.id} className="border border-gray-200 rounded-brand p-5 bg-gray-50/50">
+                <div className="flex justify-between items-center mb-4 flex-wrap gap-2">
+                  <h3 className="font-black text-base text-gray-800">{tab.name}</h3>
+                  <button onClick={() => handleDeleteTab(tab.id)} className="text-red font-black text-xs uppercase hover:underline">
+                    Delete Tab ✕
+                  </button>
                 </div>
-                <div>
-                  <label className="block text-[10px] font-black uppercase tracking-widest text-gray-400 mb-1">Header Subtitle</label>
-                  <textarea
-                    rows="2"
-                    value={tab.heroSubtitle ?? ''}
-                    onChange={e => updateTabHero(tab.id, 'heroSubtitle', e.target.value)}
-                    className="w-full p-2 bg-gray-50 border border-gray-100 rounded font-bold text-gray-500 text-xs outline-none focus:border-orange-500"
-                  />
+
+                {/* HERO TEXT EDITING */}
+                <div className="mb-4 p-4 bg-white border border-gray2 rounded-brand shadow-sm space-y-3">
+                  <div>
+                    <label className="block text-[9px] font-black uppercase tracking-widest text-gray4 mb-1">Header Display Title</label>
+                    <input
+                      type="text"
+                      value={tab.heroTitle ?? tab.name}
+                      onChange={e => updateTabHero(tab.id, 'heroTitle', e.target.value)}
+                      className="w-full p-2 bg-gray-50 border border-gray-200 rounded font-black text-gray-800 text-xs outline-none focus:border-primary"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[9px] font-black uppercase tracking-widest text-gray4 mb-1">Header Display Subtitle</label>
+                    <textarea
+                      rows="2"
+                      value={tab.heroSubtitle ?? ''}
+                      onChange={e => updateTabHero(tab.id, 'heroSubtitle', e.target.value)}
+                      className="w-full p-2 bg-gray-50 border border-gray-200 rounded font-bold text-gray-500 text-xs outline-none focus:border-primary resize-none"
+                    />
+                  </div>
+                </div>
+
+                <div className="mb-2 text-[10px] font-black uppercase tracking-widest text-gray4">Assigned Storefront Sections</div>
+                <div className="flex flex-wrap gap-2">
+                  {storeSections.map(sec => {
+                    const isAssigned = (tab.sections || []).includes(sec);
+                    return (
+                      <button
+                        key={sec}
+                        onClick={() => toggleSectionInTab(tab.id, sec)}
+                        className={`px-3 py-1 rounded-full text-xs font-bold border transition-all ${isAssigned
+                          ? 'bg-primary border-primary text-white shadow-sm'
+                          : 'bg-white border-gray-300 text-gray-600 hover:border-primary hover:text-primary'
+                          }`}
+                      >
+                        {isAssigned ? '✓ ' : '+ '}{sec}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
-
-              <div className="mb-2 text-xs font-black uppercase tracking-widest text-gray-500">Assigned Sections</div>
-              <div className="flex flex-wrap gap-2">
-                {storeSections.map(sec => {
-                  const isAssigned = (tab.sections || []).includes(sec);
-                  return (
-                    <button
-                      key={sec}
-                      onClick={() => toggleSectionInTab(tab.id, sec)}
-                      className={`px-3 py-1 rounded-full text-xs font-bold border transition-colors ${isAssigned
-                        ? 'bg-orange-500 border-orange-500 text-white shadow-md'
-                        : 'bg-white border-gray-300 text-gray-600 hover:border-gray-400'
-                        }`}
-                    >
-                      {isAssigned ? '✓ ' : '+ '}{sec}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
       </div>
 
       {/* STORE SECTIONS MANAGER */}
-      <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-        <div className="flex justify-between items-center mb-6">
-          <h2 className="font-black uppercase text-xl flex items-center gap-2">
-            📦 Store Sections
-          </h2>
-          <button onClick={handleAddStoreSection} className="bg-gray-100 text-black font-black px-4 py-2 rounded uppercase text-xs hover:bg-gray-200 transition-colors">
+      <div className="admin-card">
+        <div className="admin-card-head">
+          <div>
+            <h3 className="ach-title">📁 Storefront Sections</h3>
+            <span className="ach-sub">Manage active shop catalogs and catalog cards</span>
+          </div>
+          <button onClick={handleAddStoreSection} className="btn-primary text-xs uppercase py-1.5 px-3 shadow">
             + Add Section
           </button>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-          {storeSections.map(sec => (
-            <div key={sec} onClick={() => openSectionModal(sec)} className="bg-white border-2 border-gray-100 hover:border-orange-400 p-5 rounded-xl shadow-sm cursor-pointer transition-all hover:shadow-md flex justify-between items-center group">
-              <span className="font-black text-gray-800 group-hover:text-orange-500 transition-colors">{sec}</span>
-              <span className="bg-gray-100 text-gray-500 text-xs font-bold px-2 py-1 rounded">Edit →</span>
-            </div>
-          ))}
+        <div className="p-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+            {storeSections.map(sec => {
+              const secProdsCount = products.filter(p => p.section === sec).length;
+              return (
+                <div 
+                  key={sec} 
+                  onClick={() => openSectionModal(sec)} 
+                  className="bg-white border-2 border-gray-100 hover:border-primary p-5 rounded-brand shadow-sm cursor-pointer transition-all hover:scale-[1.02] active:scale-95 flex justify-between items-center group"
+                >
+                  <div>
+                    <span className="font-black text-sm text-gray-800 group-hover:text-primary transition-colors">{sec}</span>
+                    <p className="text-[10px] text-gray4 font-bold mt-0.5">{secProdsCount} Products listed</p>
+                  </div>
+                  <span className="bg-gray-100 text-gray-500 text-[10px] font-black uppercase px-2 py-1 rounded tracking-wider shrink-0 group-hover:bg-primary-pale group-hover:text-primary transition-colors">
+                    Edit →
+                  </span>
+                </div>
+              );
+            })}
+          </div>
         </div>
       </div>
 
       {/* FLOATING SECTION EDITOR MODAL */}
       <AnimatePresence>
         {editingSection && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6">
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6 backdrop-blur-sm animate-in fade-in duration-200">
             <motion.div
               initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
               onClick={closeSectionModal}
-              className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+              className="absolute inset-0 bg-dark/60"
             ></motion.div>
 
             <motion.div
               initial={{ scale: 0.95, opacity: 0, y: 20 }}
               animate={{ scale: 1, opacity: 1, y: 0 }}
               exit={{ scale: 0.95, opacity: 0, y: 20 }}
-              className="relative w-full max-w-4xl max-h-[90vh] bg-white rounded-2xl shadow-2xl flex flex-col overflow-hidden"
+              className="relative w-full max-w-4xl max-h-[90vh] bg-white rounded-brand shadow-2xl flex flex-col overflow-hidden"
             >
               {/* MODAL HEADER */}
-              <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50">
-                <div className="flex items-center gap-4 flex-1">
+              <div className="p-6 border-b border-gray2 flex justify-between items-center bg-gray1 flex-wrap gap-4">
+                <div className="flex items-center gap-3 flex-1 min-w-[200px]">
                   <input
                     type="text"
                     value={newSectionName}
                     onChange={e => setNewSectionName(e.target.value)}
-                    className="font-black text-2xl bg-transparent outline-none border-b-2 border-transparent focus:border-orange-500 transition-colors w-1/2"
+                    className="font-black text-xl bg-transparent outline-none border-b-2 border-transparent focus:border-primary transition-colors w-full max-w-xs"
                   />
                   {newSectionName !== editingSection && (
-                    <button onClick={handleRenameSection} className="bg-black text-white text-xs font-black uppercase px-3 py-1 rounded">Save Name</button>
+                    <button onClick={handleRenameSection} className="btn-primary text-xs uppercase px-3 py-1.5 shadow rounded-brand-sm">
+                      Rename
+                    </button>
                   )}
                 </div>
-                <button onClick={closeSectionModal} className="w-10 h-10 bg-gray-200 rounded-full flex items-center justify-center font-bold text-gray-600 hover:bg-red-100 hover:text-red-600 transition-colors">X</button>
+                <button onClick={closeSectionModal} className="w-9 h-9 bg-gray-200 rounded-full flex items-center justify-center font-bold text-gray-600 hover:bg-red-100 hover:text-red transition-all">
+                  ✕
+                </button>
               </div>
 
               {/* MODAL BODY */}
-              <div className="p-6 overflow-y-auto flex-1 bg-gray-100 flex flex-col min-h-[60vh]">
+              <div className="p-6 overflow-y-auto flex-1 bg-gray1 flex flex-col min-h-[60vh]">
 
                 {/* 1. ADD EXISTING PRODUCT VIEW */}
                 {showAddExisting && !editingProductId && (
                   <div className="flex-1 flex flex-col">
-                    <div className="flex justify-between items-center mb-6">
-                      <h3 className="font-black text-xl uppercase tracking-tight text-gray-800">Add Product to {editingSection}</h3>
-                      <button onClick={() => setShowAddExisting(false)} className="text-gray-500 text-sm font-bold hover:text-black">Cancel</button>
+                    <div className="flex justify-between items-center mb-4">
+                      <h3 className="font-black text-base uppercase tracking-tight text-gray-800">Add Product to {editingSection}</h3>
+                      <button onClick={() => setShowAddExisting(false)} className="text-gray4 text-xs font-black uppercase hover:text-black">
+                        ← Back to List
+                      </button>
                     </div>
 
                     <button
                       onClick={() => { setShowAddExisting(false); setEditingProductId('new'); setProdForm({ name: '', price: '', discountPrice: '', description: '', images: [''] }); }}
-                      className="w-full bg-black text-white font-black py-4 rounded-xl uppercase hover:bg-orange-500 transition-colors mb-8 shadow-md"
+                      className="w-full bg-black text-white font-black py-3 rounded uppercase hover:bg-primary transition-all mb-6 text-xs tracking-widest shadow-md"
                     >
                       + Create Brand New Product
                     </button>
 
-                    <h4 className="font-bold text-xs text-gray-500 uppercase tracking-widest mb-4">Or select an existing product:</h4>
-                    <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                    <h4 className="font-black text-[10px] text-gray4 uppercase tracking-widest mb-3">Select existing uncategorized/other product:</h4>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
                       {products.filter(p => p.section !== editingSection).map(prod => (
-                        <div key={prod.id} className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden flex flex-col relative group hover:border-orange-500 transition-colors">
+                        <div key={prod.id} className="bg-white rounded-brand shadow-sm border border-gray2 overflow-hidden flex flex-col relative group hover:border-primary/50 transition-colors">
                           <div
-                            className="h-32 w-full bg-gray-100 relative cursor-pointer"
+                            className="h-28 w-full bg-gray-100 relative cursor-pointer"
                             onClick={() => { setShowAddExisting(false); openEditForm(prod); }}
                           >
                             <img src={prod.images?.[0] || 'https://via.placeholder.com/150'} className="w-full h-full object-cover group-hover:scale-105 transition-transform" alt="" />
                           </div>
 
                           <div className="p-3 flex-1 flex flex-col">
-                            <h4 className="font-black text-sm text-gray-800 line-clamp-2">{prod.name}</h4>
-                            <p className="font-bold text-gray-500 text-xs mt-1">৳{prod.discountPrice || prod.price}</p>
-                            <span className="text-[10px] text-gray-400 font-bold mt-1">In: {prod.section || 'Uncategorized'}</span>
+                            <h4 className="font-black text-xs text-gray-800 line-clamp-2 leading-tight">{prod.name}</h4>
+                            <p className="font-extrabold text-primary text-xs mt-1">৳{prod.discountPrice || prod.price}</p>
+                            <span className="text-[9px] text-gray-400 font-bold mt-1 uppercase">Section: {prod.section || 'Uncategorized'}</span>
                           </div>
 
-                          {/* Floating Plus Icon Bottom Right */}
+                          {/* Floating Add Button */}
                           <button
                             onClick={() => addExistingProductToSection(prod)}
-                            className="absolute bottom-2 right-2 w-8 h-8 bg-black text-white rounded-full flex items-center justify-center shadow hover:bg-orange-500 hover:scale-110 transition-all font-black text-lg pb-0.5"
+                            className="absolute bottom-2 right-2 w-7 h-7 bg-black text-white rounded-full flex items-center justify-center shadow hover:bg-primary transition-all font-black text-sm pb-0.5 outline-none"
                             title="Add to Section"
                           >
                             +
@@ -437,7 +470,7 @@ export default function CategoriesTab() {
                         </div>
                       ))}
                       {products.filter(p => p.section !== editingSection).length === 0 && (
-                        <div className="col-span-full text-center py-8 text-gray-400 font-bold text-sm">No other products available to add.</div>
+                        <div className="col-span-full text-center py-8 text-gray-400 font-bold text-xs">No other products available to add.</div>
                       )}
                     </div>
                   </div>
@@ -446,35 +479,55 @@ export default function CategoriesTab() {
                 {/* 2. PRODUCT FORM VIEW (Create/Edit) */}
                 {editingProductId && (
                   <div className="flex-1 flex flex-col">
-                    <div className="flex justify-between items-center mb-6">
-                      <h3 className="font-black text-xl uppercase tracking-tight text-gray-800">{editingProductId === 'new' ? 'Create New Product' : 'Edit Product'}</h3>
-                      <button onClick={() => setEditingProductId(null)} className="text-gray-500 text-sm font-bold hover:text-black">Cancel</button>
+                    <div className="flex justify-between items-center mb-5">
+                      <h3 className="font-black text-base uppercase tracking-tight text-gray-800">
+                        {editingProductId === 'new' ? 'Create New Product' : 'Edit Product Details'}
+                      </h3>
+                      <button onClick={() => setEditingProductId(null)} className="text-gray4 text-xs font-black uppercase hover:text-black">
+                        ← Back to List
+                      </button>
                     </div>
 
-                    <form onSubmit={handleSaveProduct} className="space-y-5">
-                      <input type="text" placeholder="Product Name" required value={prodForm.name} onChange={e => setProdForm({ ...prodForm, name: e.target.value })} className="w-full p-4 bg-white border border-gray-200 shadow-sm rounded-xl font-bold outline-none focus:border-orange-500" />
-                      <div className="flex flex-col md:flex-row gap-5">
-                        <input type="number" placeholder="Base Price (৳)" required value={prodForm.price} onChange={e => setProdForm({ ...prodForm, price: e.target.value })} className="flex-1 p-4 bg-white border border-gray-200 shadow-sm rounded-xl font-bold outline-none focus:border-orange-500" />
-                        <input type="number" placeholder="Discount Price (৳) (Optional)" value={prodForm.discountPrice} onChange={e => setProdForm({ ...prodForm, discountPrice: e.target.value })} className="flex-1 p-4 bg-white border border-gray-200 shadow-sm rounded-xl font-bold outline-none focus:border-orange-500" />
+                    <form onSubmit={handleSaveProduct} className="space-y-4">
+                      <div>
+                        <label className="block text-[10px] font-black uppercase tracking-widest text-gray-500 mb-1.5">Product Name</label>
+                        <input type="text" placeholder="Product Name" required value={prodForm.name} onChange={e => setProdForm({ ...prodForm, name: e.target.value })} className="w-full p-3 bg-white border border-gray2 shadow-sm rounded font-bold text-sm outline-none focus:border-primary" />
                       </div>
-                      <textarea placeholder="Product Description..." required rows="4" value={prodForm.description} onChange={e => setProdForm({ ...prodForm, description: e.target.value })} className="w-full p-4 bg-white border border-gray-200 shadow-sm rounded-xl font-bold outline-none focus:border-orange-500"></textarea>
+                      
+                      <div className="flex flex-col sm:flex-row gap-4">
+                        <div className="flex-1">
+                          <label className="block text-[10px] font-black uppercase tracking-widest text-gray-500 mb-1.5">Base Price (৳)</label>
+                          <input type="number" placeholder="Base Price (৳)" required value={prodForm.price} onChange={e => setProdForm({ ...prodForm, price: e.target.value })} className="w-full p-3 bg-white border border-gray2 shadow-sm rounded font-bold text-sm outline-none focus:border-primary" />
+                        </div>
+                        <div className="flex-1">
+                          <label className="block text-[10px] font-black uppercase tracking-widest text-gray-500 mb-1.5">Discount Price (৳) (Optional)</label>
+                          <input type="number" placeholder="Discount Price (৳) (Optional)" value={prodForm.discountPrice} onChange={e => setProdForm({ ...prodForm, discountPrice: e.target.value })} className="w-full p-3 bg-white border border-gray2 shadow-sm rounded font-bold text-sm outline-none focus:border-primary" />
+                        </div>
+                      </div>
 
-                      <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm">
-                        <label className="block font-black text-xs uppercase tracking-widest text-gray-500 mb-3">Product Images (URLs)</label>
-                        <div className="space-y-3">
+                      <div>
+                        <label className="block text-[10px] font-black uppercase tracking-widest text-gray-500 mb-1.5">Description</label>
+                        <textarea placeholder="Product Description..." required rows="4" value={prodForm.description} onChange={e => setProdForm({ ...prodForm, description: e.target.value })} className="w-full p-3 bg-white border border-gray2 shadow-sm rounded font-bold text-xs outline-none focus:border-primary resize-none"></textarea>
+                      </div>
+
+                      <div className="bg-white p-5 rounded-brand border border-gray2 shadow-sm">
+                        <label className="block font-black text-[10px] uppercase tracking-widest text-gray4 mb-2">Product Images (URLs)</label>
+                        <div className="space-y-2">
                           {prodForm.images.map((img, idx) => (
                             <input key={idx} type="url" placeholder="https://..." value={img} onChange={e => {
                               const newImgs = [...prodForm.images];
                               newImgs[idx] = e.target.value;
                               setProdForm({ ...prodForm, images: newImgs });
-                            }} className="w-full p-3 bg-gray-50 border border-gray-200 rounded-lg font-bold text-sm outline-none focus:border-orange-500" />
+                            }} className="w-full p-2.5 bg-gray1 border border-gray-200 rounded font-bold text-xs outline-none focus:border-primary" />
                           ))}
                         </div>
-                        <button type="button" onClick={() => setProdForm({ ...prodForm, images: [...prodForm.images, ''] })} className="mt-3 text-orange-500 font-black text-xs uppercase hover:text-orange-600 transition-colors">+ Add another image URL</button>
+                        <button type="button" onClick={() => setProdForm({ ...prodForm, images: [...prodForm.images, ''] })} className="mt-2 text-primary font-black text-[10px] uppercase hover:text-primary-light transition-colors bg-transparent border-none">
+                          + Add another image URL
+                        </button>
                       </div>
 
-                      <button type="submit" className="w-full bg-black text-white font-black py-4 rounded-xl uppercase text-lg shadow-md hover:bg-orange-500 hover:shadow-lg transition-all mt-4">
-                        Save Product
+                      <button type="submit" className="w-full btn-primary font-black py-3.5 rounded uppercase text-xs tracking-wider shadow-md hover:shadow-lg transition-all mt-4">
+                        Save Product Data
                       </button>
                     </form>
                   </div>
@@ -487,23 +540,23 @@ export default function CategoriesTab() {
                     {/* ADD NEW SQUARED BOX */}
                     <div
                       onClick={() => setShowAddExisting(true)}
-                      className="bg-white border-2 border-dashed border-gray-300 rounded-xl flex flex-col items-center justify-center text-gray-400 hover:text-orange-500 hover:border-orange-500 hover:bg-orange-50 cursor-pointer aspect-square transition-all shadow-sm"
+                      className="bg-white border-2 border-dashed border-gray3 rounded-brand flex flex-col items-center justify-center text-gray4 hover:text-primary hover:border-primary hover:bg-primary-pale cursor-pointer aspect-square transition-all shadow-sm"
                     >
-                      <svg className="w-8 h-8 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M12 4v16m8-8H4" /></svg>
-                      <span className="font-black text-[10px] uppercase tracking-widest text-center px-2">Add Product</span>
+                      <span className="text-xl mb-1.5">➕</span>
+                      <span className="font-black text-[9px] uppercase tracking-widest text-center px-2">Add Product</span>
                     </div>
 
                     {/* PRODUCTS IN THIS SECTION */}
                     {sectionProducts.map((prod, idx) => (
-                      <div key={prod.id} className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden flex flex-col relative group">
+                      <div key={prod.id} className="bg-white rounded-brand shadow-sm border border-gray2 overflow-hidden flex flex-col relative group">
 
                         {/* Remove from section button */}
                         <button
                           onClick={() => removeFromSection(prod.id)}
-                          className="absolute top-2 right-2 z-10 bg-white shadow border border-red-100 text-red-500 w-6 h-6 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 hover:bg-red-500 hover:text-white hover:border-red-500 transition-all text-xs font-black"
+                          className="absolute top-2 right-2 z-10 opacity-0 group-hover:opacity-100 transition-opacity at-action-btn danger text-red font-black"
                           title="Remove from Section"
                         >
-                          ×
+                          ✕
                         </button>
 
                         {/* Order controls */}
@@ -514,22 +567,22 @@ export default function CategoriesTab() {
 
                         {/* Clickable Image to Edit */}
                         <div
-                          className="h-32 w-full bg-gray-100 relative cursor-pointer"
+                          className="h-28 w-full bg-gray1 relative cursor-pointer"
                           onClick={() => openEditForm(prod)}
                         >
                           <img src={prod.images?.[0] || 'https://via.placeholder.com/150'} className="w-full h-full object-cover group-hover:opacity-90 transition-opacity" alt="" />
-                          <div className="absolute inset-0 bg-black/10 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center pointer-events-none">
-                            <span className="bg-black/70 text-white text-[10px] uppercase font-black px-2 py-1 rounded tracking-widest">Edit</span>
+                          <div className="absolute inset-0 bg-dark/10 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center pointer-events-none">
+                            <span className="bg-dark/70 text-white text-[9px] uppercase font-black px-2 py-0.5 rounded tracking-widest">Edit</span>
                           </div>
                         </div>
 
                         <div className="p-3 flex-1 flex flex-col">
-                          <h4 className="font-black text-sm text-gray-800 line-clamp-2 leading-tight">{prod.name}</h4>
-                          <p className="font-bold text-gray-500 text-xs mt-1">৳{prod.discountPrice || prod.price}</p>
-                          <div className="mt-auto pt-3">
+                          <h4 className="font-black text-xs text-dark line-clamp-2 leading-tight min-h-[32px]">{prod.name}</h4>
+                          <p className="font-extrabold text-primary text-xs mt-1">৳{prod.discountPrice || prod.price}</p>
+                          <div className="mt-auto pt-2">
                             <button
                               onClick={() => openEditForm(prod)}
-                              className="w-full bg-gray-100 text-gray-700 py-1.5 rounded font-black text-[10px] uppercase tracking-widest hover:bg-gray-200 transition-colors"
+                              className="w-full bg-gray1 text-dark py-1.5 rounded font-black text-[9px] uppercase tracking-widest hover:bg-gray2 transition-colors border border-gray2"
                             >
                               Edit Details
                             </button>

@@ -1,39 +1,37 @@
 import { useState, useEffect } from 'react';
 import { signOut, updateProfile } from 'firebase/auth';
-import { doc, getDoc, setDoc, collection, query, where, getDocs, updateDoc } from 'firebase/firestore'; 
+import { doc, getDoc, setDoc, collection, query, where, getDocs, updateDoc } from 'firebase/firestore';
 import { auth, db } from '../firebaseConfig';
 import { useAuth } from '../context/AuthContext';
-import { Navigate, Link } from 'react-router-dom';
+import { Navigate, Link, useNavigate } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
 import { isValidBDPhoneNumber } from '../utils/phoneValidation';
 import { fetchCurrentLocation } from '../utils/geolocation';
 
-
-// VISUAL ORDER PIPELINE COMPONENT
 const ORDER_STEPS = ['Pending', 'Confirmed', 'Shipped', 'Delivered'];
+
+function generateUniqueId() { return Date.now().toString(); }
+
 const OrderPipeline = ({ status }) => {
-  if (status === 'Cancelled') {
-    return (
-      <div className="flex items-center gap-2 bg-red-50 border border-red-200 rounded-lg px-4 py-2">
-        <span className="w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center text-xs font-black">✕</span>
-        <span className="text-red-600 font-black text-xs uppercase tracking-widest">Cancelled</span>
-      </div>
-    );
-  }
-  const currentIndex = ORDER_STEPS.indexOf(status);
+  if (status === 'Cancelled') return (
+    <span className="order-status status-cancelled">✕ Cancelled</span>
+  );
+  const cur = ORDER_STEPS.indexOf(status);
   return (
-    <div className="flex items-center w-full gap-1 my-4">
-      {ORDER_STEPS.map((step, idx) => (
-        <div key={step} className="flex items-center flex-1">
-          <div className={`w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-black shrink-0 transition-all duration-500 ${
-            idx < currentIndex ? 'bg-orange-500 text-white' :
-            idx === currentIndex ? 'bg-orange-500 text-white ring-4 ring-orange-200 animate-pulse' :
-            'bg-gray-200 text-gray-400'
-          }`}>
-            {idx < currentIndex ? '✓' : idx + 1}
+    <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+      {ORDER_STEPS.map((step, i) => (
+        <div key={step} style={{ display: 'flex', alignItems: 'center', flex: 1 }}>
+          <div style={{
+            width: 20, height: 20, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontSize: 9, fontWeight: 900, flexShrink: 0,
+            background: i <= cur ? 'var(--primary)' : 'var(--gray2)',
+            color: i <= cur ? '#fff' : 'var(--gray4)',
+            outline: i === cur ? '3px solid rgba(232,84,10,0.2)' : 'none'
+          }}>
+            {i < cur ? '✓' : i + 1}
           </div>
-          {idx < ORDER_STEPS.length - 1 && (
-            <div className={`flex-1 h-1 mx-1 rounded transition-all duration-500 ${idx < currentIndex ? 'bg-orange-500' : 'bg-gray-200'}`}></div>
+          {i < ORDER_STEPS.length - 1 && (
+            <div style={{ flex: 1, height: 2, background: i < cur ? 'var(--primary)' : 'var(--gray2)', borderRadius: 2, margin: '0 3px' }} />
           )}
         </div>
       ))}
@@ -41,17 +39,28 @@ const OrderPipeline = ({ status }) => {
   );
 };
 
+const cancellationReasons = [
+  'ডেলিভারি অনেক দেরি হচ্ছে (Delivery is taking too long)',
+  'ভুল করে অর্ডার দিয়ে ফেলেছি (Ordered by mistake)',
+  'অন্য জায়গা থেকে কিনে নিয়েছি (Bought elsewhere)',
+  'টাকার সমস্যা (Financial issue)',
+  'অন্যান্য (Other)',
+];
+
 export default function Profile() {
   const { user, isAdmin, authLoading } = useAuth();
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
-  
-  // Profile Data
+  const [activeTab, setActiveTab] = useState('overview');
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+
   const [name, setName] = useState('');
   const [displayName, setDisplayName] = useState('');
+  const [phone, setPhone] = useState('');
+  const [coords, setCoords] = useState('');
   const [addresses, setAddresses] = useState([]);
   const [isSavingName, setIsSavingName] = useState(false);
 
-  // Address Modal State
   const [showAddressModal, setShowAddressModal] = useState(false);
   const [editAddressId, setEditAddressId] = useState(null);
   const [newLabel, setNewLabel] = useState('Home');
@@ -61,97 +70,98 @@ export default function Profile() {
   const [phoneError, setPhoneError] = useState(false);
   const [locating, setLocating] = useState(false);
 
-  // --- ORDER HISTORY STATE ---
   const [myOrders, setMyOrders] = useState([]);
   const [cancelModalOpen, setCancelModalOpen] = useState(false);
   const [orderToCancel, setOrderToCancel] = useState(null);
   const [cancelReason, setCancelReason] = useState('');
+  const [orderSearchQuery, setOrderSearchQuery] = useState('');
+  const [orderStatusFilter, setOrderStatusFilter] = useState('All Status');
 
-  // --- CONFIRM MODAL STATE ---
   const [confirmModal, setConfirmModal] = useState({ isOpen: false, title: '', message: '', action: null });
 
-  const cancellationReasons = [
-    "ডেলিভারি অনেক দেরি হচ্ছে (Delivery is taking too long)",
-    "ভুল করে অর্ডার দিয়ে ফেলেছি (Ordered by mistake)",
-    "অন্য জায়গা থেকে কিনে নিয়েছি (Bought elsewhere)",
-    "টাকার সমস্যা (Financial issue)",
-    "অন্যান্য (Other)"
-  ];
+  const [wishlist, setWishlist] = useState([]);
+  const [wishlistProducts, setWishlistProducts] = useState([]);
 
   useEffect(() => {
     const loadProfile = async () => {
       const currentUser = user;
       if (currentUser) {
         try {
-          // Fetch Profile
-          const docRef = doc(db, 'users', currentUser.uid);
-          const docSnap = await getDoc(docRef);
+          const docSnap = await getDoc(doc(db, 'users', currentUser.uid));
           if (docSnap.exists()) {
             const data = docSnap.data();
             setName(data.name || currentUser.displayName || '');
             setDisplayName(data.name || currentUser.displayName || '');
+            setPhone(data.phone || '');
+            setCoords(data.coords || '');
             if (data.addresses) {
               setAddresses(data.addresses);
             } else if (data.address || data.phone) {
-              setAddresses([{ id: Date.now().toString(), label: 'Default', address: data.address || '', phone: data.phone || '', isDefault: true }]);
+              setAddresses([{ id: generateUniqueId(), label: 'Default', address: data.address || '', phone: data.phone || '', isDefault: true }]);
             }
           } else {
             setName(currentUser.displayName || '');
             setDisplayName(currentUser.displayName || '');
           }
-          
-          
-          // Fetch User's Orders
           let ordersData = [];
           if (currentUser.email) {
-            const q = query(collection(db, 'orders'), where("customerEmail", "==", currentUser.email));
-            const orderSnap = await getDocs(q);
-            ordersData = orderSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            const q = query(collection(db, 'orders'), where('customerEmail', '==', currentUser.email));
+            const snap = await getDocs(q);
+            ordersData = snap.docs.map(d => ({ id: d.id, ...d.data() }));
           }
-          
-          // Merge with guest orders
           const localOrders = JSON.parse(localStorage.getItem('vertex_guest_orders') || '[]');
-          
-          const combinedOrders = [...ordersData, ...localOrders]
-            .filter((o, index, self) => index === self.findIndex((t) => t.id === o.id)) // Deduplicate
+          const combined = [...ordersData, ...localOrders]
+            .filter((o, i, self) => i === self.findIndex(t => t.id === o.id))
             .filter(o => !o.hiddenByCustomer)
             .sort((a, b) => {
-              const timeA = a.createdAt?.toMillis ? a.createdAt.toMillis() : new Date(a.createdAt).getTime();
-              const timeB = b.createdAt?.toMillis ? b.createdAt.toMillis() : new Date(b.createdAt).getTime();
-              return timeB - timeA;
+              const tA = a.createdAt?.toMillis ? a.createdAt.toMillis() : new Date(a.createdAt).getTime();
+              const tB = b.createdAt?.toMillis ? b.createdAt.toMillis() : new Date(b.createdAt).getTime();
+              return tB - tA;
             });
-            
-          setMyOrders(combinedOrders);
-        } catch (error) {
-          console.error("Error fetching profile data:", error);
-        }
+          setMyOrders(combined);
+        } catch (err) { console.error('Error loading profile:', err); }
       } else {
-        // If not logged in, just load guest orders
-        const localOrders = JSON.parse(localStorage.getItem('vertex_guest_orders') || '[]');
-        setMyOrders(localOrders.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
+        const lo = JSON.parse(localStorage.getItem('vertex_guest_orders') || '[]');
+        setMyOrders(lo.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
       }
       setLoading(false);
     };
     loadProfile();
   }, [user]);
 
-  const handleSaveName = async (e) => {
+  useEffect(() => {
+    const fetchWishlist = async () => {
+      const saved = localStorage.getItem('vertex_wishlist');
+      const ids = saved ? JSON.parse(saved) : [];
+      setWishlist(ids);
+      if (ids.length === 0) { setWishlistProducts([]); return; }
+      try {
+        const snap = await getDocs(collection(db, 'mangoes'));
+        const all = snap.docs.filter(d => !['STORE_SECTIONS','STORE_SETTINGS','NAVBAR_TABS'].includes(d.id)).map(d => ({ id: d.id, ...d.data() }));
+        setWishlistProducts(all.filter(m => ids.includes(m.id)));
+      } catch (err) { console.error('Wishlist load error:', err); }
+    };
+    if (activeTab === 'wishlist' || activeTab === 'overview') fetchWishlist();
+  }, [activeTab]);
+
+  const handleSaveProfile = async (e) => {
     e.preventDefault();
     setIsSavingName(true);
     try {
       if (user) await updateProfile(user, { displayName: name });
-      await setDoc(doc(db, 'users', user.uid), { name, email: user.email }, { merge: true });
+      await setDoc(doc(db, 'users', user.uid), { name, email: user.email, phone, coords }, { merge: true });
       setDisplayName(name);
-      toast.success('Name updated successfully!');
-    } catch (err) { console.error(err); }
+      toast.success('Profile saved successfully!');
+    } catch (err) { console.error(err); toast.error('Failed to update profile'); }
     setIsSavingName(false);
   };
 
-  const saveAddressesToDB = async (updatedAddresses) => {
+  const saveAddresses = async (updated) => {
     try {
-      await setDoc(doc(db, 'users', user.uid), { addresses: updatedAddresses, updatedAt: new Date() }, { merge: true });
-      setAddresses(updatedAddresses);
-    } catch (err) { console.error("Error saving addresses", err); }
+      await setDoc(doc(db, 'users', user.uid), { addresses: updated, updatedAt: new Date() }, { merge: true });
+      setAddresses(updated);
+      toast.success('Address book synchronized');
+    } catch (err) { console.error(err); toast.error('Failed to sync addresses'); }
   };
 
   const handleSaveAddressModal = async (e) => {
@@ -159,340 +169,532 @@ export default function Profile() {
     if (!isValidBDPhoneNumber(newPhone)) {
       setPhoneError(true);
       setTimeout(() => setPhoneError(false), 3000);
-      return toast.error("Please enter a valid Bangladeshi phone number");
+      return toast.error('Please enter a valid Bangladeshi phone number');
     }
     let updated;
     if (editAddressId) {
-      updated = addresses.map(addr => addr.id === editAddressId ? {
-        ...addr,
-        label: newLabel,
-        phone: newPhone,
-        address: newAddress,
-        coords: newCoords
-      } : addr);
+      updated = addresses.map(a => a.id === editAddressId ? { ...a, label: newLabel, phone: newPhone, address: newAddress, coords: newCoords } : a);
     } else {
-      const newAddrObj = {
-        id: Date.now().toString(),
-        label: newLabel,
-        phone: newPhone,
-        address: newAddress,
-        coords: newCoords,
-        isDefault: addresses.length === 0
-      };
-      updated = [...addresses, newAddrObj];
+      updated = [...addresses, { id: generateUniqueId(), label: newLabel, phone: newPhone, address: newAddress, coords: newCoords, isDefault: addresses.length === 0 }];
     }
-    await saveAddressesToDB(updated);
+    await saveAddresses(updated);
     setShowAddressModal(false);
     setEditAddressId(null);
     setNewLabel('Home'); setNewPhone(''); setNewAddress(''); setNewCoords(null);
   };
 
   const handleEditAddress = (addr) => {
-    setEditAddressId(addr.id);
-    setNewLabel(addr.label);
-    setNewPhone(addr.phone);
-    setNewAddress(addr.address);
-    setNewCoords(addr.coords || null);
-    setShowAddressModal(true);
+    setEditAddressId(addr.id); setNewLabel(addr.label); setNewPhone(addr.phone);
+    setNewAddress(addr.address); setNewCoords(addr.coords || null); setShowAddressModal(true);
   };
 
   const closeAddressModal = () => {
-    setShowAddressModal(false);
-    setEditAddressId(null);
+    setShowAddressModal(false); setEditAddressId(null);
     setNewLabel('Home'); setNewPhone(''); setNewAddress(''); setNewCoords(null);
   };
 
-  const handleSetDefault = async (id) => {
-    const updated = addresses.map(addr => ({ ...addr, isDefault: addr.id === id }));
-    await saveAddressesToDB(updated);
-  };
+  const handleSetDefault = async (id) => saveAddresses(addresses.map(a => ({ ...a, isDefault: a.id === id })));
 
-  const triggerConfirm = (title, message, action) => {
-    setConfirmModal({ isOpen: true, title, message, action });
-  };
+  const triggerConfirm = (title, message, action) => setConfirmModal({ isOpen: true, title, message, action });
 
   const executeDeleteAddress = async (id) => {
-    const updated = addresses.filter(addr => addr.id !== id);
-    if (updated.length > 0 && !updated.some(a => a.isDefault)) {
-      updated[0].isDefault = true;
-    }
-    await saveAddressesToDB(updated);
+    const updated = addresses.filter(a => a.id !== id);
+    if (updated.length > 0 && !updated.some(a => a.isDefault)) updated[0].isDefault = true;
+    await saveAddresses(updated);
   };
 
-  const handleDeleteAddress = (id) => {
-    triggerConfirm("Delete Address", "Are you sure you want to delete this address? This action cannot be undone.", () => executeDeleteAddress(id));
-  };
+  const handleDeleteAddress = (id) => triggerConfirm('Delete Address', 'Are you sure you want to delete this address?', () => executeDeleteAddress(id));
 
   const handleCancelOrder = async () => {
-    if(!cancelReason) return toast.error("Please select a reason.");
+    if (!cancelReason) return toast.error('Please select a reason.');
     try {
-      await updateDoc(doc(db, 'orders', orderToCancel), {
-        status: 'Cancelled',
-        cancelReason: cancelReason,
-        cancelledAt: new Date()
-      });
-      // Update local state
+      await updateDoc(doc(db, 'orders', orderToCancel), { status: 'Cancelled', cancelReason, cancelledAt: new Date() });
       setMyOrders(myOrders.map(o => o.id === orderToCancel ? { ...o, status: 'Cancelled', cancelReason } : o));
-      setCancelModalOpen(false);
-      setOrderToCancel(null);
-      setCancelReason('');
-    } catch (err) { console.error("Failed to cancel", err); }
+      setCancelModalOpen(false); setOrderToCancel(null); setCancelReason('');
+      toast.success('Order cancelled successfully');
+    } catch (err) { console.error(err); toast.error('Failed to cancel order'); }
   };
 
   const executeHideOrder = async (id) => {
     try {
       await updateDoc(doc(db, 'orders', id), { hiddenByCustomer: true });
       setMyOrders(myOrders.filter(o => o.id !== id));
-    } catch (err) { console.error("Failed to hide order", err); }
+      toast.success('Order removed from history');
+    } catch (err) { console.error(err); }
   };
 
-  const handleHideOrder = (id) => {
-    triggerConfirm("Delete History", "Remove this order from your history? It will no longer be visible here.", () => executeHideOrder(id));
-  };
+  const handleHideOrder = (id) => triggerConfirm('Remove Order', 'Remove this order from your history?', () => executeHideOrder(id));
 
-  if (loading || authLoading) return <div className="min-h-screen flex items-center justify-center bg-gray-50 font-bold">Loading Profile...</div>;
+  const filteredOrders = myOrders.filter(o => {
+    if (orderSearchQuery.trim()) {
+      const q = orderSearchQuery.toLowerCase();
+      if (!o.id.toLowerCase().includes(q) && !o.items?.some(i => i.name.toLowerCase().includes(q))) return false;
+    }
+    if (orderStatusFilter !== 'All Status') {
+      if (orderStatusFilter === 'In Transit') return o.status === 'Shipped' || o.status === 'Confirmed';
+      if (orderStatusFilter === 'Delivered') return o.status === 'Delivered';
+      if (orderStatusFilter === 'Processing') return o.status === 'Pending';
+      if (orderStatusFilter === 'Cancelled') return o.status === 'Cancelled';
+    }
+    return true;
+  });
+
+  const formatDate = (createdAt) => new Date(createdAt?.seconds ? createdAt.seconds * 1000 : createdAt)
+    .toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+
+  const statusClass = (s) => s === 'Delivered' ? 'status-delivered' : s === 'Shipped' || s === 'Confirmed' ? 'status-transit' : s === 'Cancelled' ? 'status-cancelled' : 'status-processing';
+  const statusLabel = (s) => s === 'Cancelled' ? '✕ Cancelled' : s === 'Delivered' ? '✅ Delivered' : s === 'Shipped' ? '🚚 Shipped' : s === 'Confirmed' ? '⚙️ Confirmed' : '⏳ Pending';
+
+  if (loading || authLoading) return (
+    <div style={{ paddingTop: 'var(--nav-height)', minHeight: '80vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--gray1)' }}>
+      <div style={{ textAlign: 'center' }}>
+        <div style={{ width: 40, height: 40, border: '4px solid var(--primary)', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite', margin: '0 auto 1rem' }} />
+        <p style={{ fontSize: '.875rem', fontWeight: 700, color: 'var(--gray4)', textTransform: 'uppercase', letterSpacing: '.08em' }}>Syncing Account…</p>
+      </div>
+      <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
+    </div>
+  );
+
   if (!user) return <Navigate to="/login" replace />;
 
+  const initials = displayName ? displayName.charAt(0).toUpperCase() : (user.email ? user.email.charAt(0).toUpperCase() : 'U');
+  const deliveredOrders = myOrders.filter(o => o.status === 'Delivered');
+  const ltvAmount = deliveredOrders.reduce((s, o) => s + Number(o.total || 0), 0);
+  const loyaltyPoints = Math.floor(ltvAmount * 0.1);
+  const loyaltyValue = (ltvAmount * 0.01).toFixed(2);
+
+  const NavItem = ({ tabId, icon, label, badge, danger }) => {
+    const active = activeTab === tabId;
+    return (
+      <button
+        onClick={() => { setActiveTab(tabId); setIsSidebarOpen(false); }}
+        className={`dash-nav-item${active ? ' active' : ''}`}
+        style={danger && !active ? { color: 'var(--red)' } : {}}
+      >
+        <span className="dni-icon">{icon}</span>
+        {label}
+        {badge > 0 && <span className="dni-badge">{badge}</span>}
+      </button>
+    );
+  };
+
   return (
-    <div className={`min-h-screen py-16 px-4 ${isAdmin ? 'bg-gray-900' : 'bg-gray-50'}`}>
-      
-      {/* CONFIRMATION MODAL */}
+    <div style={{ paddingTop: 'var(--nav-height)', minHeight: '100vh', background: 'var(--gray1)' }}>
+      <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
+
+      {/* CONFIRM MODAL */}
       {confirmModal.isOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-70 z-[100] flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl p-6 max-w-sm w-full shadow-2xl animate-in fade-in zoom-in-95">
-            <h3 className="text-xl font-black uppercase text-gray-900 mb-2">{confirmModal.title}</h3>
-            <p className="text-sm font-bold text-gray-500 mb-6">{confirmModal.message}</p>
-            <div className="flex gap-4">
-              <button onClick={() => setConfirmModal({ ...confirmModal, isOpen: false })} className="flex-1 bg-gray-200 font-black py-3 rounded uppercase text-sm hover:bg-gray-300">Cancel</button>
-              <button onClick={() => { confirmModal.action(); setConfirmModal({ ...confirmModal, isOpen: false }); }} className="flex-1 bg-red-600 text-white font-black py-3 rounded uppercase text-sm hover:bg-red-700">Confirm</button>
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.5)', zIndex: 500, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem', backdropFilter: 'blur(4px)' }}>
+          <div style={{ background: '#fff', borderRadius: 20, padding: '2rem', maxWidth: 380, width: '100%', boxShadow: 'var(--shadow-lg)' }}>
+            <h3 style={{ fontSize: '1.1rem', fontWeight: 900, color: 'var(--dark)', marginBottom: '.5rem' }}>{confirmModal.title}</h3>
+            <p style={{ fontSize: '.82rem', color: 'var(--gray4)', lineHeight: 1.6, marginBottom: '1.5rem' }}>{confirmModal.message}</p>
+            <div style={{ display: 'flex', gap: '.75rem' }}>
+              <button className="btn-secondary" style={{ flex: 1, justifyContent: 'center' }} onClick={() => setConfirmModal({ ...confirmModal, isOpen: false })}>Cancel</button>
+              <button style={{ flex: 1, background: 'var(--red)', color: '#fff', fontWeight: 700, padding: '.75rem', borderRadius: 100, border: 'none', cursor: 'pointer', fontSize: '.85rem' }} onClick={() => { confirmModal.action(); setConfirmModal({ ...confirmModal, isOpen: false }); }}>Confirm</button>
             </div>
           </div>
         </div>
       )}
 
-      {/* ADD ADDRESS MODAL */}
+      {/* ADDRESS MODAL */}
       {showAddressModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl p-8 max-w-md w-full shadow-2xl">
-            <h3 className="text-xl font-black uppercase text-gray-900 mb-6">{editAddressId ? 'Edit Address' : 'Add New Address'}</h3>
-            <form onSubmit={handleSaveAddressModal} className="space-y-4">
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.5)', zIndex: 500, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem', backdropFilter: 'blur(4px)' }}>
+          <div style={{ background: '#fff', borderRadius: 20, padding: '2rem', maxWidth: 440, width: '100%', boxShadow: 'var(--shadow-lg)' }}>
+            <h3 style={{ fontSize: '1.1rem', fontWeight: 900, color: 'var(--dark)', marginBottom: '1.5rem' }}>{editAddressId ? 'Edit Address' : 'Add New Address'}</h3>
+            <form onSubmit={handleSaveAddressModal} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              <div><label className="form-label">Label (e.g. Home, Office)</label><input type="text" className="form-input" value={newLabel} onChange={e => setNewLabel(e.target.value)} required /></div>
+              <div><label className="form-label">Phone Number</label><input type="tel" className="form-input" value={newPhone} onChange={e => setNewPhone(e.target.value)} required placeholder="017..." style={phoneError ? { borderColor: 'var(--red)', background: 'var(--red-pale)' } : {}} /></div>
               <div>
-                <label className="block text-xs font-black uppercase tracking-widest text-gray-500 mb-2">Label (e.g. Home, Office)</label>
-                <input type="text" value={newLabel} onChange={e => setNewLabel(e.target.value)} required className="w-full p-3 border rounded font-bold outline-none focus:border-orange-500" />
-              </div>
-              <div>
-                <label className="block text-xs font-black uppercase tracking-widest text-gray-500 mb-2">Phone Number</label>
-                <input type="tel" value={newPhone} onChange={e => setNewPhone(e.target.value)} required placeholder="017..." className={`w-full p-3 border rounded font-bold outline-none transition-colors duration-300 ${phoneError ? 'bg-red-50 border-red-500 text-red-700 shadow-[0_0_15px_rgba(239,68,68,0.5)]' : 'focus:border-orange-500'}`} />
-              </div>
-              <div>
-                <label className="block text-xs font-black uppercase tracking-widest text-gray-500 mb-2">Full Address</label>
-                <div className="relative">
-                  <textarea value={newAddress} onChange={e => { setNewAddress(e.target.value); setNewCoords(null); }} required placeholder="House, Road, Area, City" className="w-full p-3 pr-12 border rounded font-bold outline-none focus:border-orange-500 h-24"></textarea>
-                  <button
-                    type="button"
-                    onClick={() => fetchCurrentLocation(setNewAddress, setLocating, setNewCoords)}
-                    disabled={locating}
-                    className="absolute top-3 right-3 w-8 h-8 bg-orange-500 text-white rounded-full flex items-center justify-center transition-all hover:scale-110 active:scale-95 shadow-[0_0_10px_rgba(249,115,22,0.4)] hover:shadow-[0_0_15px_rgba(249,115,22,0.8)] disabled:opacity-50 disabled:animate-pulse disabled:hover:scale-100 disabled:hover:shadow-none"
-                    title="Use current location"
-                  >
-                    {locating ? (
-                      <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>
-                    ) : (
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
-                    )}
-                  </button>
+                <label className="form-label">Full Shipping Address</label>
+                <div style={{ position: 'relative' }}>
+                  <textarea className="form-input" value={newAddress} onChange={e => { setNewAddress(e.target.value); setNewCoords(null); }} required placeholder="House, Road, Area, City" style={{ height: 80, resize: 'none', paddingRight: '2.5rem' }} />
+                  <button type="button" onClick={() => fetchCurrentLocation(setNewAddress, setLocating, setNewCoords)} disabled={locating} style={{ position: 'absolute', top: 8, right: 8, width: 28, height: 28, background: 'var(--primary)', color: '#fff', borderRadius: '50%', border: 'none', cursor: 'pointer', fontSize: 12, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{locating ? '⏳' : '📍'}</button>
                 </div>
               </div>
-              <div className="flex gap-4 mt-6">
-                <button type="button" onClick={closeAddressModal} className="flex-1 bg-gray-200 font-black py-3 rounded uppercase text-sm hover:bg-gray-300">Cancel</button>
-                <button type="submit" className="flex-1 bg-orange-500 text-white font-black py-3 rounded uppercase text-sm hover:bg-black transition-colors">Save Address</button>
+              <div style={{ display: 'flex', gap: '.75rem', marginTop: '.5rem' }}>
+                <button type="button" className="btn-secondary" style={{ flex: 1, justifyContent: 'center' }} onClick={closeAddressModal}>Cancel</button>
+                <button type="submit" className="btn-primary" style={{ flex: 1, justifyContent: 'center', borderRadius: 'var(--radius-sm)' }}>Save Address</button>
               </div>
             </form>
           </div>
         </div>
       )}
 
-      {/* CANCELLATION MODAL */}
+      {/* CANCEL ORDER MODAL */}
       {cancelModalOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl p-6 max-w-md w-full shadow-2xl">
-            <h3 className="text-xl font-black uppercase text-red-600 mb-4">Cancel Order?</h3>
-            <p className="text-sm font-bold text-gray-500 mb-4">Please let us know why you are canceling this order:</p>
-            <div className="space-y-2 mb-6">
-              {cancellationReasons.map((reason, idx) => (
-                <label key={idx} className="flex items-center gap-3 p-3 border rounded cursor-pointer hover:bg-red-50">
-                  <input type="radio" name="reason" value={reason} onChange={(e) => setCancelReason(e.target.value)} className="w-4 h-4 accent-red-600" />
-                  <span className="font-bold text-sm text-gray-700">{reason}</span>
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.5)', zIndex: 500, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem', backdropFilter: 'blur(4px)' }}>
+          <div style={{ background: '#fff', borderRadius: 20, padding: '2rem', maxWidth: 440, width: '100%', boxShadow: 'var(--shadow-lg)' }}>
+            <h3 style={{ fontSize: '1.1rem', fontWeight: 900, color: 'var(--red)', marginBottom: '.75rem' }}>Cancel Order?</h3>
+            <p style={{ fontSize: '.82rem', color: 'var(--gray4)', marginBottom: '1rem' }}>Please let us know why:</p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '.5rem', marginBottom: '1.5rem' }}>
+              {cancellationReasons.map((r, i) => (
+                <label key={i} style={{ display: 'flex', alignItems: 'center', gap: '.75rem', padding: '.75rem', border: '1.5px solid var(--gray2)', borderRadius: 12, cursor: 'pointer', fontSize: '.8rem', fontWeight: 600, color: 'var(--gray4)' }}>
+                  <input type="radio" name="reason" value={r} onChange={e => setCancelReason(e.target.value)} style={{ accentColor: 'var(--red)', width: 16, height: 16 }} />
+                  {r}
                 </label>
               ))}
             </div>
-            <div className="flex gap-4">
-              <button onClick={() => setCancelModalOpen(false)} className="flex-1 bg-gray-200 font-black py-3 rounded uppercase text-sm hover:bg-gray-300">Keep Order</button>
-              <button onClick={handleCancelOrder} className="flex-1 bg-red-600 text-white font-black py-3 rounded uppercase text-sm hover:bg-red-700">Confirm Cancel</button>
+            <div style={{ display: 'flex', gap: '.75rem' }}>
+              <button className="btn-secondary" style={{ flex: 1, justifyContent: 'center' }} onClick={() => setCancelModalOpen(false)}>Keep Order</button>
+              <button style={{ flex: 1, background: 'var(--red)', color: '#fff', fontWeight: 700, padding: '.75rem', borderRadius: 100, border: 'none', cursor: 'pointer', fontSize: '.85rem' }} onClick={handleCancelOrder}>Confirm Cancel</button>
             </div>
           </div>
         </div>
       )}
 
-      <div className="max-w-3xl mx-auto">
-        
-        {isAdmin ? (
-          <div className="bg-black rounded-xl shadow-2xl border border-gray-800 overflow-hidden mb-8 animate-in fade-in">
-            <div className="p-8 border-b border-gray-800 flex flex-col md:flex-row justify-between items-center bg-gray-900 gap-4">
-              <div>
-                <h1 className="text-3xl font-black text-white uppercase tracking-widest">Command Center</h1>
-                <p className="text-gray-400 font-medium mt-1">Status: <span className="font-black text-orange-500 uppercase">Master Admin</span></p>
-              </div>
-              <div className="flex gap-4 w-full md:w-auto">
-                <Link to="/admin" className="bg-orange-500 text-white px-6 py-2.5 rounded-md font-black hover:bg-white hover:text-black transition-colors uppercase tracking-wider text-sm shadow-[0_0_15px_rgba(249,115,22,0.3)] text-center flex-grow">Enter Dashboard</Link>
-                <button onClick={() => signOut(auth)} className="bg-gray-800 text-white px-6 py-2.5 rounded-md font-bold hover:bg-red-500 transition-colors uppercase tracking-wider text-sm">Exit</button>
-              </div>
-            </div>
-          </div>
-        ) : (
-          <div className="bg-white rounded-xl shadow-lg overflow-hidden border-t-8 border-orange-500 mb-8 animate-in fade-in">
-            <div className="p-8 border-b border-gray-100 flex flex-col md:flex-row justify-between items-center bg-gray-50 gap-4">
-              <div>
-                <h1 className="text-3xl font-black text-gray-900 uppercase">{displayName ? `${displayName}'s Account` : 'My Account'}</h1>
-                <p className="text-gray-600 font-medium mt-1">Logged in as: <span className="font-bold text-orange-500">{user.email}</span></p>
-              </div>
-              <button onClick={() => signOut(auth)} className="w-full md:w-auto bg-black text-white px-6 py-2.5 rounded-md font-bold hover:bg-orange-500 transition-colors uppercase tracking-wider text-sm">Log Out</button>
-            </div>
-          </div>
+      {/* DASHBOARD LAYOUT */}
+      <div className="dashboard-layout">
+
+        {/* SIDEBAR OVERLAY (mobile) */}
+        {isSidebarOpen && (
+          <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.45)', zIndex: 290 }} onClick={() => setIsSidebarOpen(false)} />
         )}
 
-        {/* EDIT PROFILE NAME */}
-        {!isAdmin && (
-          <div className="bg-white p-8 rounded-xl shadow-lg mb-8">
-            <h2 className="text-xl font-black uppercase mb-4 text-gray-800">Personal Details</h2>
-            <form onSubmit={handleSaveName} className="flex gap-4 items-end">
-              <div className="flex-grow">
-                <label className="block text-xs font-black uppercase tracking-widest mb-2 text-gray-500">Full Name</label>
-                <input type="text" value={name} onChange={e => setName(e.target.value)} placeholder="Your Name" className="w-full p-3 border border-gray-200 rounded font-bold outline-none bg-gray-50 focus:border-orange-500" required />
-              </div>
-              <button type="submit" disabled={isSavingName} className="bg-gray-900 text-white font-black px-6 py-3 rounded uppercase tracking-widest hover:bg-orange-500 transition-colors h-[50px]">{isSavingName ? '...' : 'Save'}</button>
-            </form>
+        {/* SIDEBAR */}
+        <aside className="dash-sidebar" style={isSidebarOpen ? { display: 'block', position: 'fixed', top: 0, left: 0, height: '100vh', zIndex: 300 } : {}}>
+          {/* User Card */}
+          <div className="dash-user-card">
+            <div className="duc-avatar">{initials}</div>
+            <div className="duc-name">{displayName || user.email?.split('@')[0] || 'Vertex User'}</div>
+            <div className="duc-email">{user.email}</div>
+            <div className="duc-tier">{isAdmin ? '🔑 Super Admin' : '🏆 Gold Member'}</div>
           </div>
-        )}
 
-        {/* ADDRESS BOOK */}
-        <div className={`p-8 rounded-xl shadow-lg mb-8 ${isAdmin ? 'bg-gray-800 border border-gray-700' : 'bg-white'}`}>
-          <div className="flex justify-between items-center mb-6">
-            <h2 className={`text-xl font-black uppercase ${isAdmin ? 'text-white' : 'text-gray-800'}`}>Address Book</h2>
-            <button onClick={() => setShowAddressModal(true)} className="bg-orange-500 text-white text-xs font-black px-4 py-2 rounded uppercase tracking-widest hover:bg-black transition-colors">+ Add New</button>
-          </div>
-          
-          {addresses.length === 0 ? (
-            <div className={`p-6 text-center border-2 border-dashed rounded-lg ${isAdmin ? 'border-gray-700 text-gray-500' : 'border-gray-200 text-gray-400'}`}>
-              <p className="font-bold">No addresses saved yet.</p>
+          {/* Nav */}
+          <nav className="dash-nav">
+            <div style={{ fontSize: '.65rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.1em', color: 'var(--gray4)', padding: '.25rem .75rem .6rem', marginTop: '.4rem' }}>Main</div>
+            <NavItem tabId="overview" icon="🏠" label="Overview" />
+            <NavItem tabId="orders" icon="📦" label="My Orders" badge={myOrders.length} />
+            <NavItem tabId="wishlist" icon="❤️" label="Wishlist" badge={wishlist.length} />
+            <NavItem tabId="wallet" icon="💰" label="Wallet & Points" />
+            <NavItem tabId="addresses" icon="📍" label="Addresses" />
+            <NavItem tabId="reviews" icon="⭐" label="My Reviews" />
+            <NavItem tabId="notifications" icon="🔔" label="Notifications" badge={2} />
+
+            <div className="dash-nav-divider" />
+
+            <div style={{ fontSize: '.65rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.1em', color: 'var(--gray4)', padding: '.25rem .75rem .6rem' }}>Account</div>
+            <NavItem tabId="profile" icon="👤" label="Edit Profile" />
+            <NavItem tabId="security" icon="🔒" label="Security" />
+
+            {isAdmin && (
+              <>
+                <div className="dash-nav-divider" />
+                <Link to="/admin" className="dash-nav-item" style={{ display: 'flex', alignItems: 'center', gap: '.7rem', color: 'var(--primary)', fontWeight: 700 }}>
+                  <span className="dni-icon">⚙️</span> Admin Console
+                </Link>
+              </>
+            )}
+
+            <div className="dash-nav-divider" />
+            <button className="dash-nav-item" style={{ color: 'var(--red)', width: '100%', textAlign: 'left' }} onClick={() => signOut(auth)}>
+              <span className="dni-icon">🚪</span> Sign Out
+            </button>
+          </nav>
+        </aside>
+
+        {/* MAIN CONTENT */}
+        <div className="dash-main">
+
+          {/* Page Header with sidebar toggle */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.5rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+              <button
+                onClick={() => setIsSidebarOpen(true)}
+                style={{ display: 'none', padding: '8px', borderRadius: 10, border: '1.5px solid var(--gray2)', background: '#fff', cursor: 'pointer', fontSize: '1.1rem' }}
+                className="sidebar-mobile-toggle"
+              >☰</button>
+              <div>
+                <div className="dash-title" style={{ marginBottom: '.2rem' }}>
+                  Welcome back, <span style={{ color: 'var(--primary)' }}>{displayName || 'Connoisseur'}</span> 👋
+                </div>
+                <div className="dash-subtitle">{activeTab.charAt(0).toUpperCase() + activeTab.slice(1)} Panel</div>
+              </div>
             </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {addresses.map(addr => (
-                <div key={addr.id} className={`p-5 border-2 rounded-lg relative ${addr.isDefault ? 'border-orange-500 bg-orange-50' : (isAdmin ? 'border-gray-700 bg-gray-900 text-white' : 'border-gray-200 bg-white')}`}>
-                  {addr.isDefault && <span className="absolute -top-3 left-4 bg-orange-500 text-white text-[10px] font-black px-2 py-1 rounded uppercase tracking-widest">Default</span>}
-                  <div className="flex justify-between items-start mb-2">
-                    <h3 className="font-black uppercase tracking-widest text-sm">{addr.label}</h3>
-                    <div className="flex gap-3">
-                      <button onClick={() => handleEditAddress(addr)} className="text-blue-500 hover:text-blue-400 transition-colors drop-shadow-[0_0_8px_rgba(59,130,246,0.6)]">
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
-                      </button>
-                      <button onClick={() => handleDeleteAddress(addr.id)} className="text-red-500 hover:text-red-400 transition-colors drop-shadow-[0_0_8px_rgba(239,68,68,0.8)]">
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                      </button>
-                    </div>
-                  </div>
-                  <p className={`font-bold text-sm mb-1 ${isAdmin ? 'text-gray-300' : 'text-gray-700'}`}>{addr.phone}</p>
-                  <p className={`font-medium text-sm mb-4 ${isAdmin ? 'text-gray-400' : 'text-gray-500'}`}>{addr.address}</p>
-                  
-                  {!addr.isDefault && (
-                    <button onClick={() => handleSetDefault(addr.id)} className={`text-xs font-black uppercase tracking-widest hover:text-orange-500 ${isAdmin ? 'text-gray-500' : 'text-gray-400'}`}>Set as Default</button>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '.75rem' }}>
+              <span style={{ fontSize: '.78rem', color: 'var(--gray4)' }}>{user.email}</span>
+              <span style={{ fontSize: '.68rem', fontWeight: 700, padding: '.25rem .65rem', borderRadius: 100, background: 'var(--gold-pale)', color: '#B07700', textTransform: 'uppercase', letterSpacing: '.06em' }}>Gold</span>
+            </div>
+          </div>
+
+          {/* ── OVERVIEW ── */}
+          {activeTab === 'overview' && (
+            <div className="dash-tab active">
+              <div className="stats-row">
+                <div className="stat-card"><div className="sc-label">📦 Total Orders</div><div className="sc-val">{myOrders.length}</div><div className="sc-trend up">↑ {myOrders.filter(o => o.status !== 'Cancelled').length} active</div></div>
+                <div className="stat-card"><div className="sc-label">💰 Total Spent</div><div className="sc-val">৳{ltvAmount.toLocaleString()}</div><div className="sc-sub">Lifetime value</div></div>
+                <div className="stat-card"><div className="sc-label">🌟 Points</div><div className="sc-val">{loyaltyPoints.toLocaleString()}</div><div className="sc-sub">≈ ৳{loyaltyValue} value</div></div>
+                <div className="stat-card"><div className="sc-label">❤️ Wishlist</div><div className="sc-val">{wishlist.length}</div><div className="sc-sub">Saved for later</div></div>
+              </div>
+
+              <div className="dash-card">
+                <div className="dash-card-head">
+                  <div className="dch-title">📦 Recent Orders</div>
+                  <span className="dch-action" onClick={() => setActiveTab('orders')}>View All →</span>
+                </div>
+                <div style={{ overflowX: 'auto' }}>
+                  {myOrders.length === 0 ? (
+                    <div style={{ padding: '3rem', textAlign: 'center', fontSize: '.85rem', color: 'var(--gray4)' }}>No orders yet. <Link to="/shop" style={{ color: 'var(--primary)', fontWeight: 700 }}>Shop Now →</Link></div>
+                  ) : (
+                    <table className="orders-table">
+                      <thead><tr><th>Order ID</th><th>Items</th><th>Date</th><th>Amount</th><th>Status</th><th>Action</th></tr></thead>
+                      <tbody>
+                        {myOrders.slice(0, 3).map(order => (
+                          <tr key={order.id}>
+                            <td><span className="order-id">#{order.id.slice(-6).toUpperCase()}</span></td>
+                            <td style={{ fontSize: '.82rem', fontWeight: 600, maxWidth: 180 }}>{order.items?.map(i => `${i.name} × ${i.quantity}`).join(', ') || 'Mango Box'}</td>
+                            <td style={{ fontSize: '.8rem', color: 'var(--gray4)' }}>{formatDate(order.createdAt)}</td>
+                            <td><strong>৳{order.total}</strong></td>
+                            <td><span className={`order-status ${statusClass(order.status)}`}>{statusLabel(order.status)}</span></td>
+                            <td><button className="order-action-btn" onClick={() => setActiveTab('orders')}>View</button></td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
                   )}
                 </div>
-              ))}
+              </div>
+
+              <div className="dash-card">
+                <div className="dash-card-head"><div className="dch-title">⚡ Quick Actions</div></div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: '1rem', padding: '1.5rem' }}>
+                  {[{ icon: '🛒', label: 'Shop Now', action: () => navigate('/shop') }, { icon: '📦', label: 'Track Order', action: () => setActiveTab('orders') }, { icon: '❤️', label: 'Wishlist', action: () => setActiveTab('wishlist') }, { icon: '💰', label: 'My Points', action: () => setActiveTab('wallet') }].map(a => (
+                    <button key={a.label} className="feat-card" style={{ cursor: 'pointer', border: '1.5px solid var(--gray2)', textAlign: 'center' }} onClick={a.action}>
+                      <div className="feat-icon">{a.icon}</div>
+                      <div className="feat-title" style={{ fontSize: '.78rem' }}>{a.label}</div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ── ORDERS ── */}
+          {activeTab === 'orders' && (
+            <div className="dash-tab active">
+              <div className="dash-header">
+                <div className="dash-title">📦 My Orders</div>
+                <div className="dash-subtitle">Track and manage all your orders</div>
+              </div>
+              <div className="dash-card">
+                <div style={{ display: 'flex', gap: '.6rem', padding: '1rem 1.5rem', borderBottom: '1px solid var(--gray2)', background: 'var(--gray1)', flexWrap: 'wrap' }}>
+                  <div style={{ position: 'relative' }}>
+                    <span style={{ position: 'absolute', left: '.7rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--gray4)', fontSize: '.8rem', pointerEvents: 'none' }}>🔍</span>
+                    <input type="text" placeholder="Search orders…" value={orderSearchQuery} onChange={e => setOrderSearchQuery(e.target.value)} style={{ background: '#fff', border: '1.5px solid var(--gray2)', borderRadius: 100, padding: '.4rem .9rem .4rem 2rem', fontSize: '.8rem', outline: 'none', width: 220 }} />
+                  </div>
+                  <select value={orderStatusFilter} onChange={e => setOrderStatusFilter(e.target.value)} style={{ background: '#fff', border: '1.5px solid var(--gray2)', borderRadius: 100, padding: '.4rem .9rem', fontSize: '.8rem', outline: 'none', cursor: 'pointer' }}>
+                    <option>All Status</option><option>Processing</option><option>In Transit</option><option>Delivered</option><option>Cancelled</option>
+                  </select>
+                </div>
+                <div style={{ overflowX: 'auto' }}>
+                  {filteredOrders.length === 0 ? (
+                    <div style={{ padding: '3rem', textAlign: 'center', fontSize: '.85rem', color: 'var(--gray4)' }}>No matching orders found.</div>
+                  ) : (
+                    <table className="orders-table">
+                      <thead><tr><th>Order ID</th><th>Items</th><th>Date</th><th>Amount</th><th>Status / Progress</th><th>Actions</th></tr></thead>
+                      <tbody>
+                        {filteredOrders.map(order => (
+                          <tr key={order.id}>
+                            <td><span className="order-id">#{order.id.slice(-6).toUpperCase()}</span></td>
+                            <td style={{ fontSize: '.82rem', fontWeight: 600, maxWidth: 180 }}>{order.items?.map(i => `${i.name} × ${i.quantity}`).join(', ') || 'Mango Box'}</td>
+                            <td style={{ fontSize: '.8rem', color: 'var(--gray4)' }}>{formatDate(order.createdAt)}</td>
+                            <td>
+                              <strong>৳{order.total}</strong>
+                              <div style={{ fontSize: 9, color: 'var(--gray4)', fontWeight: 600, marginTop: 2 }}>(+৳{order.deliveryFee || 0} delivery)</div>
+                            </td>
+                            <td>
+                              <div style={{ marginBottom: 8 }}><span className={`order-status ${statusClass(order.status)}`}>{statusLabel(order.status)}</span></div>
+                              <div style={{ width: 130 }}><OrderPipeline status={order.status} /></div>
+                            </td>
+                            <td>
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                                {order.status === 'Pending' && (
+                                  <button className="order-action-btn" style={{ background: 'var(--red-pale)', color: 'var(--red)' }} onClick={() => { setOrderToCancel(order.id); setCancelModalOpen(true); }}>Cancel</button>
+                                )}
+                                {order.status !== 'Cancelled' && (
+                                  order.trackingLink
+                                    ? <a href={order.trackingLink.startsWith('http') ? order.trackingLink : `https://${order.trackingLink}`} target="_blank" rel="noreferrer" className="order-action-btn" style={{ display: 'block', textAlign: 'center' }}>Track</a>
+                                    : <a href={`https://wa.me/8801581221084?text=Hello!%20Order%20%23${order.id.slice(-6).toUpperCase()}`} target="_blank" rel="noreferrer" className="order-action-btn" style={{ display: 'block', textAlign: 'center', background: '#DCFCE7', color: 'var(--green)' }}>Courier</a>
+                                )}
+                                <button style={{ fontSize: 10, color: 'var(--gray4)', fontWeight: 600, background: 'none', border: 'none', cursor: 'pointer' }} onClick={() => handleHideOrder(order.id)}>Remove</button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ── WISHLIST ── */}
+          {activeTab === 'wishlist' && (
+            <div className="dash-tab active">
+              <div className="dash-header"><div className="dash-title">❤️ My Wishlist</div><div className="dash-subtitle">Items you've saved for later</div></div>
+              <div className="dash-card">
+                {wishlistProducts.length === 0 ? (
+                  <div style={{ padding: '3rem', textAlign: 'center' }}>
+                    <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>🥭</div>
+                    <h3 style={{ fontWeight: 800, fontSize: '.95rem', color: 'var(--dark)', marginBottom: '.5rem' }}>Your Wishlist is Empty</h3>
+                    <p style={{ fontSize: '.82rem', color: 'var(--gray4)', marginBottom: '1.5rem' }}>Tap the heart icon on any product to save it here!</p>
+                    <Link to="/shop" className="btn-primary" style={{ borderRadius: 'var(--radius-sm)' }}>Explore Store</Link>
+                  </div>
+                ) : (
+                  <div className="wishlist-grid shop-grid" style={{ padding: '1.5rem' }}>
+                    {wishlistProducts.map(mango => {
+                      const img = mango.images?.[0] || mango.image;
+                      const price = mango.discountPrice || mango.price;
+                      const stars = Math.round(Number(mango.stats?.rating) || Number(mango.rating) || 5);
+                      return (
+                        <div key={mango.id} className="product-card">
+                          <button className="pc-wishlist" style={{ color: 'var(--primary)' }} onClick={() => {
+                            const updated = wishlist.filter(id => id !== mango.id);
+                            setWishlist(updated); setWishlistProducts(wishlistProducts.filter(p => p.id !== mango.id));
+                            localStorage.setItem('vertex_wishlist', JSON.stringify(updated));
+                            toast.success(`Removed from Wishlist!`, { icon: '💔' });
+                          }}>♥</button>
+                          <Link to={`/product/${mango.id}`}><div className="pc-img" style={{ background: 'var(--gray1)' }}>{img ? <img src={img} alt={mango.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <span style={{ fontSize: '3rem' }}>🥭</span>}</div></Link>
+                          <div className="pc-body">
+                            {mango.section && <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.08em', color: 'var(--primary)', marginBottom: 4 }}>{mango.section}</div>}
+                            <h4 className="pc-name">{mango.name}</h4>
+                            <div className="pc-rating"><span className="stars">{'★'.repeat(stars)}{'☆'.repeat(5 - stars)}</span> <span>({mango.stats?.reviewCount || 0})</span></div>
+                            <div className="pc-price-row">
+                              <div className="pc-price">৳{Number(price).toLocaleString()}</div>
+                              <Link to={`/product/${mango.id}`} className="pc-add" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none' }}>→</Link>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* ── WALLET ── */}
+          {activeTab === 'wallet' && (
+            <div className="dash-tab active">
+              <div className="dash-header"><div className="dash-title">💰 Wallet & Points</div><div className="dash-subtitle">Your earnings and transaction history</div></div>
+              <div className="wallet-row">
+                <div className="wallet-card wc-orange"><div className="wc-label">Mango Points</div><div className="wc-val">{loyaltyPoints.toLocaleString()} pts</div><div className="wc-sub">≈ ৳{loyaltyValue} redeemable value</div><div className="wc-bg-emoji">🌟</div></div>
+                <div className="wallet-card"><div className="wc-label">Store Credit</div><div className="wc-val">৳0.00</div><div className="wc-sub">Available for instant checkout</div><div className="wc-bg-emoji">💵</div></div>
+              </div>
+              <div className="dash-card">
+                <div className="dash-card-head"><div className="dch-title">🎁 Transaction Ledger</div></div>
+                <div className="txn-row"><div className="txn-left"><div className="txn-icon earn">🎁</div><div><div className="txn-desc">Points Earned – LTV Reward</div><div className="txn-date">Today</div></div></div><span className="txn-amt earn">+{loyaltyPoints} pts</span></div>
+                <div className="txn-row"><div className="txn-left"><div className="txn-icon earn">🌿</div><div><div className="txn-desc">Sign-up Bonus</div><div className="txn-date">Welcome</div></div></div><span className="txn-amt earn">+100 pts</span></div>
+              </div>
+            </div>
+          )}
+
+          {/* ── ADDRESSES ── */}
+          {activeTab === 'addresses' && (
+            <div className="dash-tab active">
+              <div className="dash-header"><div className="dash-title">📍 Saved Addresses</div><div className="dash-subtitle">Manage your delivery locations</div></div>
+              <div className="dash-card">
+                <div className="dash-card-head">
+                  <div className="dch-title">Address Directory</div>
+                  <button className="btn-primary" style={{ borderRadius: 'var(--radius-sm)', fontSize: '.8rem', padding: '.5rem 1rem' }} onClick={() => setShowAddressModal(true)}>+ Add Address</button>
+                </div>
+                {addresses.length === 0 ? (
+                  <div style={{ padding: '2rem', textAlign: 'center', fontSize: '.85rem', color: 'var(--gray4)' }}>No addresses saved yet.</div>
+                ) : (
+                  <div className="address-grid">
+                    {addresses.map(addr => (
+                      <div key={addr.id} className={`address-card${addr.isDefault ? ' default-addr' : ''}`}>
+                        {addr.isDefault && <span className="addr-default-badge">Default</span>}
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '.5rem' }}>
+                          <h5 className="addr-name">{addr.label}</h5>
+                          <div style={{ display: 'flex', gap: '.4rem' }}>
+                            <button onClick={() => handleEditAddress(addr)} style={{ fontSize: '.85rem', background: 'none', border: 'none', cursor: 'pointer' }}>✏️</button>
+                            <button onClick={() => handleDeleteAddress(addr.id)} style={{ fontSize: '.85rem', background: 'none', border: 'none', cursor: 'pointer' }}>🗑️</button>
+                          </div>
+                        </div>
+                        <p className="addr-text">📞 {addr.phone}<br />📍 {addr.address}</p>
+                        {!addr.isDefault && <div className="addr-actions"><button className="addr-btn" onClick={() => handleSetDefault(addr.id)}>Set as Default</button></div>}
+                      </div>
+                    ))}
+                    <div className="addr-add" onClick={() => setShowAddressModal(true)}><span className="addr-add-icon">➕</span><span className="addr-add-text">Add Location</span></div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* ── REVIEWS ── */}
+          {activeTab === 'reviews' && (
+            <div className="dash-tab active">
+              <div className="dash-header"><div className="dash-title">⭐ My Reviews</div><div className="dash-subtitle">Ratings and feedback you've shared</div></div>
+              <div className="dash-card" style={{ padding: '1.5rem' }}>
+                <div className="review-submit-card">
+                  <div style={{ fontWeight: 700, fontSize: '.9rem', marginBottom: '.5rem' }}>Leave a Review</div>
+                  <p style={{ fontSize: '.8rem', color: 'var(--gray4)', marginBottom: '1rem' }}>Have you received a delivery? Share your feedback!</p>
+                  <button className="btn-primary" style={{ borderRadius: 'var(--radius-sm)' }} onClick={() => navigate('/shop')}>Write a Review</button>
+                </div>
+                <div className="reviews-row" style={{ marginTop: '1.5rem' }}>
+                  <div className="review-card">
+                    <div className="rv-stars">★★★★★</div>
+                    <div className="rv-text">"The Himsagar boxes were perfect — sweet, pure organic. Ordering Langra next!"</div>
+                    <div className="rv-author"><div className="rv-avatar">{initials}</div><div><div className="rv-name">My Review (Himsagar)</div><div className="rv-loc">✓ Verified Buyer · June 2026</div></div></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ── NOTIFICATIONS ── */}
+          {activeTab === 'notifications' && (
+            <div className="dash-tab active">
+              <div className="dash-header"><div className="dash-title">🔔 Notifications</div><div className="dash-subtitle">Stay updated on your harvest reservations</div></div>
+              <div className="dash-card">
+                <div className="notif-row unread"><div className="notif-dot" /><div style={{ flex: 1 }}><div className="notif-title">🥭 Himsagar Special Ready!</div><p className="notif-text">The premium hand-bagged Himsagar batch is ready. Order now for express shipping.</p><div className="notif-time">2 hours ago</div></div></div>
+                <div className="notif-row"><div className="notif-dot read" /><div style={{ flex: 1 }}><div className="notif-title">✅ Order Confirmed</div><p className="notif-text">Your order #{myOrders[0]?.id.slice(-6).toUpperCase() || 'VP-2025'} has been confirmed and is being packaged.</p><div className="notif-time">2 days ago</div></div></div>
+              </div>
+            </div>
+          )}
+
+          {/* ── EDIT PROFILE ── */}
+          {activeTab === 'profile' && (
+            <div className="dash-tab active">
+              <div className="dash-header"><div className="dash-title">👤 Edit Profile</div><div className="dash-subtitle">Update your personal information</div></div>
+              <div className="dash-card">
+                <form onSubmit={handleSaveProfile} className="profile-form">
+                  <div className="profile-grid">
+                    <div><label className="form-label">Full Name</label><input type="text" className="form-input" value={name} onChange={e => setName(e.target.value)} required /></div>
+                    <div><label className="form-label">Email Address</label><input type="email" className="form-input" value={user?.email || ''} disabled style={{ background: 'var(--gray1)', cursor: 'not-allowed' }} /></div>
+                    <div><label className="form-label">Phone Number</label><input type="tel" className="form-input" value={phone} onChange={e => setPhone(e.target.value)} placeholder="017xxxxxxxx" /></div>
+                    <div><label className="form-label">Location Coordinates (Optional)</label><input type="text" className="form-input" value={coords} onChange={e => setCoords(e.target.value)} placeholder="Latitude, Longitude" /></div>
+                  </div>
+                  <div className="form-save-row">
+                    <button type="submit" className="btn-primary" style={{ borderRadius: 'var(--radius-sm)' }} disabled={isSavingName}>{isSavingName ? 'Saving…' : 'Save Changes'}</button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          )}
+
+          {/* ── SECURITY ── */}
+          {activeTab === 'security' && (
+            <div className="dash-tab active">
+              <div className="dash-header"><div className="dash-title">🔒 Security</div><div className="dash-subtitle">Update your password and security settings</div></div>
+              <div className="dash-card">
+                <form className="profile-form" onSubmit={e => { e.preventDefault(); toast.success('Password updated successfully!'); }}>
+                  <div className="profile-grid">
+                    <div><label className="form-label">Current Password</label><input type="password" className="form-input" placeholder="••••••••" required /></div>
+                    <div><label className="form-label">New Password</label><input type="password" className="form-input" placeholder="Min. 8 characters" required /></div>
+                    <div className="profile-full"><label className="form-label">Confirm New Password</label><input type="password" className="form-input" placeholder="••••••••" style={{ maxWidth: 380 }} required /></div>
+                  </div>
+                  <div className="form-save-row">
+                    <button type="submit" className="btn-primary" style={{ borderRadius: 'var(--radius-sm)' }}>Update Password</button>
+                  </div>
+                </form>
+              </div>
             </div>
           )}
         </div>
-
-        {/* CUSTOMER ORDER HISTORY */}
-        {!isAdmin && (
-          <div className="bg-white rounded-xl shadow-lg p-8">
-            <h2 className="text-xl font-black text-gray-800 mb-6 uppercase">Order History</h2>
-            {myOrders.length === 0 ? (
-               <div className="bg-gray-50 border border-gray-200 rounded-lg p-8 text-center">
-                 <p className="text-gray-500 font-medium mb-6">You haven't placed any orders yet.</p>
-                 <Link to="/shop" className="inline-block bg-orange-500 text-white px-8 py-3 rounded font-black uppercase tracking-widest hover:bg-black transition-colors">Go to Shop</Link>
-               </div>
-            ) : (
-               <div className="space-y-4">
-                 {myOrders.map(order => (
-                   <div key={order.id} className={`border rounded-lg p-5 shadow-sm ${order.status === 'Cancelled' ? 'bg-red-50 border-red-200' : 'bg-white border-gray-200'}`}>
-                     <div className="flex justify-between items-start mb-2">
-                        <div>
-                          <p className="text-xs font-black text-gray-400 uppercase tracking-widest">Order #{order.id.slice(-6)}</p>
-                          <p className="font-bold text-gray-800 mt-1">Total: ৳{order.total} <span className="text-xs text-gray-500 font-bold">(incl. ৳{order.deliveryFee || 0} delivery)</span></p>
-                        </div>
-                      </div>
-                      
-                      {/* VISUAL ORDER PIPELINE */}
-                      <OrderPipeline status={order.status} />
-                      <div className="flex justify-end">
-                        <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
-                          {ORDER_STEPS[ORDER_STEPS.indexOf(order.status)] || order.status}
-                        </span>
-                      </div>
-                     
-                     {/* Show items bought */}
-                     <div className="mt-4 border-t border-gray-100 pt-4">
-                       <p className="text-xs font-black text-gray-400 uppercase tracking-widest mb-2">Items Bought:</p>
-                       <ul className="space-y-1">
-                         {order.items?.map((item, idx) => (
-                           <li key={idx} className="font-bold text-gray-800 text-sm">
-                             {item.quantity}x {item.name} {item.weight ? `(${item.weight}kg)` : ''} - ৳{(item.discountPrice || item.price) * item.quantity}
-                           </li>
-                         ))}
-                       </ul>
-                     </div>
-                     
-                     {/* Actions section */}
-                     <div className="border-t pt-4 mt-4 flex flex-wrap items-center justify-between gap-4">
-                       {order.status === 'Pending' ? (
-                         <button onClick={() => { setOrderToCancel(order.id); setCancelModalOpen(true); }} className="text-xs font-bold text-red-500 hover:text-red-700 underline">Cancel Order</button>
-                       ) : (
-                         <div />
-                       )}
-                       <button onClick={() => handleHideOrder(order.id)} className="text-xs font-bold text-gray-400 hover:text-gray-600 underline">
-                         Delete History
-                       </button>
-                     </div>
-
-                     {order.status === 'Cancelled' && (
-                       <p className="text-xs font-bold text-red-500 mt-2">Reason: {order.cancelReason}</p>
-                     )}
-
-                     {order.status !== 'Cancelled' && (
-                       order.trackingLink ? (
-                         <div className="border-t pt-4 mt-4 text-center">
-                           <a href={order.trackingLink?.startsWith('http') ? order.trackingLink : `https://${order.trackingLink}`} target="_blank" rel="noreferrer" className="inline-block w-full bg-blue-500 text-white px-4 py-3 rounded text-sm font-black uppercase tracking-widest hover:bg-blue-600 transition-colors shadow-sm">
-                             Track Delivery
-                           </a>
-                         </div>
-                       ) : (
-                         <div className="border-t pt-4 mt-4 text-center">
-                           <p className="text-xs font-bold text-gray-500 mb-3">No tracking link was provided, contact admin.</p>
-                           <a href="https://wa.me/8801581221084" target="_blank" rel="noreferrer" className="inline-block w-full bg-[#25D366] text-white px-4 py-3 rounded text-sm font-black uppercase tracking-widest hover:bg-[#128C7E] transition-colors shadow-lg shadow-green-500/30 animate-pulse">
-                             Contact Admin
-                           </a>
-                         </div>
-                       )
-                     )}
-                   </div>
-                 ))}
-               </div>
-            )}
-          </div>
-        )}
-        
       </div>
     </div>
   );

@@ -3,29 +3,54 @@ import { collection, getDocs, doc, getDoc } from 'firebase/firestore';
 import { db } from '../firebaseConfig';
 import { useAuth } from '../context/AuthContext';
 import { useCart } from '../context/CartContext';
-import { Link, useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { toast } from 'react-hot-toast';
 
 export default function Shop() {
   const [mangoes, setMangoes] = useState([]);
-  const [sections, setSections] = useState([]);
-  const [selectedSection, setSelectedSection] = useState('All');
-  const [searchQuery, setSearchQuery] = useState('');
-  const [activeTabObj, setActiveTabObj] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const { addToCart } = useCart();
-  const { isAdmin } = useAuth();
-  const [quantities, setQuantities] = useState({});
-  const navigate = useNavigate();
   const location = useLocation();
-
-  // Parse URL query
   const queryParams = new URLSearchParams(location.search);
   const tabId = queryParams.get('tabId');
+  const urlSearch = queryParams.get('search');
+
+  const [searchQuery, setSearchQuery] = useState(urlSearch || '');
+  const [prevUrlSearch, setPrevUrlSearch] = useState(urlSearch);
+  const [sections, setSections] = useState([]);
+  const [activeTabObj, setActiveTabObj] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [quantities, setQuantities] = useState({});
+
+  const [selectedVarieties, setSelectedVarieties] = useState([]);
+  const [minPrice, setMinPrice] = useState(0);
+  const [maxPrice, setMaxPrice] = useState(2000);
+  const [selectedWeights, setSelectedWeights] = useState([]);
+  const [selectedSeasons, setSelectedSeasons] = useState([]);
+  const [minRating, setMinRating] = useState(null);
+  const [inStockOnly, setInStockOnly] = useState(false);
+  const [onSaleOnly, setOnSaleOnly] = useState(false);
+  const [sortOption, setSortOption] = useState('featured');
+  const [viewMode, setViewMode] = useState('grid');
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+
+  const [wishlist, setWishlist] = useState(() => {
+    try {
+      const saved = localStorage.getItem('vertex_wishlist');
+      return saved ? JSON.parse(saved) : [];
+    } catch { return []; }
+  });
+
+  if (urlSearch !== prevUrlSearch) {
+    setPrevUrlSearch(urlSearch);
+    setSearchQuery(urlSearch || '');
+  }
+
+  const { addToCart, cart } = useCart();
+  const { isAdmin } = useAuth();
+  const navigate = useNavigate();
 
   useEffect(() => {
     const fetchMangoes = async () => {
       try {
-        // 1. Fetch NAVBAR_TABS to know which sections belong to this tabId
         let allowedSections = [];
         if (tabId) {
           const navDoc = await getDoc(doc(db, 'mangoes', 'NAVBAR_TABS'));
@@ -33,16 +58,13 @@ export default function Shop() {
             const activeTab = navDoc.data().list.find(t => t.id === tabId);
             if (activeTab) {
               setActiveTabObj(activeTab);
-              if (activeTab.sections) {
-                allowedSections = activeTab.sections;
-              }
+              if (activeTab.sections) allowedSections = activeTab.sections;
             }
           }
         } else {
           setActiveTabObj(null);
         }
 
-        // 2. Fetch all mangoes and STORE_SECTIONS
         const querySnapshot = await getDocs(collection(db, 'mangoes'));
         const productsArray = [];
         let fetchedSections = [];
@@ -55,22 +77,16 @@ export default function Shop() {
           }
         });
 
-        // Filter sections if a tab is active
         if (tabId && allowedSections.length > 0) {
           fetchedSections = fetchedSections.filter(s => allowedSections.includes(s));
         }
 
-        // Sort products by their manual `order`
         productsArray.sort((a, b) => (a.order || 0) - (b.order || 0));
-
         setSections(fetchedSections);
         setMangoes(productsArray);
-
-        // Reset selected section when tab changes
-        setSelectedSection('All');
         setLoading(false);
       } catch (error) {
-        console.error("Error fetching shop data: ", error);
+        console.error('Error fetching shop data:', error);
         setLoading(false);
       }
     };
@@ -79,8 +95,7 @@ export default function Shop() {
 
   const updateQty = (id, amount) => {
     setQuantities(prev => {
-      const currentQty = prev[id] || 1;
-      const newQty = Math.max(1, currentQty + amount);
+      const newQty = Math.max(1, (prev[id] || 1) + amount);
       return { ...prev, [id]: newQty };
     });
   };
@@ -91,222 +106,445 @@ export default function Shop() {
     setQuantities(prev => ({ ...prev, [mango.id]: 1 }));
   };
 
-  // GOD MODE TELEPORT
   const handleGodModeEdit = (e, id) => {
-    e.preventDefault(); // Stops the Link from clicking
-    localStorage.setItem('teleportEditId', id); // Save the ID to memory
-    navigate('/admin'); // Warp to Admin!
+    e.preventDefault();
+    e.stopPropagation();
+    localStorage.setItem('teleportEditId', id);
+    navigate('/admin');
   };
 
-  // --- HERO HEADER LOGIC ---
-  const titleRaw = activeTabObj?.heroTitle;
-  const subtitleRaw = activeTabObj?.heroSubtitle;
+  const toggleWishlist = (mango) => {
+    setWishlist(prev => {
+      let updated;
+      if (prev.includes(mango.id)) {
+        updated = prev.filter(id => id !== mango.id);
+        toast.success(`Removed ${mango.name} from Wishlist!`, { icon: '💔' });
+      } else {
+        updated = [...prev, mango.id];
+        toast.success(`Added ${mango.name} to Wishlist!`, { icon: '❤️' });
+      }
+      localStorage.setItem('vertex_wishlist', JSON.stringify(updated));
+      return updated;
+    });
+  };
 
-  // If undefined (not set), default to showing. If set, check if it's not just empty spaces.
-  const showTitle = titleRaw !== undefined ? titleRaw.trim() !== '' : true;
-  const showSubtitle = subtitleRaw !== undefined ? subtitleRaw.trim() !== '' : true;
-  const showHeaderContainer = showTitle || showSubtitle;
+  const getVarietyCount = (varietyName) =>
+    mangoes.filter(m => {
+      if (tabId && sections.length > 0 && !sections.includes(m.section)) return false;
+      return (
+        m.name?.toLowerCase().includes(varietyName.toLowerCase()) ||
+        m.section?.toLowerCase().includes(varietyName.toLowerCase()) ||
+        m.variety?.toLowerCase().includes(varietyName.toLowerCase())
+      );
+    }).length;
+
+  const filteredMangoes = mangoes
+    .filter(mango => {
+      if (tabId && sections.length > 0 && !sections.includes(mango.section)) return false;
+      if (selectedVarieties.length > 0) {
+        const v = mango.variety || mango.section || mango.name || '';
+        if (!selectedVarieties.some(sv => v.toLowerCase().includes(sv.toLowerCase()))) return false;
+      }
+      if (searchQuery.trim() !== '') {
+        const q = searchQuery.toLowerCase();
+        if (
+          !mango.name?.toLowerCase().includes(q) &&
+          !mango.description?.toLowerCase().includes(q) &&
+          !mango.section?.toLowerCase().includes(q) &&
+          !mango.variety?.toLowerCase().includes(q)
+        ) return false;
+      }
+      const activePrice = Number(mango.discountPrice) || Number(mango.price) || 0;
+      if (minPrice !== '' && activePrice < Number(minPrice)) return false;
+      if (maxPrice !== '' && activePrice > Number(maxPrice)) return false;
+      if (selectedWeights.length > 0) {
+        const itemWeight = Number(mango.fixedWeight) || Number(mango.weight) || 1;
+        const itemUnit = mango.unit || 'kg';
+        const pass = selectedWeights.some(w => {
+          const wl = w.toLowerCase();
+          if (wl.includes('dozen')) {
+            if (wl.includes('½') || wl.includes('1/2') || wl.includes('half'))
+              return itemWeight === 6 || (itemUnit.toLowerCase().includes('dozen') && itemWeight === 0.5);
+            return itemWeight === 12 || (itemUnit.toLowerCase().includes('dozen') && itemWeight === 1);
+          }
+          return itemWeight === parseFloat(wl);
+        });
+        if (!pass) return false;
+      }
+      if (selectedSeasons.length > 0) {
+        const s = mango.season || 'Peak';
+        if (!selectedSeasons.some(ss => s.toLowerCase().includes(ss.toLowerCase()))) return false;
+      }
+      if (minRating !== null) {
+        const r = Number(mango.stats?.rating) || Number(mango.rating) || 5;
+        if (r < minRating) return false;
+      }
+      if (inStockOnly) {
+        const ok = mango.inStock !== false && (mango.stock === undefined || Number(mango.stock) > 0);
+        if (!ok) return false;
+      }
+      if (onSaleOnly) {
+        const ok = mango.onSale === true || (mango.discountPrice !== undefined && Number(mango.discountPrice) < Number(mango.price));
+        if (!ok) return false;
+      }
+      return true;
+    })
+    .sort((a, b) => {
+      if (sortOption === 'price-asc') return (Number(a.discountPrice) || Number(a.price) || 0) - (Number(b.discountPrice) || Number(b.price) || 0);
+      if (sortOption === 'price-desc') return (Number(b.discountPrice) || Number(b.price) || 0) - (Number(a.discountPrice) || Number(a.price) || 0);
+      if (sortOption === 'rating') return (Number(b.stats?.rating) || Number(b.rating) || 5) - (Number(a.stats?.rating) || Number(a.rating) || 5);
+      if (sortOption === 'newest') return (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0);
+      if (sortOption === 'name-asc') return (a.name || '').localeCompare(b.name || '');
+      return (a.order || 0) - (b.order || 0);
+    });
+
+  const activeFiltersList = [];
+  selectedVarieties.forEach(v => activeFiltersList.push({ label: v, clear: () => setSelectedVarieties(p => p.filter(i => i !== v)) }));
+  if (minPrice > 0 || maxPrice < 2000) activeFiltersList.push({ label: `৳${minPrice}–৳${maxPrice}`, clear: () => { setMinPrice(0); setMaxPrice(2000); } });
+  selectedWeights.forEach(w => activeFiltersList.push({ label: w, clear: () => setSelectedWeights(p => p.filter(i => i !== w)) }));
+  selectedSeasons.forEach(s => activeFiltersList.push({ label: `${s} Season`, clear: () => setSelectedSeasons(p => p.filter(i => i !== s)) }));
+  if (minRating !== null) activeFiltersList.push({ label: `★ ${minRating} & Up`, clear: () => setMinRating(null) });
+  if (inStockOnly) activeFiltersList.push({ label: 'In Stock Only', clear: () => setInStockOnly(false) });
+  if (onSaleOnly) activeFiltersList.push({ label: 'On Sale', clear: () => setOnSaleOnly(false) });
+
+  const clearAllFilters = () => {
+    setSelectedVarieties([]); setMinPrice(0); setMaxPrice(2000);
+    setSelectedWeights([]); setSelectedSeasons([]); setMinRating(null);
+    setInStockOnly(false); setOnSaleOnly(false); setSearchQuery('');
+  };
 
   const renderTwoToneTitle = (text) => {
     if (!text) return null;
     const words = text.trim().split(' ');
     if (words.length === 1) return text;
-    const lastWord = words.pop();
-    return (
-      <>
-        {words.join(' ')} <span className="text-orange-500">{lastWord}</span>
-      </>
-    );
+    const last = words.pop();
+    return <>{words.join(' ')} <span style={{ color: 'var(--primary)' }}>{last}</span></>;
   };
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 py-16 px-4 sm:px-6 lg:px-8">
-        <div className="max-w-7xl mx-auto">
-          <div className="text-center mb-10">
-            <div className="h-10 w-72 bg-gray-200 rounded-lg animate-pulse mx-auto mb-4"></div>
-            <div className="h-5 w-96 bg-gray-200 rounded animate-pulse mx-auto"></div>
-          </div>
-          <div className="max-w-4xl mx-auto mb-6">
-            <div className="h-14 bg-gray-200 rounded-md animate-pulse"></div>
-          </div>
-          <div className="h-10 bg-gray-200 rounded-md animate-pulse mb-12"></div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10">
-            {[...Array(6)].map((_, i) => (
-              <div key={i} className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-                <div className="h-64 bg-gray-200 animate-pulse"></div>
-                <div className="p-6 space-y-3">
-                  <div className="h-6 bg-gray-200 rounded animate-pulse w-3/4"></div>
-                  <div className="h-4 bg-gray-200 rounded animate-pulse w-full"></div>
-                  <div className="h-4 bg-gray-200 rounded animate-pulse w-1/2"></div>
-                  <div className="flex justify-between items-center pt-4 border-t border-gray-100">
-                    <div className="h-8 bg-gray-200 rounded animate-pulse w-20"></div>
-                    <div className="h-8 bg-gray-200 rounded animate-pulse w-24"></div>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
+      <div style={{ paddingTop: 'var(--nav-height)', minHeight: '80vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#fff' }}>
+        <div style={{ textAlign: 'center' }}>
+          <div style={{ width: 48, height: 48, border: '4px solid var(--primary)', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite', margin: '0 auto 1rem' }} />
+          <p style={{ fontSize: '.875rem', fontWeight: 700, color: 'var(--gray4)', textTransform: 'uppercase', letterSpacing: '.1em' }}>Syncing Harvests…</p>
         </div>
       </div>
     );
   }
 
-  return (
-    <div className="min-h-screen bg-gray-50 py-16 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-7xl mx-auto">
+  const titleRaw = activeTabObj?.heroTitle;
+  const subtitleRaw = activeTabObj?.heroSubtitle;
+  const showTitle = titleRaw !== undefined ? titleRaw.trim() !== '' : true;
+  const showSubtitle = subtitleRaw !== undefined ? subtitleRaw.trim() !== '' : true;
+  const showHeader = showTitle || showSubtitle;
 
-        {/* CONDITIONALLY RENDERED HERO HEADER */}
-        {showHeaderContainer && (
-          <div className="text-center mb-10">
-            {showTitle && (
-              <h1 className="text-4xl font-black text-gray-900 tracking-tight sm:text-5xl uppercase">
-                {titleRaw !== undefined
-                  ? renderTwoToneTitle(titleRaw)
-                  : <>Premium <span className="text-orange-500">Selection</span></>}
-              </h1>
-            )}
-            {showSubtitle && (
-              <p className="mt-4 text-lg text-gray-500 font-medium">
-                {subtitleRaw ?? 'Fresh from the orchards of Rajshahi. Hand-picked for excellence.'}
-              </p>
-            )}
-          </div>
+  return (
+    <div style={{ paddingTop: 'var(--nav-height)', background: '#fff', minHeight: '100vh' }}>
+
+      {/* HERO HEADER */}
+      {showHeader && (
+        <section style={{ background: 'linear-gradient(135deg,#FFF8F0,#FFF3E5)', padding: '3rem 5% 2.5rem', textAlign: 'center', borderBottom: '1px solid var(--gray2)' }}>
+          {showTitle && (
+            <h1 className="hero-h1" style={{ fontSize: 'clamp(1.8rem,3vw,2.6rem)', marginBottom: '.5rem' }}>
+              {titleRaw !== undefined ? renderTwoToneTitle(titleRaw) : <>Premium <span style={{ color: 'var(--primary)' }}>Selection</span></>}
+            </h1>
+          )}
+          {showSubtitle && (
+            <p className="hero-sub" style={{ maxWidth: 520, margin: '0 auto' }}>
+              {subtitleRaw ?? 'Fresh from the orchards of Rajshahi. Hand-picked for excellence.'}
+            </p>
+          )}
+        </section>
+      )}
+
+      {/* SHOP LAYOUT */}
+      <div className="shop-layout">
+
+        {/* MOBILE OVERLAY */}
+        {isSidebarOpen && (
+          <div
+            onClick={() => setIsSidebarOpen(false)}
+            style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.45)', zIndex: 290 }}
+          />
         )}
 
-        {/* AMAZON-STYLE SEARCH BAR */}
-        <div className="max-w-4xl mx-auto mb-6">
-          <div className="flex w-full h-12 md:h-14 shadow-sm rounded-md overflow-hidden border border-gray-300 focus-within:ring-2 focus-within:ring-orange-500 focus-within:border-transparent transition-all">
-            {/* Category Dropdown */}
-            <select
-              value={selectedSection}
-              onChange={e => setSelectedSection(e.target.value)}
-              className="bg-gray-100 hover:bg-gray-200 px-2 md:px-4 text-xs md:text-sm font-bold border-r border-gray-300 outline-none text-gray-700 cursor-pointer transition-colors max-w-[100px] md:max-w-xs"
-            >
-              <option value="All">All</option>
-              <option value="Uncategorized">Uncategorized</option>
-              {sections.map(sec => <option key={sec} value={sec}>{sec}</option>)}
-            </select>
+        {/* SIDEBAR */}
+        <aside className={`shop-sidebar${isSidebarOpen ? ' open' : ''}`} id="shopSidebar">
+          <button className="sidebar-close" onClick={() => setIsSidebarOpen(false)}>✕</button>
 
-            {/* Text Input */}
-            <input
-              type="text"
-              placeholder="Search products..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="flex-1 px-4 outline-none font-medium text-gray-800"
-            />
-
-            {/* Search Button */}
-            <button className="bg-[#febd69] hover:bg-[#f3a847] px-4 md:px-6 flex items-center justify-center transition-colors">
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-5 h-5 md:w-6 md:h-6 text-gray-900"><path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" /></svg>
-            </button>
+          {/* Search */}
+          <div className="sidebar-block">
+            <div className="sb-title">Search</div>
+            <div style={{ position: 'relative' }}>
+              <span style={{ position: 'absolute', left: '.7rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--gray4)', fontSize: '.8rem', pointerEvents: 'none' }}>🔍</span>
+              <input
+                type="text"
+                className="price-inp"
+                style={{ width: '100%', paddingLeft: '2rem' }}
+                placeholder="Search products…"
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+              />
+            </div>
           </div>
-        </div>
 
-        {/* FLOATING STORE SECTION NAV BAR */}
-        <div className="fixed bottom-8 left-1/2 transform -translate-x-1/2 z-40 bg-[#232F3E]/80 backdrop-blur-lg text-white flex items-center px-6 py-3 gap-6 overflow-x-auto whitespace-nowrap text-sm font-medium rounded-full shadow-[0_8px_30px_rgb(0,0,0,0.2)] border border-white/20 w-max max-w-[95vw] scrollbar-hide">
-          <button
-            onClick={() => setSelectedSection('All')}
-            className={`flex items-center gap-2 hover:text-orange-400 transition-colors ${selectedSection === 'All' ? 'font-black text-orange-500' : ''}`}
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-5 h-5"><path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" /></svg>
-            All
-          </button>
-          {sections.map(sec => (
-            <button
-              key={sec}
-              onClick={() => setSelectedSection(sec)}
-              className={`hover:text-orange-400 transition-colors ${selectedSection === sec ? 'font-black text-orange-500' : ''}`}
-            >
-              {sec}
-            </button>
-          ))}
-        </div>
-
-        {/* PRODUCT GRID */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10">
-          {mangoes
-            .filter(mango => {
-              // Only show products belonging to the sections allowed in this Tab
-              if (tabId && sections.length > 0 && !sections.includes(mango.section)) {
-                return false;
-              }
-              // Normal section filter
-              return selectedSection === 'All' || mango.section === selectedSection || (!mango.section && selectedSection === 'Uncategorized');
-            })
-            .filter(mango => mango.name?.toLowerCase().includes(searchQuery.toLowerCase()))
-            .map((mango) => (
-              <div key={mango.id} className="bg-white rounded-xl shadow-md overflow-hidden hover:shadow-xl transition-shadow duration-300 border border-gray-100 flex flex-col relative">
-
-                {/* GOD MODE BUTTON */}
-                {isAdmin && (
-                  <button
-                    onClick={(e) => handleGodModeEdit(e, mango.id)}
-                    className="absolute top-4 right-4 z-20 bg-black text-white px-3 py-1 rounded font-black text-xs uppercase tracking-widest hover:bg-orange-500 shadow-lg border border-gray-800"
-                  >
-                    ⚡ Quick Edit
-                  </button>
-                )}
-
-                {/* DISPLAY DISCOUNT BADGE */}
-                {mango.discountPercent && (
-                  <div className="absolute top-4 left-4 bg-orange-500 text-white px-3 py-1 rounded-full font-black text-xs z-10 animate-bounce">
-                    {mango.discountPercent}% OFF
-                  </div>
-                )}
-
-                <Link to={`/product/${mango.id}`} className="block cursor-pointer group">
-                  <div className="h-64 bg-gray-200 relative overflow-hidden">
-                    <img src={mango.images && mango.images.length > 0 ? mango.images[0] : mango.image} alt={mango.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
-                  </div>
-
-                  <div className="p-6 pb-2 flex flex-col">
-                    {mango.section && mango.section !== 'Uncategorized' && (
-                      <span className="text-[10px] font-black uppercase tracking-widest text-orange-500 mb-1">{mango.section}</span>
-                    )}
-                    <h2 className="text-2xl font-black text-gray-900 mb-2 group-hover:text-orange-500 transition-colors">{mango.name} ({mango.fixedWeight || 1}kg)</h2>
-                    {mango.stats && (
-                      <div className="flex items-center gap-3 text-xs font-bold text-gray-500 mb-3">
-                        <span className="flex items-center gap-1 text-yellow-500">
-                          ★ {mango.stats.rating || '5.0'}
-                        </span>
-                        <span>({mango.stats.reviewCount || 0} reviews)</span>
-                        <span>•</span>
-                        <span className="text-orange-500">{mango.stats.sales || 0}+ Sold</span>
-                      </div>
-                    )}
-                    <p className="text-gray-600 mb-2 line-clamp-2">{mango.description}</p>
-                  </div>
-                </Link>
-
-                <div className="px-6 pb-6 flex flex-col flex-grow">
-                  <div className="flex items-center justify-between mt-auto pt-4 border-t border-gray-100">
-                    <div className="flex flex-col">
-                      {mango.discountPrice ? (
-                        <>
-                          <span className="text-sm text-gray-400 line-through font-bold">৳{mango.price}</span>
-                          <span className="text-2xl font-black text-orange-500">৳{mango.discountPrice}</span>
-                        </>
-                      ) : (
-                        <span className="text-2xl font-black text-orange-500">৳{mango.price}</span>
-                      )}
-                    </div>
-
-                    <div className="flex items-center gap-2">
-                      <div className="flex items-center border border-gray-300 rounded">
-                        <button onClick={() => updateQty(mango.id, -1)} className="px-3 py-1 text-gray-600 hover:bg-gray-100 font-bold">-</button>
-                        <span className="px-3 py-1 font-bold text-sm border-l border-r border-gray-300 w-8 text-center">{quantities[mango.id] || 1}</span>
-                        <button onClick={() => updateQty(mango.id, 1)} className="px-3 py-1 text-gray-600 hover:bg-gray-100 font-bold">+</button>
-                      </div>
-                      <button onClick={() => handleAddToCart(mango)} className="bg-black text-white px-4 py-1.5 rounded font-bold hover:bg-orange-500 transition-colors uppercase tracking-wider text-sm">Add</button>
-                    </div>
-                  </div>
-                </div>
-              </div>
+          {/* Variety */}
+          <div className="sidebar-block">
+            <div className="sb-title">
+              Variety
+              {selectedVarieties.length > 0 && <span className="sb-clear" onClick={() => setSelectedVarieties([])}>Clear</span>}
+            </div>
+            {['Himsagar', 'Langra', 'Fazli', 'Gopalbhog', 'Amrapali', 'Gift Box'].map(v => (
+              <label key={v} className="filter-check">
+                <input
+                  type="checkbox"
+                  checked={selectedVarieties.includes(v)}
+                  onChange={() => setSelectedVarieties(p => p.includes(v) ? p.filter(i => i !== v) : [...p, v])}
+                />
+                <span>{v}</span>
+                <span className="fc-count">{getVarietyCount(v)}</span>
+              </label>
             ))}
-        </div>
+          </div>
+
+          {/* Price */}
+          <div className="sidebar-block">
+            <div className="sb-title">
+              Price Range (৳)
+              {(minPrice > 0 || maxPrice < 2000) && <span className="sb-clear" onClick={() => { setMinPrice(0); setMaxPrice(2000); }}>Clear</span>}
+            </div>
+            <input type="range" className="range-slider" min="0" max="2000" value={maxPrice} onChange={e => setMaxPrice(Number(e.target.value))} />
+            <div className="price-inputs">
+              <input type="number" className="price-inp" placeholder="Min ৳" value={minPrice || ''} onChange={e => setMinPrice(e.target.value === '' ? '' : Number(e.target.value))} />
+              <input type="number" className="price-inp" placeholder="Max ৳" value={maxPrice || ''} onChange={e => setMaxPrice(e.target.value === '' ? '' : Number(e.target.value))} />
+            </div>
+          </div>
+
+          {/* Weight */}
+          <div className="sidebar-block">
+            <div className="sb-title">
+              Weight
+              {selectedWeights.length > 0 && <span className="sb-clear" onClick={() => setSelectedWeights([])}>Clear</span>}
+            </div>
+            <div className="chip-group">
+              {['½ Dozen', '1 Dozen', '2 Kg', '5 Kg', '10 Kg'].map(w => (
+                <div key={w} className={`chip${selectedWeights.includes(w) ? ' active' : ''}`} onClick={() => setSelectedWeights(p => p.includes(w) ? p.filter(i => i !== w) : [...p, w])}>
+                  {w}
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Season */}
+          <div className="sidebar-block">
+            <div className="sb-title">
+              Season
+              {selectedSeasons.length > 0 && <span className="sb-clear" onClick={() => setSelectedSeasons([])}>Clear</span>}
+            </div>
+            {[{ key: 'Early', label: 'Early Season (May–Jun)' }, { key: 'Peak', label: 'Peak Season (Jun–Jul)' }, { key: 'Late', label: 'Late Season (Jul–Aug)' }].map(s => (
+              <label key={s.key} className="filter-check">
+                <input type="checkbox" checked={selectedSeasons.includes(s.key)} onChange={() => setSelectedSeasons(p => p.includes(s.key) ? p.filter(i => i !== s.key) : [...p, s.key])} />
+                <span>{s.label}</span>
+              </label>
+            ))}
+          </div>
+
+          {/* Rating */}
+          <div className="sidebar-block">
+            <div className="sb-title">
+              Rating
+              {minRating !== null && <span className="sb-clear" onClick={() => setMinRating(null)}>Clear</span>}
+            </div>
+            <div className="star-filter">
+              {[5, 4, 3].map(r => (
+                <label key={r} className="star-row">
+                  <input type="checkbox" checked={minRating === r} onChange={() => setMinRating(minRating === r ? null : r)} />
+                  <span className="stars">{'★'.repeat(r)}{'☆'.repeat(5 - r)}</span>
+                  {r === 5 ? '5 only' : `${r} & up`}
+                </label>
+              ))}
+            </div>
+          </div>
+
+          {/* Availability */}
+          <div className="sidebar-block">
+            <div className="sb-title">Availability</div>
+            <label className="filter-check">
+              <input type="checkbox" checked={inStockOnly} onChange={e => setInStockOnly(e.target.checked)} />
+              <span>In Stock Only</span>
+            </label>
+            <label className="filter-check">
+              <input type="checkbox" checked={onSaleOnly} onChange={e => setOnSaleOnly(e.target.checked)} />
+              <span>On Sale</span>
+            </label>
+          </div>
+
+          <button className="btn-primary" style={{ width: '100%', justifyContent: 'center', borderRadius: 'var(--radius-sm)' }} onClick={() => setIsSidebarOpen(false)}>
+            Apply Filters
+          </button>
+        </aside>
+
+        {/* MAIN CONTENT */}
+        <main className="shop-main">
+
+          {/* TOP BAR */}
+          <div className="shop-topbar">
+            <div className="shop-search-wrap">
+              <span className="shop-search-icon">🔍</span>
+              <input
+                type="text"
+                className="shop-search"
+                placeholder="Search mangoes, varieties, gift boxes…"
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+              />
+            </div>
+            <div className="shop-topbar-right">
+              <button className="filter-btn" style={{ display: 'flex' }} onClick={() => setIsSidebarOpen(!isSidebarOpen)}>
+                ☰ Filters
+              </button>
+              <select className="sort-select" value={sortOption} onChange={e => setSortOption(e.target.value)}>
+                <option value="featured">Featured</option>
+                <option value="price-asc">Price: Low → High</option>
+                <option value="price-desc">Price: High → Low</option>
+                <option value="rating">Top Rated</option>
+                <option value="newest">Newest</option>
+                <option value="name-asc">Name A–Z</option>
+              </select>
+              <div className="view-toggle">
+                <button className={`view-btn${viewMode === 'grid' ? ' active' : ''}`} onClick={() => setViewMode('grid')} title="Grid">⊞</button>
+                <button className={`view-btn${viewMode === 'list' ? ' active' : ''}`} onClick={() => setViewMode('list')} title="List">☰</button>
+              </div>
+            </div>
+          </div>
+
+          {/* ACTIVE FILTER TAGS */}
+          {activeFiltersList.length > 0 && (
+            <div className="active-filters">
+              <span className="af-label">Active:</span>
+              {activeFiltersList.map((f, i) => (
+                <span key={i} className="af-tag">{f.label} <span className="af-x" onClick={f.clear}>✕</span></span>
+              ))}
+              <span className="af-clear-all" onClick={clearAllFilters}>Clear All</span>
+            </div>
+          )}
+
+          {/* RESULTS COUNT */}
+          <div className="results-count">
+            Showing <strong>{filteredMangoes.length}</strong> of <strong>{mangoes.length}</strong> harvests available
+          </div>
+
+          {/* PRODUCTS GRID */}
+          {filteredMangoes.length === 0 ? (
+            <div className="no-results">
+              <div className="nr-icon">🥭</div>
+              <p><strong>No mangoes found</strong><br />Try adjusting your filters or search term.</p>
+            </div>
+          ) : (
+            <div className={`shop-grid${viewMode === 'list' ? ' list-view' : ''}`} id="shopGrid">
+              {filteredMangoes.map(mango => {
+                const isAdded = cart?.some(item => item.id === mango.id);
+                const mainImage = mango.images?.[0] || mango.image;
+                const displayPrice = mango.discountPrice || mango.price;
+                const oldPrice = mango.discountPrice ? mango.price : null;
+                const ratingStars = Math.round(Number(mango.stats?.rating) || Number(mango.rating) || 5);
+                const isLiked = wishlist.includes(mango.id);
+
+                return (
+                  <div key={mango.id} className="product-card" onClick={() => navigate(`/product/${mango.id}`)}>
+
+                    {/* Admin quick-edit */}
+                    {isAdmin && (
+                      <button
+                        onClick={e => handleGodModeEdit(e, mango.id)}
+                        style={{ position: 'absolute', top: 10, right: 44, zIndex: 20, background: '#111', color: '#fff', padding: '2px 8px', borderRadius: 4, fontSize: 9, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '.08em', cursor: 'pointer', border: 'none' }}
+                      >
+                        ⚡ Edit
+                      </button>
+                    )}
+
+                    {/* Discount badge */}
+                    {mango.discountPercent && (
+                      <div className="tag-strip">
+                        <span className="badge badge-orange">-{mango.discountPercent}%</span>
+                      </div>
+                    )}
+
+                    {/* Wishlist */}
+                    <button
+                      className="pc-wishlist"
+                      style={{ color: isLiked ? 'var(--primary)' : 'inherit' }}
+                      onClick={e => { e.preventDefault(); e.stopPropagation(); toggleWishlist(mango); }}
+                    >
+                      {isLiked ? '♥' : '♡'}
+                    </button>
+
+                    {/* Image */}
+                    <div className="pc-img" style={{ background: 'var(--gray1)' }}>
+                      {mainImage
+                        ? <img src={mainImage} alt={mango.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        : <span style={{ fontSize: '3.5rem' }}>🥭</span>
+                      }
+                    </div>
+
+                    {/* Body */}
+                    <div className="pc-body">
+                      {mango.section && (
+                        <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.08em', color: 'var(--primary)', marginBottom: 4 }}>
+                          {mango.section}
+                        </div>
+                      )}
+                      <h4 className="pc-name" style={{ overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 1, WebkitBoxOrient: 'vertical' }}>{mango.name}</h4>
+                      <div className="pc-sub">
+                        <span>⚖️ {mango.fixedWeight || 1}kg Box</span>
+                        {mango.grade && <span> · {mango.grade}</span>}
+                        {mango.season && <span> · {mango.season} Season</span>}
+                      </div>
+                      <div className="pc-rating">
+                        <span className="stars">{'★'.repeat(ratingStars)}{'☆'.repeat(5 - ratingStars)}</span>
+                        <span>({mango.stats?.reviewCount || mango.reviews?.length || 0})</span>
+                      </div>
+                      <div className="pc-price-row">
+                        <div className="pc-price">
+                          ৳{Number(displayPrice).toLocaleString()}
+                          {oldPrice && <span className="old">৳{Number(oldPrice).toLocaleString()}</span>}
+                        </div>
+                        <button
+                          className={`pc-add${isAdded ? ' added' : ''}`}
+                          onClick={e => { e.preventDefault(); e.stopPropagation(); handleAddToCart(mango); }}
+                        >
+                          {isAdded ? '✓' : '+'}
+                        </button>
+                      </div>
+
+                      {/* Quantity stepper */}
+                      <div
+                        style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '0.75rem', paddingTop: '0.75rem', borderTop: '1px solid var(--gray2)' }}
+                        onClick={e => { e.preventDefault(); e.stopPropagation(); }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', border: '1.5px solid var(--gray2)', borderRadius: 8, background: 'var(--gray1)', overflow: 'hidden' }}>
+                          <button style={{ padding: '4px 10px', fontWeight: 700, fontSize: '.85rem', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--gray4)' }} onClick={e => { e.stopPropagation(); updateQty(mango.id, -1); }}>−</button>
+                          <span style={{ padding: '4px 10px', fontWeight: 700, fontSize: '.8rem', minWidth: 24, textAlign: 'center' }}>{quantities[mango.id] || 1}</span>
+                          <button style={{ padding: '4px 10px', fontWeight: 700, fontSize: '.85rem', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--gray4)' }} onClick={e => { e.stopPropagation(); updateQty(mango.id, 1); }}>+</button>
+                        </div>
+                        <button
+                          style={{ background: 'var(--primary)', color: '#fff', fontSize: 10, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '.08em', padding: '6px 12px', borderRadius: 8, border: 'none', cursor: 'pointer' }}
+                          onClick={e => { e.preventDefault(); e.stopPropagation(); handleAddToCart(mango); }}
+                        >
+                          Add 📦
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </main>
       </div>
+
+      {/* Spinner keyframe */}
+      <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
     </div>
   );
 }

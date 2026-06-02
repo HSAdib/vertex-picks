@@ -3,17 +3,36 @@ import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
 import { doc, getDoc } from 'firebase/firestore';
-import { db } from '../firebaseConfig';
+import { db, auth } from '../firebaseConfig';
+import { signOut } from 'firebase/auth';
 
 export default function Navbar() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [navTabs, setNavTabs] = useState([]);
+  const [searchVal, setSearchVal] = useState('');
+  const [isScrolled, setIsScrolled] = useState(false);
+  
   const { cart } = useCart();
   const { user, isAdmin } = useAuth();
+  
   const navigate = useNavigate();
   const location = useLocation();
+  
   const queryParams = new URLSearchParams(location.search);
   const currentTabId = queryParams.get('tabId');
+
+  useEffect(() => {
+    const handleScroll = () => {
+      if (window.scrollY > 30) {
+        setIsScrolled(true);
+      } else {
+        setIsScrolled(false);
+      }
+    };
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
 
   useEffect(() => {
     const fetchTabs = async () => {
@@ -31,120 +50,257 @@ export default function Navbar() {
     fetchTabs();
   }, []);
 
-  const handleProfileClick = (e) => {
-    e.preventDefault();
-    if (isAdmin) {
-      navigate('/admin');
-    } else if (user) {
-      navigate('/profile');
-    } else {
-      navigate('/login');
+  const totalItems = cart.reduce((total, item) => total + item.quantity, 0);
+
+  const handleSearchKeyDown = (e) => {
+    if (e.key === 'Enter') {
+      navigate(`/shop?search=${encodeURIComponent(searchVal)}`);
     }
   };
 
-  const totalItems = cart.reduce((total, item) => total + item.quantity, 0);
-
   return (
-    <nav className="fixed top-4 left-1/2 -translate-x-1/2 w-[95%] max-w-6xl z-50 rounded-full bg-white/70 backdrop-blur-lg border border-white/60 shadow-[0_8px_30px_rgb(0,0,0,0.06)] print:hidden">
-      <div className="w-full mx-auto px-6 py-2">
-        <div className="flex justify-between items-center h-14">
-
-          {/* Logo Section */}
-          <Link to="/" className="flex-shrink-0 flex items-center gap-1">
-            <span className="font-black text-xl tracking-tight text-black">VERTEX</span>
-            <span className="font-black text-xl tracking-tight text-orange-500">PICKS</span>
-          </Link>
-
-          {/* Desktop Menu (Hidden on Mobile) */}
-          <div className="hidden md:flex space-x-8">
-            <Link to="/" className={`text-sm uppercase tracking-wider transition-colors ${location.pathname === '/' && !currentTabId ? 'font-black text-orange-500' : 'font-bold text-gray-800 hover:text-orange-500'}`}>
-              Home
-            </Link>
-            {navTabs.map(tab => (
-              <Link key={tab.id} to={`/shop?tabId=${tab.id}`} className={`text-sm uppercase tracking-wider transition-colors ${currentTabId === tab.id ? 'font-black text-orange-500' : 'font-bold text-gray-800 hover:text-orange-500'}`}>
-                {tab.name}
-              </Link>
-            ))}
-          </div>
-
-          {/* Icons Section (Home + Profile + Cart + Mobile Menu Toggle) */}
-          <div className="flex items-center space-x-5">
-
-            {/* Home Icon */}
-            <Link to="/" className="text-black hover:text-orange-500 transition-colors">
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 12l8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h8.25" />
-              </svg>
-            </Link>
-
-            {/* NEW: Profile Icon (Dynamic Routing) */}
-            <button onClick={handleProfileClick} className="text-black hover:text-orange-500 transition-colors">
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
-              </svg>
-            </button>
-
-            {/* Cart Icon (Always visible) */}
-            <Link to="/checkout" className="text-black hover:text-orange-500 transition-colors relative">
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 10.5V6a3.75 3.75 0 10-7.5 0v4.5m11.356-1.993l1.263 12c.07.665-.45 1.243-1.119 1.243H4.25a1.125 1.125 0 01-1.12-1.243l1.264-12A1.125 1.125 0 015.513 7.5h12.974c.576 0 1.059.435 1.119 1.007zM8.625 10.5a.375.375 0 11-.75 0 .375.375 0 01.75 0zm7.5 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z" />
-              </svg>
-              {totalItems > 0 && (
-                <span className="absolute -top-2 -right-2 bg-orange-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center font-bold">
-                  {totalItems}
-                </span>
-              )}
-            </Link>
-
-            {/* Mobile Menu Button (Hamburger) - Only visible on mobile */}
-            <button
-              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-              className="md:hidden text-black hover:text-orange-500 focus:outline-none"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-7 h-7">
-                {isMobileMenuOpen ? (
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                ) : (
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
-                )}
-              </svg>
-            </button>
-
-          </div>
+    <div className="absolute top-0 left-0 w-full z-50 print:hidden">
+      {/* TOPBAR */}
+      <div className="topbar">
+        <span>🚚 Free delivery on orders above ৳1,500 | Season 2025 Open!</span>
+        <div className="topbar-links">
+          <Link to="/profile">Track Order</Link>
+          <a href="https://wa.me/8801581221084?text=Hello!%20I%20need%20help%20with%20my%20Vertex%20Picks%20order." target="_blank" rel="noreferrer">Help</a>
+          <button 
+            className="bg-transparent text-inherit p-0 font-medium hover:text-white border-none cursor-pointer outline-none" 
+            onClick={() => alert("বাংলা সংস্করণ শীঘ্রই আসছে!")}
+          >
+            বাংলা
+          </button>
         </div>
       </div>
 
-      {/* Mobile Dropdown Menu */}
-      {isMobileMenuOpen && (
-        <div className="md:hidden bg-white border-t border-gray-100">
-          <div className="px-4 pt-2 pb-4 space-y-1 shadow-lg">
-            <Link
-              to="/"
-              onClick={() => setIsMobileMenuOpen(false)}
-              className={`block px-3 py-3 text-base rounded-md uppercase tracking-wider transition-colors ${location.pathname === '/' && !currentTabId ? 'font-black text-orange-500 bg-orange-50' : 'font-bold text-gray-800 hover:text-orange-500 hover:bg-gray-50'}`}
+      {/* NAVBAR */}
+      <nav className={`navbar relative ${isScrolled ? 'scrolled' : ''}`}>
+        <Link to="/" className="nav-logo">
+          <span className="nav-logo-full">Vertex<span className="nav-logo-accent">Picks</span></span>
+          <span className="nav-logo-short">V<span>P</span></span>
+        </Link>
+        
+        {/* Search input */}
+        <div className="nav-search">
+          <span className="nav-search-icon">🔍</span>
+          <input 
+            type="text" 
+            placeholder="Search mangoes, varieties, gift boxes..." 
+            value={searchVal}
+            onChange={(e) => setSearchVal(e.target.value)}
+            onKeyDown={handleSearchKeyDown}
+          />
+        </div>
+
+        {/* Desktop nav links */}
+        <div className="nav-links">
+          <Link 
+            to="/" 
+            className={location.pathname === '/' && !currentTabId ? 'active' : ''}
+          >
+            Home
+          </Link>
+          {navTabs.map(tab => (
+            <Link 
+              key={tab.id} 
+              to={`/shop?tabId=${tab.id}`} 
+              className={currentTabId === tab.id ? 'active' : ''}
             >
-              Home
+              {tab.name}
             </Link>
-            {navTabs.map(tab => (
-              <Link
-                key={tab.id}
-                to={`/shop?tabId=${tab.id}`}
-                onClick={() => setIsMobileMenuOpen(false)}
-                className={`block px-3 py-3 text-base rounded-md uppercase tracking-wider transition-colors ${currentTabId === tab.id ? 'font-black text-orange-500 bg-orange-50' : 'font-bold text-gray-800 hover:text-orange-500 hover:bg-gray-50'}`}
-              >
-                {tab.name}
-              </Link>
-            ))}
-            {/* NEW: Mobile Profile Link */}
-            <button
-              onClick={(e) => { setIsMobileMenuOpen(false); handleProfileClick(e); }}
-              className="block w-full text-left px-3 py-3 text-base font-bold text-gray-800 hover:text-orange-500 hover:bg-gray-50 rounded-md uppercase tracking-wider"
+          ))}
+        </div>
+
+        {/* Nav actions */}
+        <div className="nav-actions">
+          {/* Wishlist */}
+          <Link to="/profile" className="nav-icon-btn" title="Wishlist">
+            ❤️
+          </Link>
+
+          {/* Cart Icon Button */}
+          <Link to="/checkout" className="nav-icon-btn" title="Cart">
+            🛒
+            {totalItems > 0 && <span className="cart-badge">{totalItems}</span>}
+          </Link>
+
+          {/* Conditional User Profile Dropdown / Login Trigger */}
+          {user ? (
+            <div 
+              className="relative nav-dropdown-wrapper z-[310] flex items-center h-full"
+              onMouseEnter={() => setIsDropdownOpen(true)}
+              onMouseLeave={() => setIsDropdownOpen(false)}
             >
-              {isAdmin ? 'Admin Dashboard' : (user ? 'My Account' : 'Login')}
-            </button>
+              <div 
+                className={`cursor-pointer transition-all duration-200 flex items-center justify-center`}
+                style={{
+                  width: '38px',
+                  height: '38px',
+                  borderRadius: '50%',
+                  border: isDropdownOpen ? '1.5px solid var(--primary)' : '1.5px solid var(--gray2)',
+                  background: isDropdownOpen ? 'var(--primary-pale)' : 'var(--gray1)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  transition: 'all 0.2s ease',
+                  boxSizing: 'border-box'
+                }}
+              >
+                <div className="nav-user-avatar" style={{ margin: 0, width: '28px', height: '28px', fontSize: '.8rem' }}>
+                  {user.displayName ? user.displayName.charAt(0).toUpperCase() : (user.email ? user.email.charAt(0).toUpperCase() : 'U')}
+                </div>
+              </div>
+              
+              {/* Invisible Padding Top Bridge within Dropdown Container */}
+              {isDropdownOpen && (
+                <div 
+                  className="nav-user-dropdown text-left pt-2 z-50 animate-in fade-in duration-200"
+                  style={{ display: 'block', position: 'absolute', top: '100%', right: 0, border: 'none', background: 'transparent', boxShadow: 'none', overflow: 'visible' }}
+                >
+                  <div className="bg-white border border-gray2 rounded-brand shadow-lg min-w-[180px] overflow-hidden">
+                    <Link to="/profile" className="nud-item" onClick={() => setIsDropdownOpen(false)}>👤 My Account</Link>
+                    <Link to="/profile" className="nud-item" onClick={() => setIsDropdownOpen(false)}>📦 My Orders</Link>
+                    <Link to="/profile" className="nud-item" onClick={() => setIsDropdownOpen(false)}>❤️ Wishlist</Link>
+                    <Link to="/profile" className="nud-item" onClick={() => setIsDropdownOpen(false)}>👛 Wallet & Points</Link>
+                    <div className="nud-divider"></div>
+                    <button 
+                      onClick={() => { setIsDropdownOpen(false); signOut(auth); }} 
+                      className="nud-item danger w-full text-left font-semibold bg-transparent border-none outline-none cursor-pointer"
+                    >
+                      🚪 Logout
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : (
+            <Link to="/login" className="nav-order-btn">
+              Login / Sign Up
+            </Link>
+          )}
+
+          {/* Admin Panel button shown when admin logged in */}
+          {isAdmin && (
+            <>
+              <Link to="/admin" className="nav-order-btn nav-admin-full" style={{ background: 'var(--dark)' }}>
+                ⚙️ Admin Panel
+              </Link>
+              <Link to="/admin" className="nav-icon-btn nav-admin-compact" title="Admin Panel" style={{ background: 'var(--dark)', color: '#fff', fontSize: '.85rem' }}>
+                ⚙️
+              </Link>
+            </>
+          )}
+
+          {/* Hamburger Menu Toggle */}
+          <div 
+            className="nav-ham" 
+            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+          >
+            <span className={isMobileMenuOpen ? "rotate-45 translate-y-[6px]" : ""} style={{ transition: '0.3s' }}></span>
+            <span className={isMobileMenuOpen ? "opacity-0" : ""} style={{ transition: '0.3s' }}></span>
+            <span className={isMobileMenuOpen ? "-rotate-45 -translate-y-[6px]" : ""} style={{ transition: '0.3s' }}></span>
           </div>
         </div>
-      )}
-    </nav>
+
+        {/* Mobile Dropdown Menu */}
+        {isMobileMenuOpen && (
+          <div className="absolute top-[100%] left-0 w-full bg-white border-b border-gray2 shadow-md z-[190] py-5 px-6 animate-in fade-in slide-in-from-top-4 duration-200">
+            <div className="flex flex-col gap-4">
+              {/* Responsive Search Input */}
+              <div style={{ position: 'relative', width: '100%', marginBottom: '.25rem' }}>
+                <span style={{ position: 'absolute', left: '.9rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--gray4)', fontSize: '.9rem' }}>🔍</span>
+                <input 
+                  type="text" 
+                  placeholder="Search mangoes, varieties, gift boxes..." 
+                  value={searchVal}
+                  onChange={(e) => setSearchVal(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      setIsMobileMenuOpen(false);
+                      handleSearchKeyDown(e);
+                    }
+                  }}
+                  style={{ width: '100%', background: 'var(--gray1)', border: '1.5px solid transparent', borderRadius: '100px', padding: '.6rem 1rem .6rem 2.6rem', fontSize: '.85rem', outline: 'none' }}
+                />
+              </div>
+
+              <Link 
+                to="/" 
+                onClick={() => setIsMobileMenuOpen(false)} 
+                className={`font-semibold text-sm transition-colors ${location.pathname === '/' && !currentTabId ? 'text-primary' : 'text-gray4 hover:text-primary'}`}
+              >
+                Home
+              </Link>
+              {navTabs.map(tab => (
+                <Link 
+                  key={tab.id} 
+                  to={`/shop?tabId=${tab.id}`} 
+                  onClick={() => setIsMobileMenuOpen(false)} 
+                  className={`font-semibold text-sm transition-colors ${currentTabId === tab.id ? 'text-primary' : 'text-gray4 hover:text-primary'}`}
+                >
+                  {tab.name}
+                </Link>
+              ))}
+              <div className="h-[1px] bg-gray2 my-1" />
+              
+              {/* Wishlist and Cart Links */}
+              <Link 
+                to="/profile" 
+                onClick={() => setIsMobileMenuOpen(false)} 
+                className="font-semibold text-sm text-gray4 hover:text-primary flex items-center gap-2"
+              >
+                ❤️ My Wishlist
+              </Link>
+              <Link 
+                to="/checkout" 
+                onClick={() => setIsMobileMenuOpen(false)} 
+                className="font-semibold text-sm text-gray4 hover:text-primary flex items-center gap-2"
+              >
+                🛒 View Cart & Checkout ({totalItems} items)
+              </Link>
+
+              <div className="h-[1px] bg-gray2 my-1" />
+
+              {user ? (
+                <>
+                  <Link 
+                    to="/profile" 
+                    onClick={() => setIsMobileMenuOpen(false)} 
+                    className="font-semibold text-sm text-gray4 hover:text-primary"
+                  >
+                    👤 My Account
+                  </Link>
+                  {isAdmin && (
+                    <Link 
+                      to="/admin" 
+                      onClick={() => setIsMobileMenuOpen(false)} 
+                      className="font-semibold text-sm text-primary"
+                    >
+                      🔑 Admin Panel
+                    </Link>
+                  )}
+                  <button 
+                    onClick={() => { setIsMobileMenuOpen(false); signOut(auth); }} 
+                    className="font-semibold text-sm text-red hover:text-red-700 text-left bg-transparent border-none outline-none cursor-pointer"
+                  >
+                    🚪 Log Out
+                  </button>
+                </>
+              ) : (
+                <Link 
+                  to="/login" 
+                  onClick={() => setIsMobileMenuOpen(false)} 
+                  className="nav-order-btn text-center w-full"
+                >
+                  Sign In / Create Account
+                </Link>
+              )}
+            </div>
+          </div>
+        )}
+      </nav>
+    </div>
   );
 }
