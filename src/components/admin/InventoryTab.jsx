@@ -29,6 +29,23 @@ export default function InventoryTab() {
   const [stock, setStock] = useState('100');
   const [maxStock, setMaxStock] = useState('100');
   
+  // --- RICH PDP DATA STATE ---
+  const [badge, setBadge] = useState('');
+  const [packs, setPacks] = useState([]); 
+  const [specs, setSpecs] = useState({
+    origin: 'Rajshahi, Bangladesh',
+    sweetness: '⭐⭐⭐⭐⭐ Very High',
+    fiber: 'Fibreless',
+    preservation: 'No chemicals. Tree-bagged.',
+    shelfLife: '5–7 days at room temp',
+    bestFor: ''
+  });
+  const [highlights, setHighlights] = useState([
+    'Handpicked at peak ripeness for maximum sweetness and aroma', 
+    'Tree-bagged from early growth — zero pesticides', 
+    'Sorted and graded by hand — only A-grade fruit ships'
+  ]);
+  
   const [editingId, setEditingId] = useState(null); 
   const [isUploading, setIsUploading] = useState(false);
 
@@ -86,6 +103,27 @@ export default function InventoryTab() {
   const addImageField = () => setImages([...images, '']);
   const removeImageField = (index) => setImages(images.filter((_, i) => i !== index));
 
+  // Handlers for Rich PDP Dynamic Arrays
+  const handleHighlightChange = (index, value) => {
+    const newH = [...highlights];
+    newH[index] = value;
+    setHighlights(newH);
+  };
+  const addHighlightField = () => setHighlights([...highlights, '']);
+  const removeHighlightField = (index) => setHighlights(highlights.filter((_, i) => i !== index));
+
+  const handlePackChange = (index, field, value) => {
+    const newP = [...packs];
+    newP[index][field] = value;
+    setPacks(newP);
+  };
+  const addPackField = () => setPacks([...packs, { name: '', price: '' }]);
+  const removePackField = (index) => setPacks(packs.filter((_, i) => i !== index));
+
+  const handleSpecChange = (key, value) => {
+    setSpecs({ ...specs, [key]: value });
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault(); 
     setIsUploading(true);
@@ -93,6 +131,9 @@ export default function InventoryTab() {
     try {
       const cleanImages = images.filter(img => img?.trim() !== '');
       const finalImages = cleanImages.length > 0 ? cleanImages : ['https://via.placeholder.com/400'];
+
+      const cleanHighlights = highlights.filter(h => h?.trim() !== '');
+      const cleanPacks = packs.filter(p => p.name?.trim() !== '' && p.price !== '');
 
       const productData = { 
         name, 
@@ -110,6 +151,13 @@ export default function InventoryTab() {
         reviews: reviews || [], 
         stock: Number(stock),
         maxStock: Number(maxStock || 100),
+        
+        // Rich PDP fields
+        badge: badge ? badge.trim() : '',
+        packs: cleanPacks.map(p => ({ name: p.name.trim(), price: Number(p.price) })),
+        specs,
+        highlights: cleanHighlights,
+
         updatedAt: new Date() 
       };
 
@@ -139,6 +187,23 @@ export default function InventoryTab() {
     setFakeSales('500'); setFakeRating('4.8'); setFakeReviewCount('124'); setReviews([]);
     setStock('100'); setMaxStock('100');
     setSku(''); setMinThreshold('10');
+    
+    // Rich PDP defaults
+    setBadge('');
+    setPacks([]);
+    setSpecs({
+      origin: 'Rajshahi, Bangladesh',
+      sweetness: '⭐⭐⭐⭐⭐ Very High',
+      fiber: 'Fibreless',
+      preservation: 'No chemicals. Tree-bagged.',
+      shelfLife: '5–7 days at room temp',
+      bestFor: ''
+    });
+    setHighlights([
+      'Handpicked at peak ripeness for maximum sweetness and aroma', 
+      'Tree-bagged from early growth — zero pesticides', 
+      'Sorted and graded by hand — only A-grade fruit ships'
+    ]);
   };
 
   const executeDelete = async (id) => {
@@ -179,6 +244,24 @@ export default function InventoryTab() {
     setReviews(mango.reviews || []);
     setStock(mango.stock !== undefined ? mango.stock.toString() : '100');
     setMaxStock(mango.maxStock !== undefined ? mango.maxStock.toString() : '100');
+    
+    // Rich PDP population
+    setBadge(mango.badge || '');
+    setPacks(mango.packs || []);
+    setSpecs(mango.specs || {
+      origin: 'Rajshahi, Bangladesh',
+      sweetness: '⭐⭐⭐⭐⭐ Very High',
+      fiber: 'Fibreless',
+      preservation: 'No chemicals. Tree-bagged.',
+      shelfLife: '5–7 days at room temp',
+      bestFor: ''
+    });
+    setHighlights(mango.highlights || [
+      'Handpicked at peak ripeness for maximum sweetness and aroma', 
+      'Tree-bagged from early growth — zero pesticides', 
+      'Sorted and graded by hand — only A-grade fruit ships'
+    ]);
+    
     window.scrollTo(0, 0);
   };
 
@@ -296,6 +379,83 @@ export default function InventoryTab() {
               <button type="button" onClick={addImageField} className="text-[10px] font-black text-primary hover:text-primary-light uppercase tracking-wider mt-1 bg-transparent border-none outline-none">
                 + Add Another Image URL
               </button>
+            </div>
+
+            {/* RICH PDP DETAILS SECTION */}
+            <div className="bg-orange-50/30 p-4 rounded-brand border border-orange-200 shadow-sm mt-6">
+              <h4 className="text-sm font-black uppercase text-dark mb-4 border-b border-orange-200 pb-2">✨ Rich Product Details (Optional)</h4>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Left Column: Badge & Specs */}
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-[9px] font-black uppercase tracking-widest text-gray4 mb-1">Overlay Badge</label>
+                    <input type="text" placeholder="e.g. Best Seller, Rare, Gift" value={badge} onChange={e => setBadge(e.target.value)} className="w-full p-3 bg-white border border-gray2 rounded font-bold text-xs outline-none focus:border-primary shadow-sm" />
+                  </div>
+                  
+                  <div className="pt-2">
+                    <label className="block text-[10px] font-black uppercase tracking-widest text-dark mb-2">Specifications Table</label>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-[9px] font-bold text-gray4 mb-1">Origin</label>
+                        <input type="text" value={specs.origin} onChange={e => handleSpecChange('origin', e.target.value)} className="w-full p-2.5 bg-white border border-gray2 rounded font-bold text-xs outline-none focus:border-primary shadow-sm" />
+                      </div>
+                      <div>
+                        <label className="block text-[9px] font-bold text-gray4 mb-1">Sweetness</label>
+                        <input type="text" value={specs.sweetness} onChange={e => handleSpecChange('sweetness', e.target.value)} className="w-full p-2.5 bg-white border border-gray2 rounded font-bold text-xs outline-none focus:border-primary shadow-sm" />
+                      </div>
+                      <div>
+                        <label className="block text-[9px] font-bold text-gray4 mb-1">Fiber</label>
+                        <input type="text" value={specs.fiber} onChange={e => handleSpecChange('fiber', e.target.value)} className="w-full p-2.5 bg-white border border-gray2 rounded font-bold text-xs outline-none focus:border-primary shadow-sm" />
+                      </div>
+                      <div>
+                        <label className="block text-[9px] font-bold text-gray4 mb-1">Preservation</label>
+                        <input type="text" value={specs.preservation} onChange={e => handleSpecChange('preservation', e.target.value)} className="w-full p-2.5 bg-white border border-gray2 rounded font-bold text-xs outline-none focus:border-primary shadow-sm" />
+                      </div>
+                      <div>
+                        <label className="block text-[9px] font-bold text-gray4 mb-1">Shelf Life</label>
+                        <input type="text" value={specs.shelfLife} onChange={e => handleSpecChange('shelfLife', e.target.value)} className="w-full p-2.5 bg-white border border-gray2 rounded font-bold text-xs outline-none focus:border-primary shadow-sm" />
+                      </div>
+                      <div>
+                        <label className="block text-[9px] font-bold text-gray4 mb-1">Best For</label>
+                        <input type="text" placeholder="e.g. Juicing, Desserts" value={specs.bestFor} onChange={e => handleSpecChange('bestFor', e.target.value)} className="w-full p-2.5 bg-white border border-gray2 rounded font-bold text-xs outline-none focus:border-primary shadow-sm" />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Right Column: Packs & Highlights */}
+                <div className="space-y-6">
+                  {/* Pack Options */}
+                  <div>
+                    <label className="block text-[10px] font-black uppercase tracking-widest text-dark mb-2">Pack Options</label>
+                    {packs.map((pack, idx) => (
+                      <div key={idx} className="flex gap-2 mb-2">
+                        <input type="text" placeholder="Pack Name (e.g. 1 Dozen)" value={pack.name} onChange={e => handlePackChange(idx, 'name', e.target.value)} className="w-1/2 p-2.5 bg-white border border-gray2 rounded font-bold text-xs outline-none focus:border-primary shadow-sm" />
+                        <input type="number" placeholder="Price (৳)" value={pack.price} onChange={e => handlePackChange(idx, 'price', e.target.value)} className="w-1/3 p-2.5 bg-white border border-gray2 rounded font-bold text-xs outline-none focus:border-primary shadow-sm" />
+                        <button type="button" onClick={() => removePackField(idx)} className="bg-red-100 text-red-600 px-3 rounded font-black hover:bg-red-600 hover:text-white transition-all text-xs">✕</button>
+                      </div>
+                    ))}
+                    <button type="button" onClick={addPackField} className="text-[10px] font-black text-primary hover:text-primary-light uppercase tracking-wider mt-1 bg-transparent border-none outline-none">
+                      + Add Pack Option
+                    </button>
+                  </div>
+
+                  {/* Highlights */}
+                  <div>
+                    <label className="block text-[10px] font-black uppercase tracking-widest text-dark mb-2">Feature Highlights</label>
+                    {highlights.map((h, idx) => (
+                      <div key={idx} className="flex gap-2 mb-2">
+                        <input type="text" placeholder="Highlight bullet point" value={h} onChange={e => handleHighlightChange(idx, e.target.value)} className="flex-1 p-2.5 bg-white border border-gray2 rounded font-bold text-xs outline-none focus:border-primary shadow-sm" />
+                        <button type="button" onClick={() => removeHighlightField(idx)} className="bg-red-100 text-red-600 px-3 rounded font-black hover:bg-red-600 hover:text-white transition-all text-xs">✕</button>
+                      </div>
+                    ))}
+                    <button type="button" onClick={addHighlightField} className="text-[10px] font-black text-primary hover:text-primary-light uppercase tracking-wider mt-1 bg-transparent border-none outline-none">
+                      + Add Highlight
+                    </button>
+                  </div>
+                </div>
+              </div>
             </div>
 
             {/* MOCK STATS */}

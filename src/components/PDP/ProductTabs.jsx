@@ -1,0 +1,201 @@
+import React, { useState } from 'react';
+import FAQSection from './FAQSection';
+
+export default function ProductTabs({ product, onReviewSubmit, isSubmitting }) {
+  const [activeTab, setActiveTab] = useState('details');
+  const [reviewFilter, setReviewFilter] = useState('all');
+  const [wrStar, setWrStar] = useState(5);
+  const [wrTitle, setWrTitle] = useState('');
+  const [wrBody, setWrBody] = useState('');
+
+  const reviews = product.reviewsList || [];
+
+  const handleReviewSubmit = () => {
+    if (onReviewSubmit) {
+      onReviewSubmit({ rating: wrStar, title: wrTitle, text: wrBody });
+      setWrTitle('');
+      setWrBody('');
+      setWrStar(5);
+    }
+  };
+
+  const filteredReviews = reviews.filter(r => {
+    if (reviewFilter === 'all') return true;
+    if (reviewFilter === 'verified') return r.isVerified;
+    return r.rating === parseInt(reviewFilter);
+  });
+
+  return (
+    <div className="pdp-tabs-section">
+      <div className="pdp-tabs-nav">
+        <button
+          className={`pdp-tab-btn ${activeTab === 'details' ? 'active' : ''}`}
+          id="pdp-tab-btn-details"
+          onClick={() => setActiveTab('details')}
+        >
+          📋 Product Details
+        </button>
+        <button
+          className={`pdp-tab-btn ${activeTab === 'reviews' ? 'active' : ''}`}
+          id="pdp-tab-btn-reviews"
+          onClick={() => setActiveTab('reviews')}
+        >
+          ⭐ Reviews <span className="tab-count" id="pdp-tab-review-count">{product.reviews}</span>
+        </button>
+        <button
+          className={`pdp-tab-btn ${activeTab === 'faq' ? 'active' : ''}`}
+          id="pdp-tab-btn-faq"
+          onClick={() => setActiveTab('faq')}
+        >
+          ❓ FAQ
+        </button>
+      </div>
+
+      <div className={`pdp-tab-panel ${activeTab === 'details' ? 'active' : ''}`} id="pdp-panel-details">
+        <div className="pdp-details-grid">
+          <div>
+            <table className="pdp-spec-table" id="pdp-spec-table">
+              <tbody>
+                <tr><td>Variety</td><td id="spec-variety">{product.variety}</td></tr>
+                <tr><td>Origin</td><td>Rajshahi, Bangladesh</td></tr>
+                <tr><td>Season</td><td id="spec-season">{product.season} (Jun–Jul)</td></tr>
+                <tr><td>Pack Size</td><td id="spec-weight">{product.weight}</td></tr>
+                <tr><td>Sweetness</td><td>⭐⭐⭐⭐⭐ Very High</td></tr>
+                <tr><td>Fiber</td><td>Fibreless</td></tr>
+                <tr><td>Preservation</td><td>No chemicals. Tree-bagged.</td></tr>
+                <tr><td>Shelf Life</td><td>5–7 days at room temp</td></tr>
+                <tr><td>Best For</td><td>Eating fresh, juicing, desserts</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div>
+            <div className="pdp-highlights">
+              <div className="pdp-highlight-item"><div className="hi-dot">✓</div>Handpicked at peak ripeness for maximum sweetness and aroma</div>
+              <div className="pdp-highlight-item"><div className="hi-dot">✓</div>Tree-bagged from early growth — zero pesticides, zero artificial chemicals</div>
+              <div className="pdp-highlight-item"><div className="hi-dot">✓</div>Sorted and graded by hand — only A-grade fruit ships</div>
+              <div className="pdp-highlight-item"><div className="hi-dot">✓</div>Eco-friendly packaging — no styrofoam, no single-use plastic</div>
+              <div className="pdp-highlight-item"><div className="hi-dot">✓</div>Dispatched within hours of picking — freshness guaranteed</div>
+            </div>
+            <div className="pdp-how-section">
+              <div className="pdp-how-title">🌿 How We Grow & Ship</div>
+              <div className="pdp-steps">
+                <div className="pdp-step"><div className="pdp-step-num">1</div>Mangoes are tree-bagged at young stage to prevent pesticide exposure</div>
+                <div className="pdp-step"><div className="pdp-step-num">2</div>Hand-picked at dawn when sugar content is highest</div>
+                <div className="pdp-step"><div className="pdp-step-num">3</div>Graded for size, colour, and aroma — only A-grade passes</div>
+                <div className="pdp-step"><div className="pdp-step-num">4</div>Packed in eco-friendly boxes and dispatched same morning</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className={`pdp-tab-panel ${activeTab === 'reviews' ? 'active' : ''}`} id="pdp-panel-reviews">
+        <div className="reviews-layout">
+          <div className="rating-summary-card">
+            <div className="rs-big-num" id="rs-big-num">{product.rating}.0</div>
+            <div className="rs-stars" id="rs-stars">
+              {'★'.repeat(product.rating) + '☆'.repeat(5 - product.rating)}
+            </div>
+            <div className="rs-count" id="rs-count">Based on {product.reviews} reviews</div>
+            <div className="rs-bars">
+              <div className="rs-bar-row"><span className="rs-bar-label">5★</span><div className="rs-bar-track"><div className="rs-bar-fill" style={{width:'84%'}}></div></div><span className="rs-bar-count">107</span></div>
+              <div className="rs-bar-row"><span className="rs-bar-label">4★</span><div className="rs-bar-track"><div className="rs-bar-fill" style={{width:'12%'}}></div></div><span className="rs-bar-count">15</span></div>
+              <div className="rs-bar-row"><span className="rs-bar-label">3★</span><div className="rs-bar-track"><div className="rs-bar-fill" style={{width:'3%'}}></div></div><span className="rs-bar-count">4</span></div>
+              <div className="rs-bar-row"><span className="rs-bar-label">2★</span><div className="rs-bar-track"><div className="rs-bar-fill" style={{width:'1%'}}></div></div><span className="rs-bar-count">1</span></div>
+              <div className="rs-bar-row"><span className="rs-bar-label">1★</span><div className="rs-bar-track"><div className="rs-bar-fill" style={{width:'0%'}}></div></div><span className="rs-bar-count">0</span></div>
+            </div>
+          </div>
+          <div>
+            <div className="write-review-card">
+              <div className="wr-title">✍️ Write a Review</div>
+              <div className="wr-sub">Share your experience with this product</div>
+              <div className="wr-stars" id="wr-stars">
+                {[1, 2, 3, 4, 5].map(star => (
+                  <span
+                    key={star}
+                    className={`wr-star ${wrStar >= star ? 'active' : ''}`}
+                    onClick={() => setWrStar(star)}
+                  >
+                    ★
+                  </span>
+                ))}
+              </div>
+              <div className="wr-grid">
+                <div className="form-group"><label className="form-label">Review Title</label><input type="text" className="form-input" placeholder="Absolutely amazing!" value={wrTitle} onChange={e => setWrTitle(e.target.value)} id="wr-title-inp" /></div>
+                <div className="form-group wr-full"><label className="form-label">Your Review</label><textarea className="form-input" rows="3" placeholder="Tell others what you thought..." value={wrBody} onChange={e => setWrBody(e.target.value)} id="wr-body" style={{resize:'vertical'}}></textarea></div>
+              </div>
+              <div className="wr-actions">
+                <button className="btn-primary" onClick={handleReviewSubmit} disabled={isSubmitting}>
+                  {isSubmitting ? 'Submitting...' : 'Submit Review'}
+                </button>
+                <span style={{fontSize:'.75rem', color:'var(--gray4)'}}>* Reviews are published after moderation</span>
+              </div>
+            </div>
+            <div className="review-filter-row">
+              <span style={{fontSize:'.8rem', fontWeight:600, color:'var(--gray4)'}}>Filter:</span>
+              <div className={`rf-chip ${reviewFilter === 'all' ? 'active' : ''}`} onClick={() => setReviewFilter('all')}>All</div>
+              <div className={`rf-chip ${reviewFilter === '5' ? 'active' : ''}`} onClick={() => setReviewFilter('5')}>★★★★★</div>
+              <div className={`rf-chip ${reviewFilter === '4' ? 'active' : ''}`} onClick={() => setReviewFilter('4')}>★★★★</div>
+              <div className={`rf-chip ${reviewFilter === '3' ? 'active' : ''}`} onClick={() => setReviewFilter('3')}>★★★</div>
+              <div className={`rf-chip ${reviewFilter === 'verified' ? 'active' : ''}`} onClick={() => setReviewFilter('verified')}>✅ Verified</div>
+            </div>
+            <div className="review-list" id="pdp-review-list">
+              {filteredReviews.length === 0 ? (
+                <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--gray4)' }}>No reviews matching this filter.</div>
+              ) : (
+                filteredReviews.map((ri, idx) => (
+                  <div key={idx} className="review-item">
+                    <div className="ri-head">
+                      <div className="ri-author-row">
+                        <div className="ri-avatar">{ri.name.charAt(0).toUpperCase()}</div>
+                        <div>
+                          <div className="ri-name">{ri.name}</div>
+                          <div className="ri-meta">
+                            {ri.isVerified && <span className="ri-verified">✅ Verified Purchase</span>}
+                            <span>📍 {ri.location || 'Bangladesh'}</span>
+                          </div>
+                        </div>
+                      </div>
+                      <div style={{textAlign:'right'}}>
+                        <div className="ri-stars">
+                          {'★'.repeat(ri.rating) + '☆'.repeat(5 - ri.rating)}
+                        </div>
+                        <div className="ri-date">{ri.date}</div>
+                      </div>
+                    </div>
+                    <div className="ri-title">{ri.title}</div>
+                    <div className="ri-body">{ri.body}</div>
+                    {ri.images && ri.images.length > 0 && (
+                      <div className="ri-images">
+                        {ri.images.map((img, i) => <div key={i} className="ri-img">{img}</div>)}
+                      </div>
+                    )}
+                    <div className="ri-footer">
+                      <div className="ri-helpful">
+                        Helpful? 
+                        <button 
+                          className="ri-helpful-btn" 
+                          onClick={(e) => {
+                            e.target.textContent = `👍 ${ri.helpful + 1}`;
+                            e.target.style.color = 'var(--primary)';
+                          }}
+                        >
+                          👍 {ri.helpful}
+                        </button>
+                      </div>
+                      <span className="ri-report" onClick={() => alert('Review reported. Thanks!')}>Report</span>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className={`pdp-tab-panel ${activeTab === 'faq' ? 'active' : ''}`} id="pdp-panel-faq">
+        {activeTab === 'faq' && <FAQSection />}
+      </div>
+    </div>
+  );
+}

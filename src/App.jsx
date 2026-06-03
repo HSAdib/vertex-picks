@@ -11,7 +11,7 @@ import Shop from './pages/Shop';
 import Checkout from './pages/Checkout';
 import Admin from './pages/Admin';
 import Login from './pages/Login';
-import ProductDetails from './pages/ProductDetails'; 
+import ProductDetail from './components/PDP/ProductDetail';
 import { Analytics } from "@vercel/analytics/react"
 
 const FloatingWhatsApp = () => {
@@ -44,7 +44,7 @@ function App() {
             <Navbar />
             <main className="flex-grow">
               <Routes>
-               <Route path="/product/:id" element={<ProductDetails />} />
+               <Route path="/product/:id" element={<ProductDetail />} />
                 <Route path="/profile" element={<Profile />} />
                 <Route path="/login" element={<Login />} />
                 <Route path="/admin" element={<AdminRoute><Admin /></AdminRoute>} />
