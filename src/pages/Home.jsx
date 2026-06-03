@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { collection, getDocs, addDoc, doc, getDoc } from 'firebase/firestore';
+import { collection, getDocs, addDoc, doc, getDoc, query, where, orderBy, limit } from 'firebase/firestore';
+import { Share2, Camera, Globe, MessageCircle } from 'lucide-react';
 import { db } from '../firebaseConfig';
 import { toast } from 'react-hot-toast';
 
@@ -11,6 +12,9 @@ export default function Home() {
   const [emailVal, setEmailVal] = useState('');
   const [featuredProducts, setFeaturedProducts] = useState([]);
   const [featuredLoading, setFeaturedLoading] = useState(true);
+  
+  const [reviews, setReviews] = useState([]);
+  const [reviewsLoading, setReviewsLoading] = useState(true);
   
   const [footerSettings, setFooterSettings] = useState({
     footerDesc: "Hand-picked, tree-bagged, and delivered flawlessly. Premium Rajshahi mangoes, direct from farm to your door.",
@@ -135,6 +139,29 @@ export default function Home() {
   };
 
   const renderStars = (rating) => '★'.repeat(rating) + '☆'.repeat(5 - rating);
+
+  // Fetch reviews from Firestore
+  useEffect(() => {
+    const loadReviews = async () => {
+      try {
+        const q = query(
+          collection(db, 'reviews'),
+          where('status', '==', 'published'),
+          orderBy('rating', 'desc'),
+          orderBy('createdAt', 'desc'),
+          limit(3)
+        );
+        const snap = await getDocs(q);
+        const fetchedReviews = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        setReviews(fetchedReviews);
+      } catch (err) {
+        console.error('Failed to load reviews:', err);
+      } finally {
+        setReviewsLoading(false);
+      }
+    };
+    loadReviews();
+  }, []);
 
   // Fetch featured products from Firestore
   useEffect(() => {
@@ -347,30 +374,39 @@ export default function Home() {
       <div className="home-section">
         <div className="sec-head"><div className="sec-title">💬 What Customers <span>Say</span></div></div>
         <div className="reviews-row">
-          <div className="review-card">
-            <div className="rv-stars">★★★★★</div>
-            <div className="rv-text">"Honestly the best mangoes I've ever tasted. The Himsagar was divine — no strings, no chemicals, just pure sweetness."</div>
-            <div className="rv-author">
-              <div className="rv-avatar">R</div>
-              <div><div className="rv-name">Rafiqul Islam</div><div className="rv-loc">📍 Dhaka</div></div>
+          {reviewsLoading ? (
+            [...Array(3)].map((_, i) => (
+              <div key={i} className="review-card" style={{ pointerEvents: 'none', opacity: 0.7 }}>
+                <div style={{ width: '40%', height: 16, background: 'var(--gray2)', borderRadius: 4, marginBottom: 12, animation: 'pulse 1.5s infinite' }}></div>
+                <div style={{ width: '100%', height: 40, background: 'var(--gray2)', borderRadius: 4, marginBottom: 16, animation: 'pulse 1.5s infinite' }}></div>
+                <div className="rv-author">
+                  <div className="rv-avatar" style={{ background: 'var(--gray2)' }}></div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ width: '60%', height: 12, background: 'var(--gray2)', borderRadius: 4, marginBottom: 4 }}></div>
+                    <div style={{ width: '40%', height: 10, background: 'var(--gray2)', borderRadius: 4 }}></div>
+                  </div>
+                </div>
+              </div>
+            ))
+          ) : reviews.length === 0 ? (
+            <div style={{ gridColumn: '1/-1', textAlign: 'center', padding: '2rem', color: 'var(--gray4)', fontWeight: 600 }}>
+              No reviews yet. Check back soon!
             </div>
-          </div>
-          <div className="review-card">
-            <div className="rv-stars">★★★★★</div>
-            <div className="rv-text">"Ordered for Eid. The packaging was gorgeous and mangoes arrived in perfect condition. Will reorder every season."</div>
-            <div className="rv-author">
-              <div className="rv-avatar">N</div>
-              <div><div className="rv-name">Nadia Chowdhury</div><div className="rv-loc">📍 Chattogram</div></div>
-            </div>
-          </div>
-          <div className="review-card">
-            <div className="rv-stars">★★★★★</div>
-            <div className="rv-text">"Was skeptical about ordering mangoes online. Vertex changed that. Same-day dispatch was no joke at all."</div>
-            <div className="rv-author">
-              <div className="rv-avatar">S</div>
-              <div><div className="rv-name">Sabbir Ahmed</div><div className="rv-loc">📍 Sylhet</div></div>
-            </div>
-          </div>
+          ) : (
+            reviews.map(rv => (
+              <div key={rv.id} className="review-card">
+                <div className="rv-stars">{'★'.repeat(rv.rating || 5)}{'☆'.repeat(5 - (rv.rating || 5))}</div>
+                <div className="rv-text">"{rv.text || rv.reviewText}"</div>
+                <div className="rv-author">
+                  <div className="rv-avatar">{rv.authorName ? rv.authorName.charAt(0).toUpperCase() : (rv.customerName ? rv.customerName.charAt(0).toUpperCase() : 'U')}</div>
+                  <div>
+                    <div className="rv-name">{rv.authorName || rv.customerName || 'Verified Customer'}</div>
+                    <div className="rv-loc">📍 {rv.location || rv.city || 'Bangladesh'}</div>
+                  </div>
+                </div>
+              </div>
+            ))
+          )}
         </div>
       </div>
 
@@ -404,10 +440,10 @@ export default function Home() {
             <div className="footer-logo">Vertex<span>Picks</span></div>
             <div className="footer-desc">{footerSettings.footerDesc}</div>
             <div className="footer-socials">
-              <div className="fsoc">📘</div>
-              <div className="fsoc">📸</div>
-              <div className="fsoc">🐦</div>
-              <div className="fsoc">💬</div>
+              <div className="fsoc"><Globe size={18} /></div>
+              <div className="fsoc"><Camera size={18} /></div>
+              <div className="fsoc"><Share2 size={18} /></div>
+              <div className="fsoc"><MessageCircle size={18} /></div>
             </div>
           </div>
           <div className="footer-col">

@@ -16,7 +16,6 @@ function getCouponStatus(expiryDateStr) {
   } else if (expiry.getTime() === today.getTime()) {
     return 'active';
   } else {
-    // If it's in the future and doesn't have a start date, it is active
     return 'active';
   }
 }
@@ -59,7 +58,6 @@ export default function PromosTab() {
     const usageLimit = Number(newUsageLimit) || 100;
     const expiryDate = newPromoExpiry || '';
     
-    // Determine initial status based on date
     const calculatedStatus = getCouponStatus(expiryDate);
 
     try {
@@ -70,7 +68,6 @@ export default function PromosTab() {
         minOrderValue,
         usageLimit,
         usedCount: 0,
-        // Maintain backward compatibility for standard percentages
         discountPercent: discountType === 'percentage' ? discountValue : 0, 
         expiryDate,
         status: calculatedStatus,
@@ -109,9 +106,8 @@ export default function PromosTab() {
       exit={{ opacity: 0, y: -10 }}
       className="space-y-6 select-none"
     >
-      {/* ============ ADMIN CARD WRAPPER ============ */}
       <div className="admin-card">
-        {/* HEADER SECTION WITH CREATE BUTTON */}
+        {/* HEADER */}
         <div className="admin-action-bar">
           <div className="aab-left">
             <h3 className="ach-title">🎫 Promotional Coupon Manager</h3>
@@ -120,51 +116,52 @@ export default function PromosTab() {
           <div className="aab-right">
             <button 
               onClick={() => setShowCreateForm(!showCreateForm)}
-              className="add-btn cursor-pointer"
+              className="add-btn"
             >
               {showCreateForm ? 'Cancel Creation' : '+ Create Coupon'}
             </button>
           </div>
         </div>
 
-        {/* CREATE NEW COUPON FORM INLINE */}
+        {/* CREATE NEW COUPON FORM */}
         <AnimatePresence>
           {showCreateForm && (
             <motion.div
               initial={{ opacity: 0, height: 0 }}
               animate={{ opacity: 1, height: 'auto' }}
               exit={{ opacity: 0, height: 0 }}
-              className="border-b border-gray2 bg-gray1/50 overflow-hidden"
+              className="overflow-hidden"
+              style={{ borderBottom: '1px solid var(--gray2)', background: 'var(--gray1)' }}
             >
               <div className="p-6">
                 <form onSubmit={handleAddPromo} className="space-y-4">
                   <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-                    <div>
-                      <label className="block text-[10px] font-black uppercase tracking-widest text-gray4 mb-1.5">Coupon Code (Uppercase)</label>
+                    <div className="form-group">
+                      <label className="form-label">Coupon Code (Uppercase)</label>
                       <input 
                         type="text" 
                         placeholder="e.g. VIPCOUPON" 
                         required 
                         value={newPromoCode} 
                         onChange={e => setNewPromoCode(e.target.value)} 
-                        className="w-full p-3 bg-white border border-gray2 rounded font-bold text-xs outline-none focus:border-primary uppercase shadow-sm" 
+                        className="form-input uppercase"
                       />
                     </div>
                     
-                    <div>
-                      <label className="block text-[10px] font-black uppercase tracking-widest text-gray4 mb-1.5">Discount Type</label>
+                    <div className="form-group">
+                      <label className="form-label">Discount Type</label>
                       <select 
                         value={newDiscountType} 
                         onChange={e => setNewDiscountType(e.target.value)}
-                        className="w-full p-3 bg-white border border-gray2 rounded font-bold text-xs outline-none focus:border-primary shadow-sm cursor-pointer"
+                        className="form-input"
                       >
                         <option value="percentage">Percentage Discount (%)</option>
                         <option value="flat">Flat Amount Discount (৳)</option>
                       </select>
                     </div>
 
-                    <div>
-                      <label className="block text-[10px] font-black uppercase tracking-widest text-gray4 mb-1.5">
+                    <div className="form-group">
+                      <label className="form-label">
                         {newDiscountType === 'percentage' ? 'Discount Percentage (%)' : 'Discount Flat Value (৳)'}
                       </label>
                       <input 
@@ -174,12 +171,12 @@ export default function PromosTab() {
                         min="1"
                         value={newDiscountValue} 
                         onChange={e => setNewDiscountValue(e.target.value)} 
-                        className="w-full p-3 bg-white border border-gray2 rounded font-bold text-xs outline-none focus:border-primary shadow-sm" 
+                        className="form-input"
                       />
                     </div>
 
-                    <div>
-                      <label className="block text-[10px] font-black uppercase tracking-widest text-gray4 mb-1.5">Minimum Order Amount (৳)</label>
+                    <div className="form-group">
+                      <label className="form-label">Minimum Order Amount (৳)</label>
                       <input 
                         type="number" 
                         placeholder="e.g. 1000" 
@@ -187,12 +184,12 @@ export default function PromosTab() {
                         min="0"
                         value={newMinOrderValue} 
                         onChange={e => setNewMinOrderValue(e.target.value)} 
-                        className="w-full p-3 bg-white border border-gray2 rounded font-bold text-xs outline-none focus:border-primary shadow-sm" 
+                        className="form-input"
                       />
                     </div>
 
-                    <div>
-                      <label className="block text-[10px] font-black uppercase tracking-widest text-gray4 mb-1.5">Maximum Usage Limit (uses)</label>
+                    <div className="form-group">
+                      <label className="form-label">Maximum Usage Limit (uses)</label>
                       <input 
                         type="number" 
                         placeholder="e.g. 100" 
@@ -200,23 +197,23 @@ export default function PromosTab() {
                         min="1"
                         value={newUsageLimit} 
                         onChange={e => setNewUsageLimit(e.target.value)} 
-                        className="w-full p-3 bg-white border border-gray2 rounded font-bold text-xs outline-none focus:border-primary shadow-sm" 
+                        className="form-input"
                       />
                     </div>
 
-                    <div>
-                      <label className="block text-[10px] font-black uppercase tracking-widest text-gray4 mb-1.5">Expiration Date (Optional)</label>
+                    <div className="form-group">
+                      <label className="form-label">Expiration Date (Optional)</label>
                       <input 
                         type="date" 
                         value={newPromoExpiry} 
                         onChange={e => setNewPromoExpiry(e.target.value)} 
-                        className="w-full p-3 bg-white border border-gray2 rounded font-bold text-xs outline-none focus:border-primary shadow-sm cursor-pointer" 
+                        className="form-input"
                       />
                     </div>
                   </div>
                   
                   <div className="flex justify-end pt-2">
-                    <button type="submit" className="add-btn text-xs uppercase shadow-sm px-8 py-3 cursor-pointer">
+                    <button type="submit" className="btn-primary">
                       Publish Coupon 🚀
                     </button>
                   </div>
@@ -226,7 +223,7 @@ export default function PromosTab() {
           )}
         </AnimatePresence>
 
-        {/* ACTIVE COUPONS TABLE LOGS */}
+        {/* ACTIVE COUPONS TABLE */}
         <div className="p-6">
           {loading ? (
             <div className="text-center py-20 border-2 border-dashed border-gray2 rounded-brand font-bold text-gray4 text-xs animate-pulse">
@@ -260,20 +257,20 @@ export default function PromosTab() {
                     return (
                       <tr key={promo.id}>
                         <td>
-                          <span className="font-bold text-sm text-primary uppercase tracking-wider bg-primary-pale border border-primary/20 px-2.5 py-1 rounded">
+                          <span className="badge badge-orange uppercase tracking-wider">
                             {promo.code || 'UNKNOWN'}
                           </span>
                         </td>
-                        <td className="font-bold text-sm text-gray-800">
+                        <td className="font-bold text-sm" style={{ color: 'var(--dark)' }}>
                           {promo.discountType === 'flat' ? `Flat ৳${promo.discountValue} OFF` : `${promo.discountValue || promo.discountPercent || 0}% OFF`}
                         </td>
-                        <td className="font-bold text-xs text-gray-700">
+                        <td className="font-bold text-xs" style={{ color: 'var(--dark)' }}>
                           ৳{promo.minOrderValue || 0}
                         </td>
-                        <td className="font-bold text-xs text-gray-700 font-mono">
+                        <td className="font-bold text-xs font-mono" style={{ color: 'var(--dark)' }}>
                           {promo.usedCount || 0} / {promo.usageLimit || '∞'}
                         </td>
-                        <td className="font-medium text-xs text-gray-700">
+                        <td className="font-medium text-xs" style={{ color: 'var(--gray4)' }}>
                           {formattedExpiry}
                         </td>
                         <td>
@@ -285,7 +282,7 @@ export default function PromosTab() {
                             {status === 'active' ? 'Active' : status === 'expired' ? 'Expired' : 'Scheduled'}
                           </span>
                         </td>
-                        <td className="font-medium text-xs text-gray4">
+                        <td className="font-medium text-xs" style={{ color: 'var(--gray4)' }}>
                           {formattedCreated}
                         </td>
                         <td>
@@ -293,7 +290,7 @@ export default function PromosTab() {
                             <button 
                               type="button"
                               onClick={() => handleDeletePromo(promo.id)}
-                              className="at-action-btn danger text-red"
+                              className="at-action-btn danger"
                               title="Delete Promo Code"
                             >
                               🗑️

@@ -130,7 +130,7 @@ export default function InventoryTab() {
 
     try {
       const cleanImages = images.filter(img => img?.trim() !== '');
-      const finalImages = cleanImages.length > 0 ? cleanImages : ['https://via.placeholder.com/400'];
+      const finalImages = cleanImages.length > 0 ? cleanImages : [];
 
       const cleanHighlights = highlights.filter(h => h?.trim() !== '');
       const cleanPacks = packs.filter(p => p.name?.trim() !== '' && p.price !== '');
@@ -276,12 +276,12 @@ export default function InventoryTab() {
       {/* CONFIRMATION MODAL */}
       {confirmModal.isOpen && (
         <div className="fixed inset-0 bg-dark/60 z-[100] flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-white rounded-brand p-6 max-w-sm w-full shadow-lg">
-            <h3 className="text-lg font-black uppercase text-dark mb-2">{confirmModal.title}</h3>
-            <p className="text-xs font-bold text-gray4 leading-relaxed mb-6">{confirmModal.message}</p>
+          <div className="admin-card p-6 max-w-sm w-full">
+            <h3 className="admin-title text-lg mb-2">{confirmModal.title}</h3>
+            <p className="form-label text-gray4 leading-relaxed mb-6">{confirmModal.message}</p>
             <div className="flex gap-3">
               <button onClick={() => setConfirmModal({ ...confirmModal, isOpen: false })} className="flex-1 btn-secondary text-xs uppercase py-2.5">Cancel</button>
-              <button onClick={() => { confirmModal.action(); setConfirmModal({ ...confirmModal, isOpen: false }); }} className="flex-1 bg-red text-white font-bold py-2.5 rounded-brand-sm uppercase text-xs hover:bg-red/80">Delete</button>
+              <button onClick={() => { confirmModal.action(); setConfirmModal({ ...confirmModal, isOpen: false }); }} className="flex-1 btn-primary bg-red! text-xs uppercase py-2.5">Delete</button>
             </div>
           </div>
         </div>
@@ -299,19 +299,19 @@ export default function InventoryTab() {
         <div className="p-6">
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-              <div>
-                <label className="block text-[9px] font-black uppercase tracking-widest text-gray4 mb-1">Product Name</label>
-                <input type="text" placeholder="Product Name" required value={name} onChange={e => setName(e.target.value)} className="w-full p-3 bg-white border border-gray2 rounded font-bold text-sm outline-none focus:border-primary shadow-sm" />
+              <div className="form-group">
+                <label className="form-label">Product Name</label>
+                <input type="text" placeholder="Product Name" required value={name} onChange={e => setName(e.target.value)} className="form-input" />
               </div>
 
-              <div>
-                <label className="block text-[9px] font-black uppercase tracking-widest text-gray4 mb-1">Product SKU (Serial Key)</label>
-                <input type="text" placeholder="e.g. MNG-HMS-5KG" value={sku} onChange={e => setSku(e.target.value)} className="w-full p-3 bg-white border border-gray2 rounded font-bold text-sm outline-none focus:border-primary shadow-sm" />
+              <div className="form-group">
+                <label className="form-label">Product SKU (Serial Key)</label>
+                <input type="text" placeholder="e.g. MNG-HMS-5KG" value={sku} onChange={e => setSku(e.target.value)} className="form-input" />
               </div>
               
-              <div>
-                <label className="block text-[9px] font-black uppercase tracking-widest text-gray4 mb-1">Store Catalog Section</label>
-                <select value={section} onChange={e => setSection(e.target.value)} className="w-full p-3 bg-white border border-gray2 rounded font-bold text-sm outline-none focus:border-primary shadow-sm cursor-pointer">
+              <div className="form-group">
+                <label className="form-label">Store Catalog Section</label>
+                <select value={section} onChange={e => setSection(e.target.value)} className="form-input">
                   <option value="Uncategorized">Uncategorized</option>
                   {storeSections.map((sec, idx) => (
                     <option key={idx} value={sec}>{sec}</option>
@@ -319,106 +319,106 @@ export default function InventoryTab() {
                 </select>
               </div>
 
-              <div>
-                <label className="block text-[9px] font-black uppercase tracking-widest text-gray4 mb-1">Base Price (৳)</label>
-                <input type="number" placeholder="Base Price (৳)" required value={price} onChange={e => { setPrice(e.target.value); handleDiscountPriceChange(discountPrice); }} className="w-full p-3 bg-white border border-gray2 rounded font-bold text-sm outline-none focus:border-primary shadow-sm" />
+              <div className="form-group">
+                <label className="form-label">Base Price (৳)</label>
+                <input type="number" placeholder="Base Price (৳)" required value={price} onChange={e => { setPrice(e.target.value); handleDiscountPriceChange(discountPrice); }} className="form-input" />
               </div>
 
-              <div>
-                <label className="block text-[9px] font-black uppercase tracking-widest text-gray4 mb-1">Discount Price (৳) (Optional)</label>
-                <input type="number" placeholder="Discount Price (৳) - Optional" value={discountPrice} onChange={e => handleDiscountPriceChange(e.target.value)} className="w-full p-3 bg-white border border-gray2 rounded font-bold text-sm outline-none focus:border-primary shadow-sm" />
+              <div className="form-group">
+                <label className="form-label">Discount Price (৳) — Optional</label>
+                <input type="number" placeholder="Discount Price (৳)" value={discountPrice} onChange={e => handleDiscountPriceChange(e.target.value)} className="form-input" />
               </div>
 
-              <div>
-                <label className="block text-[9px] font-black uppercase tracking-widest text-gray4 mb-1">Discount Percent (%) (Optional)</label>
-                <input type="number" placeholder="Discount Percent (%) - Optional" value={discountPercent} onChange={e => handlePercentChange(e.target.value)} className="w-full p-3 bg-white border border-gray2 rounded font-bold text-sm outline-none focus:border-primary shadow-sm" />
+              <div className="form-group">
+                <label className="form-label">Discount Percent (%) — Optional</label>
+                <input type="number" placeholder="Discount Percent (%)" value={discountPercent} onChange={e => handlePercentChange(e.target.value)} className="form-input" />
               </div>
 
-              <div>
-                <label className="block text-[9px] font-black uppercase tracking-widest text-gray4 mb-1">Delivery Charge (৳)</label>
-                <input type="number" placeholder="Delivery Charge (৳)" required value={deliveryCharge} onChange={e => setDeliveryCharge(e.target.value)} className="w-full p-3 bg-white border border-gray2 rounded font-bold text-sm outline-none focus:border-primary shadow-sm" />
+              <div className="form-group">
+                <label className="form-label">Delivery Charge (৳)</label>
+                <input type="number" placeholder="Delivery Charge (৳)" required value={deliveryCharge} onChange={e => setDeliveryCharge(e.target.value)} className="form-input" />
               </div>
 
-              <div>
-                <label className="block text-[9px] font-black uppercase tracking-widest text-gray4 mb-1">Fixed Box Weight (kg)</label>
-                <input type="number" placeholder="Fixed Weight (kg) - Default 1kg" value={fixedWeight} onChange={e => setFixedWeight(e.target.value)} className="w-full p-3 bg-white border border-gray2 rounded font-bold text-sm outline-none focus:border-primary shadow-sm" />
+              <div className="form-group">
+                <label className="form-label">Fixed Box Weight (kg)</label>
+                <input type="number" placeholder="Fixed Weight (kg) — Default 1kg" value={fixedWeight} onChange={e => setFixedWeight(e.target.value)} className="form-input" />
               </div>
 
-              <div>
-                <label className="block text-[9px] font-black uppercase tracking-widest text-gray4 mb-1">Stock Quantity (kg/boxes)</label>
-                <input type="number" placeholder="Current Stock" required value={stock} onChange={e => setStock(e.target.value)} className="w-full p-3 bg-white border border-gray2 rounded font-bold text-sm outline-none focus:border-primary shadow-sm" />
+              <div className="form-group">
+                <label className="form-label">Stock Quantity (kg/boxes)</label>
+                <input type="number" placeholder="Current Stock" required value={stock} onChange={e => setStock(e.target.value)} className="form-input" />
               </div>
 
-              <div>
-                <label className="block text-[9px] font-black uppercase tracking-widest text-gray4 mb-1">Max Stock Capacity (kg/boxes)</label>
-                <input type="number" placeholder="Max Stock Capacity" required value={maxStock} onChange={e => setMaxStock(e.target.value)} className="w-full p-3 bg-white border border-gray2 rounded font-bold text-sm outline-none focus:border-primary shadow-sm" />
+              <div className="form-group">
+                <label className="form-label">Max Stock Capacity (kg/boxes)</label>
+                <input type="number" placeholder="Max Stock Capacity" required value={maxStock} onChange={e => setMaxStock(e.target.value)} className="form-input" />
               </div>
 
-              <div>
-                <label className="block text-[9px] font-black uppercase tracking-widest text-gray4 mb-1">Min Stock Alert Threshold</label>
-                <input type="number" placeholder="e.g. 10" required value={minThreshold} onChange={e => setMinThreshold(e.target.value)} className="w-full p-3 bg-white border border-gray2 rounded font-bold text-sm outline-none focus:border-primary shadow-sm" />
+              <div className="form-group">
+                <label className="form-label">Min Stock Alert Threshold</label>
+                <input type="number" placeholder="e.g. 10" required value={minThreshold} onChange={e => setMinThreshold(e.target.value)} className="form-input" />
               </div>
             </div>
 
-            <div>
-              <label className="block text-[9px] font-black uppercase tracking-widest text-gray4 mb-1">Variety Description</label>
-              <textarea placeholder="Product Description..." required value={description} onChange={e => setDescription(e.target.value)} rows="3" className="w-full p-3 bg-white border border-gray2 rounded font-bold text-xs outline-none focus:border-primary shadow-sm resize-none" />
+            <div className="form-group">
+              <label className="form-label">Variety Description</label>
+              <textarea placeholder="Product Description..." required value={description} onChange={e => setDescription(e.target.value)} rows="3" className="form-input resize-none" />
             </div>
 
             {/* PRODUCT IMAGES SECTION */}
-            <div className="bg-gray-50/50 p-4 rounded-brand border border-gray2 shadow-sm">
-              <label className="block text-[9px] font-black uppercase tracking-widest text-gray4 mb-2">Images (URLs)</label>
+            <div className="admin-card p-4">
+              <label className="form-label mb-2">Images (URLs)</label>
               {images.map((img, idx) => (
                 <div key={idx} className="flex gap-2 mb-2">
-                  <input type="url" placeholder="Image URL" value={img} onChange={e => handleImageChange(idx, e.target.value)} className="flex-1 p-2.5 bg-white border border-gray2 rounded font-bold text-xs outline-none focus:border-primary shadow-sm" />
+                  <input type="url" placeholder="Image URL" value={img} onChange={e => handleImageChange(idx, e.target.value)} className="form-input flex-1" />
                   {images.length > 1 && (
-                    <button type="button" onClick={() => removeImageField(idx)} className="bg-red-100 text-red-600 px-3 rounded font-black hover:bg-red-600 hover:text-white transition-all text-xs">✕</button>
+                    <button type="button" onClick={() => removeImageField(idx)} className="btn-outline text-red border-red hover:bg-red-pale px-3 text-xs">✕</button>
                   )}
                 </div>
               ))}
-              <button type="button" onClick={addImageField} className="text-[10px] font-black text-primary hover:text-primary-light uppercase tracking-wider mt-1 bg-transparent border-none outline-none">
+              <button type="button" onClick={addImageField} className="btn-secondary text-xs mt-1">
                 + Add Another Image URL
               </button>
             </div>
 
             {/* RICH PDP DETAILS SECTION */}
-            <div className="bg-orange-50/30 p-4 rounded-brand border border-orange-200 shadow-sm mt-6">
-              <h4 className="text-sm font-black uppercase text-dark mb-4 border-b border-orange-200 pb-2">✨ Rich Product Details (Optional)</h4>
+            <div className="admin-card p-4 border-primary/20">
+              <h4 className="ach-title text-sm mb-4 pb-2" style={{ borderBottom: '1px solid var(--gray2)' }}>✨ Rich Product Details (Optional)</h4>
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {/* Left Column: Badge & Specs */}
                 <div className="space-y-4">
-                  <div>
-                    <label className="block text-[9px] font-black uppercase tracking-widest text-gray4 mb-1">Overlay Badge</label>
-                    <input type="text" placeholder="e.g. Best Seller, Rare, Gift" value={badge} onChange={e => setBadge(e.target.value)} className="w-full p-3 bg-white border border-gray2 rounded font-bold text-xs outline-none focus:border-primary shadow-sm" />
+                  <div className="form-group">
+                    <label className="form-label">Overlay Badge</label>
+                    <input type="text" placeholder="e.g. Best Seller, Rare, Gift" value={badge} onChange={e => setBadge(e.target.value)} className="form-input" />
                   </div>
                   
-                  <div className="pt-2">
-                    <label className="block text-[10px] font-black uppercase tracking-widest text-dark mb-2">Specifications Table</label>
-                    <div className="grid grid-cols-2 gap-3">
-                      <div>
-                        <label className="block text-[9px] font-bold text-gray4 mb-1">Origin</label>
-                        <input type="text" value={specs.origin} onChange={e => handleSpecChange('origin', e.target.value)} className="w-full p-2.5 bg-white border border-gray2 rounded font-bold text-xs outline-none focus:border-primary shadow-sm" />
+                  <div>
+                    <label className="form-label mb-2">Specifications Table</label>
+                    <div className="form-row" style={{ gridTemplateColumns: '1fr 1fr' }}>
+                      <div className="form-group">
+                        <label className="form-label">Origin</label>
+                        <input type="text" value={specs.origin} onChange={e => handleSpecChange('origin', e.target.value)} className="form-input" />
                       </div>
-                      <div>
-                        <label className="block text-[9px] font-bold text-gray4 mb-1">Sweetness</label>
-                        <input type="text" value={specs.sweetness} onChange={e => handleSpecChange('sweetness', e.target.value)} className="w-full p-2.5 bg-white border border-gray2 rounded font-bold text-xs outline-none focus:border-primary shadow-sm" />
+                      <div className="form-group">
+                        <label className="form-label">Sweetness</label>
+                        <input type="text" value={specs.sweetness} onChange={e => handleSpecChange('sweetness', e.target.value)} className="form-input" />
                       </div>
-                      <div>
-                        <label className="block text-[9px] font-bold text-gray4 mb-1">Fiber</label>
-                        <input type="text" value={specs.fiber} onChange={e => handleSpecChange('fiber', e.target.value)} className="w-full p-2.5 bg-white border border-gray2 rounded font-bold text-xs outline-none focus:border-primary shadow-sm" />
+                      <div className="form-group">
+                        <label className="form-label">Fiber</label>
+                        <input type="text" value={specs.fiber} onChange={e => handleSpecChange('fiber', e.target.value)} className="form-input" />
                       </div>
-                      <div>
-                        <label className="block text-[9px] font-bold text-gray4 mb-1">Preservation</label>
-                        <input type="text" value={specs.preservation} onChange={e => handleSpecChange('preservation', e.target.value)} className="w-full p-2.5 bg-white border border-gray2 rounded font-bold text-xs outline-none focus:border-primary shadow-sm" />
+                      <div className="form-group">
+                        <label className="form-label">Preservation</label>
+                        <input type="text" value={specs.preservation} onChange={e => handleSpecChange('preservation', e.target.value)} className="form-input" />
                       </div>
-                      <div>
-                        <label className="block text-[9px] font-bold text-gray4 mb-1">Shelf Life</label>
-                        <input type="text" value={specs.shelfLife} onChange={e => handleSpecChange('shelfLife', e.target.value)} className="w-full p-2.5 bg-white border border-gray2 rounded font-bold text-xs outline-none focus:border-primary shadow-sm" />
+                      <div className="form-group">
+                        <label className="form-label">Shelf Life</label>
+                        <input type="text" value={specs.shelfLife} onChange={e => handleSpecChange('shelfLife', e.target.value)} className="form-input" />
                       </div>
-                      <div>
-                        <label className="block text-[9px] font-bold text-gray4 mb-1">Best For</label>
-                        <input type="text" placeholder="e.g. Juicing, Desserts" value={specs.bestFor} onChange={e => handleSpecChange('bestFor', e.target.value)} className="w-full p-2.5 bg-white border border-gray2 rounded font-bold text-xs outline-none focus:border-primary shadow-sm" />
+                      <div className="form-group">
+                        <label className="form-label">Best For</label>
+                        <input type="text" placeholder="e.g. Juicing, Desserts" value={specs.bestFor} onChange={e => handleSpecChange('bestFor', e.target.value)} className="form-input" />
                       </div>
                     </div>
                   </div>
@@ -428,29 +428,29 @@ export default function InventoryTab() {
                 <div className="space-y-6">
                   {/* Pack Options */}
                   <div>
-                    <label className="block text-[10px] font-black uppercase tracking-widest text-dark mb-2">Pack Options</label>
+                    <label className="form-label mb-2">Pack Options</label>
                     {packs.map((pack, idx) => (
                       <div key={idx} className="flex gap-2 mb-2">
-                        <input type="text" placeholder="Pack Name (e.g. 1 Dozen)" value={pack.name} onChange={e => handlePackChange(idx, 'name', e.target.value)} className="w-1/2 p-2.5 bg-white border border-gray2 rounded font-bold text-xs outline-none focus:border-primary shadow-sm" />
-                        <input type="number" placeholder="Price (৳)" value={pack.price} onChange={e => handlePackChange(idx, 'price', e.target.value)} className="w-1/3 p-2.5 bg-white border border-gray2 rounded font-bold text-xs outline-none focus:border-primary shadow-sm" />
-                        <button type="button" onClick={() => removePackField(idx)} className="bg-red-100 text-red-600 px-3 rounded font-black hover:bg-red-600 hover:text-white transition-all text-xs">✕</button>
+                        <input type="text" placeholder="Pack Name (e.g. 1 Dozen)" value={pack.name} onChange={e => handlePackChange(idx, 'name', e.target.value)} className="form-input w-1/2" />
+                        <input type="number" placeholder="Price (৳)" value={pack.price} onChange={e => handlePackChange(idx, 'price', e.target.value)} className="form-input w-1/3" />
+                        <button type="button" onClick={() => removePackField(idx)} className="btn-outline text-red border-red hover:bg-red-pale px-3 text-xs">✕</button>
                       </div>
                     ))}
-                    <button type="button" onClick={addPackField} className="text-[10px] font-black text-primary hover:text-primary-light uppercase tracking-wider mt-1 bg-transparent border-none outline-none">
+                    <button type="button" onClick={addPackField} className="btn-secondary text-xs mt-1">
                       + Add Pack Option
                     </button>
                   </div>
 
                   {/* Highlights */}
                   <div>
-                    <label className="block text-[10px] font-black uppercase tracking-widest text-dark mb-2">Feature Highlights</label>
+                    <label className="form-label mb-2">Feature Highlights</label>
                     {highlights.map((h, idx) => (
                       <div key={idx} className="flex gap-2 mb-2">
-                        <input type="text" placeholder="Highlight bullet point" value={h} onChange={e => handleHighlightChange(idx, e.target.value)} className="flex-1 p-2.5 bg-white border border-gray2 rounded font-bold text-xs outline-none focus:border-primary shadow-sm" />
-                        <button type="button" onClick={() => removeHighlightField(idx)} className="bg-red-100 text-red-600 px-3 rounded font-black hover:bg-red-600 hover:text-white transition-all text-xs">✕</button>
+                        <input type="text" placeholder="Highlight bullet point" value={h} onChange={e => handleHighlightChange(idx, e.target.value)} className="form-input flex-1" />
+                        <button type="button" onClick={() => removeHighlightField(idx)} className="btn-outline text-red border-red hover:bg-red-pale px-3 text-xs">✕</button>
                       </div>
                     ))}
-                    <button type="button" onClick={addHighlightField} className="text-[10px] font-black text-primary hover:text-primary-light uppercase tracking-wider mt-1 bg-transparent border-none outline-none">
+                    <button type="button" onClick={addHighlightField} className="btn-secondary text-xs mt-1">
                       + Add Highlight
                     </button>
                   </div>
@@ -459,24 +459,24 @@ export default function InventoryTab() {
             </div>
 
             {/* MOCK STATS */}
-            <div className="grid grid-cols-3 gap-4 pt-4 border-t border-gray2">
-              <div>
-                <label className="block text-[9px] font-black uppercase tracking-widest text-gray4 mb-1">Fake Sales Count</label>
-                <input type="number" placeholder="Fake Sales" value={fakeSales} onChange={e => setFakeSales(e.target.value)} className="w-full p-3 bg-white border border-gray2 rounded font-bold outline-none text-xs shadow-sm" />
+            <div className="form-row" style={{ gridTemplateColumns: 'repeat(3, 1fr)', paddingTop: '1rem', borderTop: '1px solid var(--gray2)' }}>
+              <div className="form-group">
+                <label className="form-label">Fake Sales Count</label>
+                <input type="number" placeholder="Fake Sales" value={fakeSales} onChange={e => setFakeSales(e.target.value)} className="form-input" />
               </div>
-              <div>
-                <label className="block text-[9px] font-black uppercase tracking-widest text-gray4 mb-1">Fake Rating (1-5)</label>
-                <input type="number" step="0.1" placeholder="Fake Rating" value={fakeRating} onChange={e => setFakeRating(e.target.value)} className="w-full p-3 bg-white border border-gray2 rounded font-bold outline-none text-xs shadow-sm" />
+              <div className="form-group">
+                <label className="form-label">Fake Rating (1–5)</label>
+                <input type="number" step="0.1" placeholder="Fake Rating" value={fakeRating} onChange={e => setFakeRating(e.target.value)} className="form-input" />
               </div>
-              <div>
-                <label className="block text-[9px] font-black uppercase tracking-widest text-gray4 mb-1">Fake Reviews Count</label>
-                <input type="number" placeholder="Fake Reviews" value={fakeReviewCount} onChange={e => setFakeReviewCount(e.target.value)} className="w-full p-3 bg-white border border-gray2 rounded font-bold outline-none text-xs shadow-sm" />
+              <div className="form-group">
+                <label className="form-label">Fake Reviews Count</label>
+                <input type="number" placeholder="Fake Reviews" value={fakeReviewCount} onChange={e => setFakeReviewCount(e.target.value)} className="form-input" />
               </div>
             </div>
 
             <div className="flex gap-3 pt-4">
-              {editingId && <button type="button" onClick={cancelEdit} disabled={isUploading} className="flex-1 btn-secondary text-xs uppercase py-3 shadow-sm">Cancel Edit</button>}
-              <button type="submit" disabled={isUploading} className="flex-1 btn-primary text-xs uppercase py-3 shadow-md flex items-center justify-center gap-2">
+              {editingId && <button type="button" onClick={cancelEdit} disabled={isUploading} className="flex-1 btn-secondary text-xs uppercase py-3">Cancel Edit</button>}
+              <button type="submit" disabled={isUploading} className="flex-1 btn-primary text-xs uppercase py-3 flex items-center justify-center gap-2">
                 {isUploading ? 'Saving...' : (editingId ? 'Update Product ⚡' : 'Publish Product 🚀')}
               </button>
             </div>
@@ -491,7 +491,7 @@ export default function InventoryTab() {
             <h3 className="ach-title">📋 Products Inventory</h3>
             <span className="ach-sub">Track active pricing, boxed weights, and stock thresholds</span>
           </div>
-          <span className="bg-primary-pale text-primary text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-wider">
+          <span className="badge badge-orange">
             {liveMangoes?.length || 0} Total Varieties
           </span>
         </div>
@@ -530,36 +530,40 @@ export default function InventoryTab() {
                       <tr key={mango.id} className={isCritical ? 'bg-red-pale/20' : isLow ? 'bg-gold-pale/20' : ''}>
                         <td>
                           <div className="at-product-cell">
-                            <img 
-                              src={mango.images?.[0] || 'https://via.placeholder.com/150'} 
-                              alt={mango.name || 'Product'} 
-                              className="w-10 h-10 object-cover rounded-md border border-gray2 shrink-0" 
-                            />
+                            {mango.images?.[0] ? (
+                              <img 
+                                src={mango.images[0]} 
+                                alt={mango.name || 'Product'} 
+                                className="w-10 h-10 object-cover rounded-md border border-gray2 shrink-0" 
+                              />
+                            ) : (
+                              <div className="w-10 h-10 rounded-md border border-[var(--gray2)] bg-[var(--gray1)] flex items-center justify-center text-lg shrink-0" title="No Image">🥭</div>
+                            )}
                             <div className="min-w-0">
-                              <div className="at-product-name truncate max-w-[180px] font-bold text-xs text-dark">{mango.name || 'Unnamed Product'}</div>
-                              <div className="at-product-var text-[10px] text-gray4 font-semibold">Sales: {mango.stats?.sales || 0} sold</div>
+                              <div className="at-product-name truncate max-w-[180px]">{mango.name || 'Unnamed Product'}</div>
+                              <div className="at-product-var">Sales: {mango.stats?.sales || 0} sold</div>
                             </div>
                           </div>
                         </td>
-                        <td className="font-bold text-xs text-gray-500 uppercase tracking-wider font-mono">
+                        <td className="font-bold text-xs uppercase tracking-wider font-mono" style={{ color: 'var(--gray4)' }}>
                           {mango.sku || 'N/A'}
                         </td>
-                        <td className="font-bold text-xs text-gray-700">{mango.section || 'Uncategorized'}</td>
+                        <td className="font-bold text-xs" style={{ color: 'var(--dark)' }}>{mango.section || 'Uncategorized'}</td>
                         <td>
                           {mango.discountPrice ? (
                             <div>
-                              <span className="text-[10px] text-gray4 line-through font-bold block">৳{mango.price}</span>
-                              <span className="font-black text-sm text-primary">৳{mango.discountPrice}</span>
+                              <span className="text-[10px] line-through font-bold block" style={{ color: 'var(--gray4)' }}>৳{mango.price}</span>
+                              <span className="font-black text-sm" style={{ color: 'var(--primary)' }}>৳{mango.discountPrice}</span>
                             </div>
                           ) : (
-                            <span className="font-black text-sm text-gray-800">৳{mango.price}</span>
+                            <span className="font-black text-sm" style={{ color: 'var(--dark)' }}>৳{mango.price}</span>
                           )}
                         </td>
-                        <td className="text-xs text-gray-600 font-bold">
+                        <td className="text-xs font-bold" style={{ color: 'var(--dark)' }}>
                           <div>⚖️ {mango.fixedWeight || 1} kg</div>
-                          <div className="text-[10px] text-gray4 mt-0.5">🚚 ৳{mango.deliveryCharge || 150}</div>
+                          <div className="text-[10px] mt-0.5" style={{ color: 'var(--gray4)' }}>🚚 ৳{mango.deliveryCharge || 150}</div>
                         </td>
-                        <td className={`text-xs font-black text-center ${isCritical ? 'text-red' : isLow ? 'text-gold' : 'text-gray-500'}`}>
+                        <td className={`text-xs font-black text-center ${isCritical ? 'text-red' : isLow ? 'text-gold' : ''}`} style={!isCritical && !isLow ? { color: 'var(--gray4)' } : {}}>
                           ⚠️ {thresh}
                         </td>
                         <td>
@@ -570,7 +574,7 @@ export default function InventoryTab() {
                                 style={{ width: `${pct}%` }}
                               ></div>
                             </div>
-                            <span className="font-black text-xs text-gray-700 shrink-0">{st}/{maxSt}</span>
+                            <span className="font-black text-xs shrink-0" style={{ color: 'var(--dark)' }}>{st}/{maxSt}</span>
                           </div>
                         </td>
                         <td>
@@ -586,7 +590,7 @@ export default function InventoryTab() {
                             <button 
                               type="button"
                               onClick={() => handleDelete(mango.id)} 
-                              className="at-action-btn danger text-red"
+                              className="at-action-btn danger"
                               title="Delete Product"
                             >
                               🗑️

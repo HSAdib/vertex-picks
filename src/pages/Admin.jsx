@@ -6,6 +6,32 @@ import { useAuth } from '../context/AuthContext';
 import { Link, Navigate } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import CategoriesTab from '../components/admin/CategoriesTab';
+
+const exportToCSV = (filename, rows, headers) => {
+  const escapeCsvField = (field) => {
+    if (field === null || field === undefined) return '""';
+    const str = String(field);
+    if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+      return `"${str.replace(/"/g, '""')}"`;
+    }
+    return str;
+  };
+  const csvContent = [
+    headers.join(','),
+    ...rows.map(row => row.map(escapeCsvField).join(','))
+  ].join('\n');
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.setAttribute('href', url);
+  link.setAttribute('download', filename);
+  link.style.display = 'none';
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+};
 
 function generateUniqueId() {
   return Date.now().toString();
@@ -109,11 +135,64 @@ export default function Admin() {
   const [editingStock, setEditingStock] = useState(null); // { productId, value }
 
   const [customerSearch, setCustomerSearch] = useState('');
+  const [selectedCustomerDetails, setSelectedCustomerDetails] = useState(null);
+
+  // Analytics Live States
+  const [analyticsOrdersByCity, setAnalyticsOrdersByCity] = useState([]);
+  const [analyticsRevenueByVariety, setAnalyticsRevenueByVariety] = useState([]);
+  const [analyticsMonthlyRevenue, setAnalyticsMonthlyRevenue] = useState([]);
+  const [analyticsLoading, setAnalyticsLoading] = useState(true);
+
+  useEffect(() => {
+    if (!orders || orders.length === 0) {
+      setAnalyticsLoading(false);
+      return;
+    }
+    setAnalyticsLoading(true);
+    const cityMap = {};
+    const varietyMap = {};
+    const monthMap = {};
+    
+    orders.filter(o => o.status !== 'Cancelled').forEach(o => {
+      const city = o.deliveryAddress?.city || 'Dhaka';
+      cityMap[city] = (cityMap[city] || 0) + 1;
+      
+      (o.items || []).forEach(item => {
+        const variety = item.variety || item.section || 'Unknown';
+        const itemRevenue = (Number(item.price) || 0) * (Number(item.quantity) || 1);
+        varietyMap[variety] = (varietyMap[variety] || 0) + itemRevenue;
+      });
+      
+      if (o.createdAt) {
+        const d = o.createdAt.toDate ? o.createdAt.toDate() : new Date(o.createdAt?.seconds ? o.createdAt.seconds * 1000 : o.createdAt);
+        const month = d.toLocaleString('en-US', { month: 'short' });
+        monthMap[month] = (monthMap[month] || 0) + (Number(o.total) || 0);
+      }
+    });
+
+    const totalValidOrders = Object.values(cityMap).reduce((a, b) => a + b, 0) || 1;
+    setAnalyticsOrdersByCity(Object.entries(cityMap)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 5)
+      .map(([city, count]) => ({ city, val: count, fill: `${((count / totalValidOrders) * 100).toFixed(0)}%` }))
+    );
+
+    const sortedVars = Object.entries(varietyMap).sort((a, b) => b[1] - a[1]).slice(0, 5);
+    const maxVar = sortedVars.length > 0 ? sortedVars[0][1] : 1;
+    setAnalyticsRevenueByVariety(sortedVars.map(([name, revenue]) => ({ name, revenue, fill: `${((revenue / maxVar) * 100).toFixed(0)}%` })));
+
+    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const sortedMonths = Object.entries(monthMap).sort((a, b) => monthNames.indexOf(a[0]) - monthNames.indexOf(b[0]));
+    setAnalyticsMonthlyRevenue(sortedMonths.map(([name, revenue]) => ({ name, revenue })));
+
+    setAnalyticsLoading(false);
+  }, [orders]);
 
   // --- CRUD ACTION MODALS STATES ---
   // 1. Add / Edit Product Modal
   const [showProductModal, setShowProductModal] = useState(false);
   const [editProductId, setEditProductId] = useState(null);
+  const [activeProdFormTab, setActiveProdFormTab] = useState('basic');
   const [prodName, setProdName] = useState('');
   const [prodPrice, setProdPrice] = useState(100);
   const [prodDiscountPrice, setProdDiscountPrice] = useState('');
@@ -127,6 +206,29 @@ export default function Admin() {
   const [prodDescription, setProdDescription] = useState('');
   const [prodFeatured, setProdFeatured] = useState(false);
   const [prodFixedWeight, setProdFixedWeight] = useState(1);
+  const [prodBadge, setProdBadge] = useState('');
+  const [prodPacks, setProdPacks] = useState([{ name: '1 Box', price: '' }]);
+  const [prodTrustStrip, setProdTrustStrip] = useState([
+    { title: 'Chemical-Free', sub: 'Guaranteed' },
+    { title: 'Same-Day', sub: 'Dispatch' },
+    { title: '100% Refund', sub: 'Guarantee' }
+  ]);
+  const [prodDeliveryInfo, setProdDeliveryInfo] = useState({ dispatch: 'order before 12pm', metro: '৳60 delivery fee', packaging: 'no plastic' });
+  const [prodFarmer, setProdFarmer] = useState({ name: 'Abdul Karim — Lead Farmer', bio: 'Rajshahi Orchards · 15+ years growing premium mangoes', badge: 'Verified Farmer Partner' });
+  const [prodSpecs, setProdSpecs] = useState({ origin: 'Rajshahi, Bangladesh', sweetness: '⭐⭐⭐⭐⭐ Very High', fiber: 'Fibreless', preservation: 'No chemicals. Tree-bagged.', shelfLife: '5–7 days at room temp', bestFor: 'Eating fresh, juicing, desserts' });
+  const [prodHighlights, setProdHighlights] = useState([
+    'Handpicked at peak ripeness for maximum sweetness and aroma', 
+    'Tree-bagged from early growth — zero pesticides, zero artificial chemicals', 
+    'Sorted and graded by hand — only A-grade fruit ships',
+    'Eco-friendly packaging — no styrofoam, no single-use plastic',
+    'Dispatched within hours of picking — freshness guaranteed'
+  ]);
+  const [prodSteps, setProdSteps] = useState([
+    'Mangoes are tree-bagged at young stage to prevent pesticide exposure',
+    'Hand-picked at dawn when sugar content is highest',
+    'Graded for size, colour, and aroma — only A-grade passes',
+    'Packed in eco-friendly boxes and dispatched same morning'
+  ]);
 
   // 2. Add Coupon Modal
   const [showCouponModal, setShowCouponModal] = useState(false);
@@ -145,7 +247,7 @@ export default function Admin() {
   const [showOrderStatusModal, setShowOrderStatusModal] = useState(false);
   const [orderToUpdate, setOrderToUpdate] = useState(null);
   const [newStatus, setNewStatus] = useState('Pending');
-  const [newTrackingLink, setNewTrackingLink] = useState('');
+  const [newTrackingId, setNewTrackingId] = useState('');
 
   // Fetch Master Dataset
   const fetchData = async () => {
@@ -253,10 +355,10 @@ export default function Admin() {
 
     const seedDefaults = async () => {
       const seeds = [
-        { id: 'seed_himsagar', name: 'Himsagar Premium Dozen', price: 850, discountPrice: null, stock: 100, section: 'Himsagar', variety: 'Himsagar', season: 'Peak', grade: 'A-Grade', fixedWeight: 1, featured: true, image: 'https://images.unsplash.com/photo-1553279768-865429fa0078?w=600', description: 'Hand-picked, tree-bagged Himsagar — the king of mangoes from Rajshahi.' },
-        { id: 'seed_langra', name: 'Langra Fresh Dozen', price: 700, discountPrice: null, stock: 80, section: 'Langra', variety: 'Langra', season: 'Peak', grade: 'A-Grade', fixedWeight: 1, featured: true, image: 'https://images.unsplash.com/photo-1601493700631-2b16ec4b4716?w=600', description: 'Sweet and aromatic Langra from the orchards of Rajshahi.' },
-        { id: 'seed_fazli', name: 'Fazli Large Dozen', price: 600, discountPrice: null, stock: 60, section: 'Fazli', variety: 'Fazli', season: 'Late', grade: 'Premium', fixedWeight: 1, featured: true, image: 'https://images.unsplash.com/photo-1571771019784-3ff35f4f4277?w=600', description: 'Late season Fazli — large, juicy and fibre-free.' },
-        { id: 'seed_giftbox', name: 'Eid Premium Gift Box', price: 1800, discountPrice: null, stock: 40, section: 'Gift Box', variety: 'Gift Box', season: 'Peak', grade: 'Premium', fixedWeight: 2, featured: true, image: 'https://images.unsplash.com/photo-1607344645866-009c320b63e0?w=600', description: 'Curated premium gift box — perfect for Eid and special occasions.' },
+        { id: 'seed_himsagar', name: 'Himsagar Premium Dozen', price: 850, discountPrice: null, stock: 100, section: 'Himsagar', variety: 'Himsagar', season: 'Peak', grade: 'A-Grade', fixedWeight: 1, featured: true, images: ['/assets/placeholder-mango.png'], description: 'Hand-picked, tree-bagged Himsagar — the king of mangoes from Rajshahi.' },
+        { id: 'seed_langra', name: 'Langra Fresh Dozen', price: 700, discountPrice: null, stock: 80, section: 'Langra', variety: 'Langra', season: 'Peak', grade: 'A-Grade', fixedWeight: 1, featured: true, images: ['/assets/placeholder-mango.png'], description: 'Sweet and aromatic Langra from the orchards of Rajshahi.' },
+        { id: 'seed_fazli', name: 'Fazli Large Dozen', price: 600, discountPrice: null, stock: 60, section: 'Fazli', variety: 'Fazli', season: 'Late', grade: 'Premium', fixedWeight: 1, featured: true, images: ['/assets/placeholder-mango.png'], description: 'Late season Fazli — large, juicy and fibre-free.' },
+        { id: 'seed_giftbox', name: 'Eid Premium Gift Box', price: 1800, discountPrice: null, stock: 40, section: 'Gift Box', variety: 'Gift Box', season: 'Peak', grade: 'Premium', fixedWeight: 2, featured: true, images: ['/assets/placeholder-mango.png'], description: 'Curated premium gift box — perfect for Eid and special occasions.' },
       ];
       try {
         await Promise.all(seeds.map((s, i) => setDoc(doc(db, 'mangoes', s.id), { ...s, order: i + 1 }, { merge: true })));
@@ -296,11 +398,16 @@ export default function Admin() {
   // Product Save/Update
   const handleSaveProduct = async (e) => {
     e.preventDefault();
+    if (!prodName.trim() || !prodPrice) {
+      return toast.error('Name and Price are required.');
+    }
     try {
       const pId = editProductId || generateUniqueId();
-      const defaultImage = 'https://images.unsplash.com/photo-1553279768-865429fa0078';
       const cleanImages = prodImages.map(img => img?.trim()).filter(Boolean);
-      const finalImages = cleanImages.length > 0 ? cleanImages : [defaultImage];
+      const finalImages = cleanImages.length > 0 ? cleanImages : [];
+      const cleanHighlights = prodHighlights.filter(h => h?.trim() !== '');
+      const cleanSteps = prodSteps.filter(s => s?.trim() !== '');
+      const cleanPacks = prodPacks.filter(p => p.name?.trim() !== '' && p.price !== '');
       const pData = {
         name: prodName,
         price: Number(prodPrice),
@@ -313,11 +420,19 @@ export default function Admin() {
         season: prodSeason,
         grade: prodGrade,
         images: finalImages,
-        image: finalImages[0],
+        image: finalImages[0] || '',
         description: prodDescription || 'Fresh premium bagged mango from Rajshahi orchards.',
         featured: prodFeatured,
         fixedWeight: Number(prodFixedWeight) || 1,
-        order: editProductId ? (mangoes.find(m => m.id === editProductId)?.order ?? mangoes.length + 1) : mangoes.length + 1
+        order: editProductId ? (mangoes.find(m => m.id === editProductId)?.order ?? mangoes.length + 1) : mangoes.length + 1,
+        badge: prodBadge ? prodBadge.trim() : '',
+        packs: cleanPacks.map(p => ({ name: p.name.trim(), price: Number(p.price) })),
+        trustStrip: prodTrustStrip,
+        deliveryInfo: prodDeliveryInfo,
+        farmer: prodFarmer,
+        specs: prodSpecs,
+        highlights: cleanHighlights,
+        steps: cleanSteps
       };
       
       await setDoc(doc(db, 'mangoes', pId), pData, { merge: true });
@@ -333,8 +448,9 @@ export default function Admin() {
     }
   };
 
-  const handleEditProductClick = (p) => {
+  function handleEditProductClick(p) {
     setEditProductId(p.id);
+    setActiveProdFormTab('basic');
     setProdName(p.name || '');
     setProdPrice(p.price || 100);
     setProdDiscountPrice(p.discountPrice || '');
@@ -351,8 +467,32 @@ export default function Admin() {
     setProdDescription(p.description || '');
     setProdFeatured(p.featured || false);
     setProdFixedWeight(p.fixedWeight || 1);
+    
+    setProdBadge(p.badge || '');
+    setProdPacks(p.packs?.length ? p.packs : [{ name: '1 Box', price: '' }]);
+    setProdTrustStrip(p.trustStrip || [
+      { title: 'Chemical-Free', sub: 'Guaranteed' },
+      { title: 'Same-Day', sub: 'Dispatch' },
+      { title: '100% Refund', sub: 'Guarantee' }
+    ]);
+    setProdDeliveryInfo(p.deliveryInfo || { dispatch: 'order before 12pm', metro: '৳60 delivery fee', packaging: 'no plastic' });
+    setProdFarmer(p.farmer || { name: 'Abdul Karim — Lead Farmer', bio: 'Rajshahi Orchards · 15+ years growing premium mangoes', badge: 'Verified Farmer Partner' });
+    setProdSpecs(p.specs || { origin: 'Rajshahi, Bangladesh', sweetness: '⭐⭐⭐⭐⭐ Very High', fiber: 'Fibreless', preservation: 'No chemicals. Tree-bagged.', shelfLife: '5–7 days at room temp', bestFor: 'Eating fresh, juicing, desserts' });
+    setProdHighlights(p.highlights?.length ? p.highlights : [
+      'Handpicked at peak ripeness for maximum sweetness and aroma', 
+      'Tree-bagged from early growth — zero pesticides, zero artificial chemicals', 
+      'Sorted and graded by hand — only A-grade fruit ships',
+      'Eco-friendly packaging — no styrofoam, no single-use plastic',
+      'Dispatched within hours of picking — freshness guaranteed'
+    ]);
+    setProdSteps(p.steps?.length ? p.steps : [
+      'Mangoes are tree-bagged at young stage to prevent pesticide exposure',
+      'Hand-picked at dawn when sugar content is highest',
+      'Graded for size, colour, and aroma — only A-grade passes',
+      'Packed in eco-friendly boxes and dispatched same morning'
+    ]);
     setShowProductModal(true);
-  };
+  }
 
   const handleDeleteProduct = async (pId, name) => {
     if (window.confirm(`Are you sure you want to delete ${name}?`)) {
@@ -368,6 +508,7 @@ export default function Admin() {
   };
 
   const clearProductForm = () => {
+    setActiveProdFormTab('basic');
     setProdName('');
     setProdPrice(100);
     setProdDiscountPrice('');
@@ -381,6 +522,30 @@ export default function Admin() {
     setProdDescription('');
     setProdFeatured(false);
     setProdFixedWeight(1);
+    
+    setProdBadge('');
+    setProdPacks([{ name: '1 Box', price: '' }]);
+    setProdTrustStrip([
+      { title: 'Chemical-Free', sub: 'Guaranteed' },
+      { title: 'Same-Day', sub: 'Dispatch' },
+      { title: '100% Refund', sub: 'Guarantee' }
+    ]);
+    setProdDeliveryInfo({ dispatch: 'order before 12pm', metro: '৳60 delivery fee', packaging: 'no plastic' });
+    setProdFarmer({ name: 'Abdul Karim — Lead Farmer', bio: 'Rajshahi Orchards · 15+ years growing premium mangoes', badge: 'Verified Farmer Partner' });
+    setProdSpecs({ origin: 'Rajshahi, Bangladesh', sweetness: '⭐⭐⭐⭐⭐ Very High', fiber: 'Fibreless', preservation: 'No chemicals. Tree-bagged.', shelfLife: '5–7 days at room temp', bestFor: 'Eating fresh, juicing, desserts' });
+    setProdHighlights([
+      'Handpicked at peak ripeness for maximum sweetness and aroma', 
+      'Tree-bagged from early growth — zero pesticides, zero artificial chemicals', 
+      'Sorted and graded by hand — only A-grade fruit ships',
+      'Eco-friendly packaging — no styrofoam, no single-use plastic',
+      'Dispatched within hours of picking — freshness guaranteed'
+    ]);
+    setProdSteps([
+      'Mangoes are tree-bagged at young stage to prevent pesticide exposure',
+      'Hand-picked at dawn when sugar content is highest',
+      'Graded for size, colour, and aroma — only A-grade passes',
+      'Packed in eco-friendly boxes and dispatched same morning'
+    ]);
   };
 
   // Coupon Creation
@@ -421,13 +586,27 @@ export default function Admin() {
     }
   };
 
+  const handleToggleBlockUser = async (userId, currentBlockedStatus) => {
+    try {
+      const nextBlocked = !currentBlockedStatus;
+      await updateDoc(doc(db, 'users', userId), {
+        isBlocked: nextBlocked
+      });
+      toast.success(nextBlocked ? 'User blocked successfully!' : 'User unblocked successfully!');
+      fetchData();
+    } catch (err) {
+      console.error('Failed to toggle block status:', err);
+      toast.error('Failed to update block status.');
+    }
+  };
+
   // Order Status Update
   const handleUpdateOrderStatus = async (e) => {
     e.preventDefault();
     try {
       await updateDoc(doc(db, 'orders', orderToUpdate.id), {
         status: newStatus,
-        trackingLink: newTrackingLink
+        trackingId: newTrackingId
       });
       toast.success(`Order status set to: ${newStatus}`);
       setShowOrderStatusModal(false);
@@ -442,7 +621,7 @@ export default function Admin() {
   const openStatusUpdate = (order) => {
     setOrderToUpdate(order);
     setNewStatus(order.status || 'Pending');
-    setNewTrackingLink(order.trackingLink || '');
+    setNewTrackingId(order.trackingId || '');
     setShowOrderStatusModal(true);
   };
 
@@ -793,9 +972,26 @@ export default function Admin() {
           <div className="glass-modal max-w-lg w-full max-h-[85vh] overflow-hidden flex flex-col animate-in scale-in duration-300">
             {/* Modal Header */}
             <div className="bg-gradient-to-r from-orange-600 via-orange-500 to-amber-500 p-6 text-white flex justify-between items-center shrink-0 shadow-md">
-              <div>
+              <div className="flex-1">
                 <h3 className="font-['Fraunces'] font-black text-lg uppercase tracking-wide text-white">{editProductId ? '✏️ Edit Product Parameters' : '✨ Create New Catalog Item'}</h3>
-                <p className="text-[10px] uppercase font-bold tracking-wider text-orange-100 mt-1">Orchard Inventory Registry</p>
+                <div className="modal-tabs mt-3" style={{ background: 'rgba(255,255,255,0.2)', maxWidth: 'max-content' }}>
+                  <button 
+                    type="button"
+                    onClick={() => setActiveProdFormTab('basic')}
+                    className={`modal-tab${activeProdFormTab === 'basic' ? ' active' : ''}`}
+                    style={activeProdFormTab !== 'basic' ? { color: 'rgba(255,255,255,0.8)' } : {}}
+                  >
+                    1. Basic Details
+                  </button>
+                  <button 
+                    type="button"
+                    onClick={() => setActiveProdFormTab('rich')}
+                    className={`modal-tab${activeProdFormTab === 'rich' ? ' active' : ''}`}
+                    style={activeProdFormTab !== 'rich' ? { color: 'rgba(255,255,255,0.8)' } : {}}
+                  >
+                    2. Rich Display Details
+                  </button>
+                </div>
               </div>
               <button 
                 onClick={() => { setShowProductModal(false); setEditProductId(null); clearProductForm(); }} 
@@ -808,9 +1004,11 @@ export default function Admin() {
             {/* Modal Content */}
             <form onSubmit={handleSaveProduct} className="flex flex-col flex-grow overflow-hidden">
               <div className="p-6 sm:p-8 space-y-4 overflow-y-auto flex-grow scrollbar-thin">
+                {/* TAB 1: BASIC DETAILS */}
+                <div style={{ display: activeProdFormTab === 'basic' ? 'block' : 'none' }}>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="col-span-2">
-                    <label className="block text-[10px] font-black uppercase tracking-widest text-[var(--gray4)] mb-1.5 font-['Sora']">Product Name</label>
+                    <label className="form-label">Product Name</label>
                     <input 
                       type="text" 
                       value={prodName} 
@@ -820,7 +1018,7 @@ export default function Admin() {
                     />
                   </div>
                   <div>
-                    <label className="block text-[10px] font-black uppercase tracking-widest text-[var(--gray4)] mb-1.5 font-['Sora']">Standard Price (৳)</label>
+                    <label className="form-label">Standard Price (৳)</label>
                     <input 
                       type="number" 
                       value={prodPrice} 
@@ -830,7 +1028,7 @@ export default function Admin() {
                     />
                   </div>
                   <div>
-                    <label className="block text-[10px] font-black uppercase tracking-widest text-[var(--gray4)] mb-1.5 font-['Sora']">Discount Price (৳, Optional)</label>
+                    <label className="form-label">Discount Price (৳, Optional)</label>
                     <input 
                       type="number" 
                       value={prodDiscountPrice} 
@@ -839,7 +1037,7 @@ export default function Admin() {
                     />
                   </div>
                   <div>
-                    <label className="block text-[10px] font-black uppercase tracking-widest text-[var(--gray4)] mb-1.5 font-['Sora']">Initial Stock Box Qty</label>
+                    <label className="form-label">Initial Stock Box Qty</label>
                     <input 
                       type="number" 
                       value={prodStock} 
@@ -849,7 +1047,7 @@ export default function Admin() {
                     />
                   </div>
                   <div>
-                    <label className="block text-[10px] font-black uppercase tracking-widest text-[var(--gray4)] mb-1.5 font-['Sora']">Variety / Section</label>
+                    <label className="form-label">Variety / Section</label>
                     <select 
                       value={prodSection} 
                       onChange={e => setProdSection(e.target.value)} 
@@ -864,7 +1062,7 @@ export default function Admin() {
                     </select>
                   </div>
                   <div>
-                    <label className="block text-[10px] font-black uppercase tracking-widest text-[var(--gray4)] mb-1.5 font-['Sora']">SKU Code (Auto if blank)</label>
+                    <label className="form-label">SKU Code (Auto if blank)</label>
                     <input 
                       type="text" 
                       value={prodSku} 
@@ -874,7 +1072,7 @@ export default function Admin() {
                     />
                   </div>
                   <div>
-                    <label className="block text-[10px] font-black uppercase tracking-widest text-[var(--gray4)] mb-1.5 font-['Sora']">Min Threshold Stock</label>
+                    <label className="form-label">Min Threshold Stock</label>
                     <input 
                       type="number" 
                       value={prodMinThreshold} 
@@ -883,7 +1081,7 @@ export default function Admin() {
                     />
                   </div>
                   <div>
-                    <label className="block text-[10px] font-black uppercase tracking-widest text-[var(--gray4)] mb-1.5 font-['Sora']">Harvest Season</label>
+                    <label className="form-label">Harvest Season</label>
                     <select 
                       value={prodSeason} 
                       onChange={e => setProdSeason(e.target.value)} 
@@ -895,7 +1093,7 @@ export default function Admin() {
                     </select>
                   </div>
                   <div>
-                    <label className="block text-[10px] font-black uppercase tracking-widest text-[var(--gray4)] mb-1.5 font-['Sora']">Orchard Grade</label>
+                    <label className="form-label">Orchard Grade</label>
                     <input 
                       type="text" 
                       value={prodGrade} 
@@ -904,8 +1102,8 @@ export default function Admin() {
                     />
                   </div>
                   <div className="col-span-2">
-                    <label className="block text-[10px] font-black uppercase tracking-widest text-[var(--gray4)] mb-1.5 font-['Sora']">Product Images (URLs)</label>
-                    <div className="bg-[var(--gray1)] p-3 rounded-2xl border border-[var(--gray2)] space-y-2">
+                    <label className="form-label mb-2">Product Images (URLs)</label>
+                    <div className="p-3 space-y-2" style={{ background: 'var(--gray1)', borderRadius: 'var(--radius-sm)', border: '1.5px solid var(--gray2)' }}>
                       {prodImages.map((img, idx) => (
                         <div key={idx} className="flex gap-2">
                           <input
@@ -913,13 +1111,14 @@ export default function Admin() {
                             value={img}
                             onChange={e => handleProdImageChange(idx, e.target.value)}
                             placeholder="https://..."
-                            className="form-input font-bold text-xs flex-1"
+                            className="form-input flex-1"
                           />
                           {prodImages.length > 1 && (
                             <button
                               type="button"
                               onClick={() => removeProdImageField(idx)}
-                              className="shrink-0 px-3 rounded-full bg-red-50 text-red-600 text-xs font-black hover:bg-red-600 hover:text-white transition-colors"
+                              className="btn-outline shrink-0 px-3 text-xs"
+                              style={{ color: 'var(--red)', borderColor: 'var(--red)' }}
                               aria-label="Remove image URL"
                             >
                               ✕
@@ -930,14 +1129,14 @@ export default function Admin() {
                       <button
                         type="button"
                         onClick={addProdImageField}
-                        className="text-[10px] font-black text-[var(--primary)] uppercase tracking-wider hover:opacity-80"
+                        className="btn-secondary text-xs mt-1"
                       >
                         + Add Another Image URL
                       </button>
                     </div>
                   </div>
                   <div className="col-span-2">
-                    <label className="block text-[10px] font-black uppercase tracking-widest text-[var(--gray4)] mb-1.5 font-['Sora']">Detailed Description</label>
+                    <label className="form-label">Detailed Description</label>
                     <textarea
                       value={prodDescription}
                       onChange={e => setProdDescription(e.target.value)}
@@ -945,7 +1144,7 @@ export default function Admin() {
                     />
                   </div>
                   <div>
-                    <label className="block text-[10px] font-black uppercase tracking-widest text-[var(--gray4)] mb-1.5 font-['Sora']">Box Weight (kg)</label>
+                    <label className="form-label">Box Weight (kg)</label>
                     <input
                       type="number"
                       step="0.5"
@@ -955,8 +1154,8 @@ export default function Admin() {
                       className="form-input font-bold text-xs"
                     />
                   </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', paddingTop: '1.5rem' }}>
-                    <label style={{ display: 'flex', alignItems: 'center', gap: '.6rem', cursor: 'pointer', userSelect: 'none' }}>
+                  <div className="flex items-center gap-4 pt-6">
+                    <label className="flex items-center gap-3" style={{ cursor: 'pointer', userSelect: 'none' }}>
                       <div
                         onClick={() => setProdFeatured(v => !v)}
                         style={{
@@ -972,10 +1171,219 @@ export default function Admin() {
                         }} />
                       </div>
                       <div>
-                        <div style={{ fontWeight: 700, fontSize: '.8rem', color: 'var(--dark)' }}>⭐ Featured on Home</div>
-                        <div style={{ fontSize: '.7rem', color: 'var(--gray4)' }}>Shows in the Featured Mangoes section</div>
+                        <div className="form-label">⭐ Featured on Home</div>
+                        <div className="text-xs" style={{ color: 'var(--gray4)' }}>Shows in the Featured Mangoes section</div>
                       </div>
                     </label>
+                  </div>
+                </div>
+                </div>
+
+                {/* TAB 2: RICH DISPLAY DETAILS */}
+                <div style={{ display: activeProdFormTab === 'rich' ? 'block' : 'none' }}>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {/* Left Column */}
+                    <div className="space-y-6">
+                      <div className="admin-card p-4" style={{ borderColor: 'rgba(232,84,10,0.2)' }}
+                      >
+                        <h4 className="text-xs font-black uppercase text-dark mb-3">🏷️ Pricing & Badges</h4>
+                        <div className="form-group">
+                          <label className="form-label">Overlay Badge</label>
+                          <input type="text" placeholder="e.g. Best Seller, Rare, Gift" value={prodBadge} onChange={e => setProdBadge(e.target.value)} className="form-input" />
+                        </div>
+                        <div>
+                          <label className="form-label mb-2">Pack Options (Name & Price)</label>
+                          {prodPacks.map((pack, idx) => {
+                            const isBasePack = idx === 0;
+                            return (
+                              <div key={idx} className="mb-3">
+                                {isBasePack && (
+                                  <p className="text-xs mb-1" style={{ color: 'var(--gray4)' }}>
+                                    🔒 Base pack — prices auto-synced from Tab 1
+                                  </p>
+                                )}
+                                <div className="flex gap-2">
+                                  {/* Name */}
+                                  <input
+                                    type="text"
+                                    placeholder="Pack Name (e.g. 1 Box)"
+                                    value={pack.name}
+                                    onChange={e => {
+                                      const newP = [...prodPacks];
+                                      newP[idx].name = e.target.value;
+                                      setProdPacks(newP);
+                                    }}
+                                    className="form-input w-2/5"
+                                  />
+                                  {/* Standard Price */}
+                                  <input
+                                    type="number"
+                                    placeholder="Price (৳)"
+                                    value={isBasePack ? prodPrice : pack.price}
+                                    readOnly={isBasePack}
+                                    onChange={isBasePack ? undefined : e => {
+                                      const newP = [...prodPacks];
+                                      newP[idx].price = e.target.value;
+                                      setProdPacks(newP);
+                                    }}
+                                    className="form-input w-1/4"
+                                    style={isBasePack ? { background: 'var(--gray1)', cursor: 'not-allowed', color: 'var(--gray4)' } : {}}
+                                    title={isBasePack ? 'Change this in Tab 1 → Standard Price' : ''}
+                                  />
+                                  {/* Discount Price */}
+                                  <input
+                                    type="number"
+                                    placeholder="Disc. (৳)"
+                                    value={isBasePack ? (prodDiscountPrice || '') : (pack.discountPrice || '')}
+                                    readOnly={isBasePack}
+                                    onChange={isBasePack ? undefined : e => {
+                                      const newP = [...prodPacks];
+                                      newP[idx].discountPrice = e.target.value;
+                                      setProdPacks(newP);
+                                    }}
+                                    className="form-input w-1/4"
+                                    style={isBasePack ? { background: 'var(--gray1)', cursor: 'not-allowed', color: 'var(--gray4)' } : {}}
+                                    title={isBasePack ? 'Change this in Tab 1 → Discount Price' : ''}
+                                  />
+                                  {/* Remove — only for additional packs */}
+                                  {!isBasePack && (
+                                    <button type="button" onClick={() => {
+                                      setProdPacks(prodPacks.filter((_, i) => i !== idx));
+                                    }} className="btn-outline px-3 text-xs" style={{ color: 'var(--red)', borderColor: 'var(--red)' }}>✕</button>
+                                  )}
+                                </div>
+                              </div>
+                            );
+                          })}
+                          <button type="button" onClick={() => setProdPacks([...prodPacks, {name: '', price: '', discountPrice: ''}])} className="btn-secondary text-xs mt-1">
+                            + Add Pack Option
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="admin-card p-4">
+                        <h4 className="ach-title text-xs mb-3">🚚 Delivery & Farmer Info</h4>
+                        <div className="space-y-3 mb-5">
+                          <div className="form-group">
+                            <label className="form-label">Dispatch Rule</label>
+                            <input type="text" value={prodDeliveryInfo.dispatch} onChange={e => setProdDeliveryInfo({...prodDeliveryInfo, dispatch: e.target.value})} className="form-input" />
+                          </div>
+                          <div className="form-group">
+                            <label className="form-label">Metro Fee Text</label>
+                            <input type="text" value={prodDeliveryInfo.metro} onChange={e => setProdDeliveryInfo({...prodDeliveryInfo, metro: e.target.value})} className="form-input" />
+                          </div>
+                          <div className="form-group">
+                            <label className="form-label">Packaging Info</label>
+                            <input type="text" value={prodDeliveryInfo.packaging} onChange={e => setProdDeliveryInfo({...prodDeliveryInfo, packaging: e.target.value})} className="form-input" />
+                          </div>
+                        </div>
+                        
+                        <div className="space-y-3 pt-4" style={{ borderTop: '1px solid var(--gray2)' }}>
+                          <div className="form-group">
+                            <label className="form-label">Farmer Name</label>
+                            <input type="text" value={prodFarmer.name} onChange={e => setProdFarmer({...prodFarmer, name: e.target.value})} className="form-input" />
+                          </div>
+                          <div className="form-group">
+                            <label className="form-label">Farmer Bio / Orchard</label>
+                            <input type="text" value={prodFarmer.bio} onChange={e => setProdFarmer({...prodFarmer, bio: e.target.value})} className="form-input" />
+                          </div>
+                          <div className="form-group">
+                            <label className="form-label">Farmer Verification Badge</label>
+                            <input type="text" value={prodFarmer.badge} onChange={e => setProdFarmer({...prodFarmer, badge: e.target.value})} className="form-input" />
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="admin-card p-4">
+                        <h4 className="ach-title text-xs mb-3">🛡️ Trust Strip (3 Items Fixed)</h4>
+                        {prodTrustStrip.map((ts, idx) => (
+                          <div key={idx} className="flex gap-2 mb-2">
+                            <input type="text" placeholder="Title" value={ts.title} onChange={e => {
+                              const newTS = [...prodTrustStrip];
+                              newTS[idx].title = e.target.value;
+                              setProdTrustStrip(newTS);
+                            }} className="form-input w-1/2" />
+                            <input type="text" placeholder="Subtitle" value={ts.sub} onChange={e => {
+                              const newTS = [...prodTrustStrip];
+                              newTS[idx].sub = e.target.value;
+                              setProdTrustStrip(newTS);
+                            }} className="form-input w-1/2" />
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Right Column */}
+                    <div className="space-y-6">
+                      <div className="admin-card p-4">
+                        <h4 className="ach-title text-xs mb-3">📋 Specifications Table</h4>
+                        <div className="form-row" style={{ gridTemplateColumns: '1fr 1fr' }}>
+                          <div className="form-group">
+                            <label className="form-label">Origin</label>
+                            <input type="text" value={prodSpecs.origin} onChange={e => setProdSpecs({...prodSpecs, origin: e.target.value})} className="form-input" />
+                          </div>
+                          <div className="form-group">
+                            <label className="form-label">Sweetness</label>
+                            <input type="text" value={prodSpecs.sweetness} onChange={e => setProdSpecs({...prodSpecs, sweetness: e.target.value})} className="form-input" />
+                          </div>
+                          <div className="form-group">
+                            <label className="form-label">Fiber</label>
+                            <input type="text" value={prodSpecs.fiber} onChange={e => setProdSpecs({...prodSpecs, fiber: e.target.value})} className="form-input" />
+                          </div>
+                          <div className="form-group">
+                            <label className="form-label">Preservation</label>
+                            <input type="text" value={prodSpecs.preservation} onChange={e => setProdSpecs({...prodSpecs, preservation: e.target.value})} className="form-input" />
+                          </div>
+                          <div className="form-group">
+                            <label className="form-label">Shelf Life</label>
+                            <input type="text" value={prodSpecs.shelfLife} onChange={e => setProdSpecs({...prodSpecs, shelfLife: e.target.value})} className="form-input" />
+                          </div>
+                          <div className="form-group">
+                            <label className="form-label">Best For</label>
+                            <input type="text" placeholder="e.g. Juicing" value={prodSpecs.bestFor} onChange={e => setProdSpecs({...prodSpecs, bestFor: e.target.value})} className="form-input" />
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="admin-card p-4">
+                        <label className="form-label mb-2">Feature Highlights (Bullets)</label>
+                        {prodHighlights.map((h, idx) => (
+                          <div key={idx} className="flex gap-2 mb-2">
+                            <input type="text" placeholder="Highlight bullet point" value={h} onChange={e => {
+                              const newH = [...prodHighlights];
+                              newH[idx] = e.target.value;
+                              setProdHighlights(newH);
+                            }} className="form-input flex-1" />
+                            <button type="button" onClick={() => {
+                              setProdHighlights(prodHighlights.filter((_, i) => i !== idx));
+                            }} className="btn-outline px-3 text-xs" style={{ color: 'var(--red)', borderColor: 'var(--red)' }}>✕</button>
+                          </div>
+                        ))}
+                        <button type="button" onClick={() => setProdHighlights([...prodHighlights, ''])} className="btn-secondary text-xs mt-1">
+                          + Add Highlight
+                        </button>
+                      </div>
+
+                      <div className="admin-card p-4">
+                        <label className="form-label mb-2">How We Grow Steps (Numbered)</label>
+                        {prodSteps.map((s, idx) => (
+                          <div key={idx} className="flex gap-2 mb-2">
+                            <span className="w-6 h-8 flex items-center justify-center rounded text-xs font-bold shrink-0" style={{ background: 'var(--gray2)', color: 'var(--dark)' }}>{idx + 1}</span>
+                            <input type="text" placeholder="Step description" value={s} onChange={e => {
+                              const newS = [...prodSteps];
+                              newS[idx] = e.target.value;
+                              setProdSteps(newS);
+                            }} className="form-input flex-1" />
+                            <button type="button" onClick={() => {
+                              setProdSteps(prodSteps.filter((_, i) => i !== idx));
+                            }} className="btn-outline px-3 text-xs" style={{ color: 'var(--red)', borderColor: 'var(--red)' }}>✕</button>
+                          </div>
+                        ))}
+                        <button type="button" onClick={() => setProdSteps([...prodSteps, ''])} className="btn-secondary text-xs mt-1">
+                          + Add Step
+                        </button>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -1022,8 +1430,8 @@ export default function Admin() {
             {/* Modal Content */}
             <form onSubmit={handleCreateCoupon} className="flex flex-col">
               <div className="p-6 space-y-4 overflow-y-auto max-h-[60vh] scrollbar-thin">
-                <div>
-                  <label className="block text-[10px] font-black uppercase tracking-widest text-[var(--gray4)] mb-1.5 font-['Sora']">Coupon Code (Uppercase)</label>
+                <div className="form-group">
+                  <label className="form-label">Coupon Code (Uppercase)</label>
                   <input 
                     type="text" 
                     value={coupCode} 
@@ -1033,8 +1441,8 @@ export default function Admin() {
                     className="form-input font-bold text-xs uppercase" 
                   />
                 </div>
-                <div>
-                  <label className="block text-[10px] font-black uppercase tracking-widest text-[var(--gray4)] mb-1.5 font-['Sora']">Discount Type</label>
+                <div className="form-group">
+                  <label className="form-label">Discount Type</label>
                   <select 
                     value={coupType} 
                     onChange={e => setCoupType(e.target.value)} 
@@ -1044,8 +1452,8 @@ export default function Admin() {
                     <option value="flat">Flat BDT (৳)</option>
                   </select>
                 </div>
-                <div>
-                  <label className="block text-[10px] font-black uppercase tracking-widest text-[var(--gray4)] mb-1.5 font-['Sora']">Discount Value</label>
+                <div className="form-group">
+                  <label className="form-label">Discount Value</label>
                   <input 
                     type="number" 
                     value={coupValue} 
@@ -1054,8 +1462,8 @@ export default function Admin() {
                     className="form-input font-bold text-xs" 
                   />
                 </div>
-                <div>
-                  <label className="block text-[10px] font-black uppercase tracking-widest text-[var(--gray4)] mb-1.5 font-['Sora']">Min Order Purchase (৳)</label>
+                <div className="form-group">
+                  <label className="form-label">Min Order Purchase (৳)</label>
                   <input 
                     type="number" 
                     value={coupMinOrder} 
@@ -1064,8 +1472,8 @@ export default function Admin() {
                     className="form-input font-bold text-xs" 
                   />
                 </div>
-                <div>
-                  <label className="block text-[10px] font-black uppercase tracking-widest text-[var(--gray4)] mb-1.5 font-['Sora']">Maximum Usage Limit</label>
+                <div className="form-group">
+                  <label className="form-label">Maximum Usage Limit</label>
                   <input 
                     type="number" 
                     value={coupLimit} 
@@ -1074,8 +1482,8 @@ export default function Admin() {
                     className="form-input font-bold text-xs" 
                   />
                 </div>
-                <div>
-                  <label className="block text-[10px] font-black uppercase tracking-widest text-[var(--gray4)] mb-1.5 font-['Sora']">Expiry Date</label>
+                <div className="form-group">
+                  <label className="form-label">Expiry Date</label>
                   <input 
                     type="date" 
                     value={coupExpires} 
@@ -1163,10 +1571,10 @@ export default function Admin() {
                 <span className="text-[var(--primary)] font-['Fraunces'] text-xl font-black">৳{selectedOrder.total}</span>
               </div>
               
-              {selectedOrder.trackingLink && (
+              {selectedOrder.trackingId && (
                 <div className="bg-[var(--blue-pale)] p-4 rounded-[14px] border border-[var(--blue)]/10">
-                  <p className="text-[9px] uppercase tracking-wider text-[var(--blue)] mb-1 font-black">Logistics Tracking URL</p>
-                  <a href={selectedOrder.trackingLink} target="_blank" rel="noreferrer" className="text-[var(--blue)] underline font-bold truncate block">{selectedOrder.trackingLink}</a>
+                  <p className="text-[9px] uppercase tracking-wider text-[var(--blue)] mb-1 font-black">Pathao Tracking URL</p>
+                  <a href={`https://pathao.com/track/${selectedOrder.trackingId}`} target="_blank" rel="noreferrer" className="text-[var(--blue)] underline font-bold truncate block">https://pathao.com/track/{selectedOrder.trackingId}</a>
                 </div>
               )}
             </div>
@@ -1220,12 +1628,12 @@ export default function Admin() {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-[10px] font-black uppercase tracking-widest text-[var(--gray4)] mb-1.5 font-['Sora']">Logistics Tracker URL (Optional)</label>
+                  <label className="block text-[10px] font-black uppercase tracking-widest text-[var(--gray4)] mb-1.5 font-['Sora']">Pathao Tracking ID (Optional)</label>
                   <input 
-                    type="url" 
-                    value={newTrackingLink} 
-                    onChange={e => setNewTrackingLink(e.target.value)} 
-                    placeholder="https://pathao.com/track/..." 
+                    type="text" 
+                    value={newTrackingId} 
+                    onChange={e => setNewTrackingId(e.target.value)} 
+                    placeholder="e.g. 15Y38A9" 
                     className="form-input font-bold text-xs" 
                   />
                 </div>
@@ -1266,7 +1674,7 @@ export default function Admin() {
 
         <div className="admin-nav-section">
           <span className="admin-nav-label">Main</span>
-          {[{ id: 'dashboard', icon: '📊', label: 'Dashboard' }, { id: 'products', icon: '🥭', label: 'Products' }, { id: 'orders', icon: '📦', label: 'Orders', badge: orders.length }, { id: 'customers', icon: '👥', label: 'Customers' }].map(item => (
+          {[{ id: 'dashboard', icon: '📊', label: 'Dashboard' }, { id: 'categories', icon: '📁', label: 'Categories' }, { id: 'products', icon: '🥭', label: 'Products' }, { id: 'orders', icon: '📦', label: 'Orders', badge: orders.length }, { id: 'customers', icon: '👥', label: 'Customers' }].map(item => (
             <button key={item.id} className={`admin-nav-item${activeAdminTab === item.id ? ' active' : ''}`} onClick={() => { setActiveAdminTab(item.id); setIsSidebarOpen(false); }}>
               <span className="ani-icon">{item.icon}</span>
               {item.label}
@@ -1332,7 +1740,16 @@ export default function Admin() {
                   <option>This Month</option>
                   <option>This Season</option>
                 </select>
-                <button className="add-btn" onClick={() => toast.success('Export report queued!')}>📥 Export</button>
+                <button className="add-btn" onClick={() => {
+                  const data = [
+                    ['Total Revenue', `৳${totalRevenue}`],
+                    ['Total Orders', orders.length],
+                    ['Total Customers', users.length],
+                    ['Products in Catalog', mangoes.length]
+                  ];
+                  exportToCSV('dashboard_summary.csv', data, ['Metric', 'Value']);
+                  toast.success('Dashboard report exported!');
+                }}>📥 Export</button>
               </div>
             </div>
 
@@ -1485,20 +1902,21 @@ export default function Admin() {
                   <div className="ach-title">📍 Orders by City</div>
                 </div>
                 <div className="space-y-4">
-                  {[
-                    { city: 'Dhaka', val: 142, fill: '82%' },
-                    { city: 'Chattogram', val: 56, fill: '44%' },
-                    { city: 'Sylhet', val: 32, fill: '25%' },
-                    { city: 'Rajshahi', val: 18, fill: '12%' }
-                  ].map(c => (
-                    <div key={c.city} className="flex items-center gap-3">
-                      <span className="font-bold text-xs text-gray-700 w-24 shrink-0">{c.city}</span>
-                      <div className="flex-1 bg-gray-200 rounded-full h-2 overflow-hidden">
-                        <div className="bg-primary h-full transition-all duration-500" style={{ width: c.fill }} />
+                  {analyticsLoading ? (
+                    <div className="text-center p-4 text-xs font-bold text-gray-400">Calculating...</div>
+                  ) : analyticsOrdersByCity.length === 0 ? (
+                    <div className="text-center p-4 text-xs font-bold text-gray-400">No data available</div>
+                  ) : (
+                    analyticsOrdersByCity.map(c => (
+                      <div key={c.city} className="flex items-center gap-3">
+                        <span className="font-bold text-xs text-gray-700 w-24 shrink-0 truncate" title={c.city}>{c.city}</span>
+                        <div className="flex-1 bg-gray-200 rounded-full h-2 overflow-hidden">
+                          <div className="bg-primary h-full transition-all duration-500" style={{ width: c.fill }} />
+                        </div>
+                        <span className="font-black text-xs text-gray-500 shrink-0 w-16 text-right">{c.val} orders</span>
                       </div>
-                      <span className="font-black text-xs text-gray-500 shrink-0 w-12 text-right">{c.val} orders</span>
-                    </div>
-                  ))}
+                    ))
+                  )}
                 </div>
               </div>
 
@@ -1507,15 +1925,21 @@ export default function Admin() {
                   <div className="ach-title">🥭 Revenue by Variety</div>
                 </div>
                 <div className="space-y-4">
-                  {topVarieties.map((v) => (
-                    <div key={v.name} className="flex items-center gap-3">
-                      <span className="font-bold text-xs text-gray-700 w-24 shrink-0 truncate" title={v.name}>{v.name}</span>
-                      <div className="flex-1 bg-gray-200 rounded-full h-2 overflow-hidden">
-                        <div className="bg-green-light h-full transition-all duration-500" style={{ width: `${(v.sales / maxSalesVal) * 100}%` }} />
+                  {analyticsLoading ? (
+                    <div className="text-center p-4 text-xs font-bold text-gray-400">Calculating...</div>
+                  ) : analyticsRevenueByVariety.length === 0 ? (
+                    <div className="text-center p-4 text-xs font-bold text-gray-400">No data available</div>
+                  ) : (
+                    analyticsRevenueByVariety.map((v) => (
+                      <div key={v.name} className="flex items-center gap-3">
+                        <span className="font-bold text-xs text-gray-700 w-24 shrink-0 truncate" title={v.name}>{v.name}</span>
+                        <div className="flex-1 bg-gray-200 rounded-full h-2 overflow-hidden">
+                          <div className="bg-green-light h-full transition-all duration-500" style={{ width: v.fill }} />
+                        </div>
+                        <span className="font-black text-xs text-gray-500 shrink-0 w-20 text-right">৳{v.revenue.toLocaleString()}</span>
                       </div>
-                      <span className="font-black text-xs text-gray-500 shrink-0 w-12 text-right">{v.sales} boxes</span>
-                    </div>
-                  ))}
+                    ))
+                  )}
                 </div>
               </div>
             </div>
@@ -1525,25 +1949,33 @@ export default function Admin() {
                 <div><div className="ach-title">📅 Monthly Revenue</div><div className="ach-sub">Season 2026 breakdown (৳)</div></div>
               </div>
               <div className="p-6 h-[180px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={[
-                    { name: 'May', revenue: totalRevenue * 0.4 },
-                    { name: 'Jun', revenue: totalRevenue * 0.5 },
-                    { name: 'Jul', revenue: totalRevenue * 0.1 }
-                  ]}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                    <XAxis dataKey="name" tick={{ fontSize: 9, fontWeight: 700 }} stroke="#888" />
-                    <YAxis tick={{ fontSize: 9, fontWeight: 700 }} stroke="#888" />
-                    <Tooltip contentStyle={{ borderRadius: '8px', border: '1px solid #eee', fontSize: '11px', fontWeight: 'bold' }} formatter={(val) => [`৳${val.toLocaleString()}`, 'Revenue']} />
-                    <Bar dataKey="revenue" fill="var(--green-light)" radius={[4, 4, 0, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
+                {analyticsLoading ? (
+                  <div className="flex items-center justify-center h-full text-xs font-bold text-gray-400">Calculating...</div>
+                ) : analyticsMonthlyRevenue.length === 0 ? (
+                  <div className="flex items-center justify-center h-full text-xs font-bold text-gray-400">No data available</div>
+                ) : (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={analyticsMonthlyRevenue}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                      <XAxis dataKey="name" tick={{ fontSize: 9, fontWeight: 700 }} stroke="#888" />
+                      <YAxis tick={{ fontSize: 9, fontWeight: 700 }} stroke="#888" />
+                      <Tooltip contentStyle={{ borderRadius: '8px', border: '1px solid #eee', fontSize: '11px', fontWeight: 'bold' }} formatter={(val) => [`৳${val.toLocaleString()}`, 'Revenue']} />
+                      <Bar dataKey="revenue" fill="var(--green-light)" radius={[4, 4, 0, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                )}
               </div>
             </div>
           </div>
         )}
 
         {/* TAB 2: PRODUCTS CATALOG TAB */}
+        {activeAdminTab === 'categories' && (
+          <div className="admin-tab active" id="atab-categories">
+            <CategoriesTab />
+          </div>
+        )}
+
         {activeAdminTab === 'products' && (
           <div className="admin-tab active" id="atab-products">
             <div className="admin-header">
@@ -1587,7 +2019,11 @@ export default function Admin() {
                   </select>
                 </div>
                 <div className="aab-right">
-                  <button className="add-btn" style={{ background: 'var(--green)' }} onClick={() => toast.success('CSV catalogue exported!')}>📥 Export</button>
+                  <button className="add-btn" style={{ background: 'var(--green)' }} onClick={() => {
+                    const data = filteredProducts.map(m => [m.id, m.name, m.variety || 'N/A', m.price, m.stock]);
+                    exportToCSV('products_catalogue.csv', data, ['ID', 'Name', 'Variety', 'Price', 'Stock']);
+                    toast.success('CSV catalogue exported!');
+                  }}>📥 Export</button>
                 </div>
               </div>
 
@@ -1922,7 +2358,15 @@ export default function Admin() {
                   </span>
                 </div>
                 <div className="aab-right">
-                  <button className="add-btn" onClick={() => toast.success('Orders exported to CSV!')}>📥 Export</button>
+                  <button className="add-btn" onClick={() => {
+                    const data = filteredOrders.map(o => {
+                      const date = o.createdAt?.toDate ? o.createdAt.toDate().toLocaleDateString() : (o.createdAt?.seconds ? new Date(o.createdAt.seconds * 1000).toLocaleDateString() : new Date(o.createdAt).toLocaleDateString());
+                      const custName = (o.customerName || o.customerEmail || 'Guest');
+                      return [o.id, custName, o.total, o.status, date];
+                    });
+                    exportToCSV('orders_list.csv', data, ['Order ID', 'Customer Name', 'Total Amount', 'Status', 'Date']);
+                    toast.success('Orders exported to CSV!');
+                  }}>📥 Export</button>
                 </div>
               </div>
 
@@ -2077,7 +2521,15 @@ export default function Admin() {
                   </div>
                 </div>
                 <div className="aab-right">
-                  <button className="add-btn" onClick={() => toast.success('Customer list exported!')}>📥 Export</button>
+                  <button className="add-btn" onClick={() => {
+                    const data = filteredCustomers.map(u => {
+                      const uOrders = orders.filter(o => o.customerEmail === u.email);
+                      const uTotal = uOrders.filter(o => o.status === 'Delivered').reduce((sum, o) => sum + Number(o.total || 0), 0);
+                      return [u.name || 'Anonymous', u.phone || 'N/A', 'Dhaka', uOrders.length, uTotal];
+                    });
+                    exportToCSV('customers_list.csv', data, ['Name', 'Phone', 'City', 'Total Orders', 'Total Spent']);
+                    toast.success('Customer list exported!');
+                  }}>📥 Export</button>
                 </div>
               </div>
 
@@ -2126,8 +2578,8 @@ export default function Admin() {
                           </td>
                           <td>
                             <div className="at-actions">
-                              <button onClick={() => toast.success(`Viewing profile for ${u.name || u.email}...`)} className="at-action-btn" title="View Profile">👁️</button>
-                              <button onClick={() => toast.success(`User block action triggered!`)} className="at-action-btn danger" title="Block User">🚫</button>
+                              <button onClick={() => setSelectedCustomerDetails({ ...u, uOrders, uTotal })} className="at-action-btn" title="View Profile">👁️</button>
+                              <button onClick={() => handleToggleBlockUser(u.id, u.isBlocked)} className={`at-action-btn ${u.isBlocked ? '' : 'danger'}`} title={u.isBlocked ? 'Unblock User' : 'Block User'}>{u.isBlocked ? '✅' : '🚫'}</button>
                             </div>
                           </td>
                         </tr>
@@ -2168,21 +2620,21 @@ export default function Admin() {
                   </thead>
                   <tbody>
                     {allProductReviews.length > 0 ? (
-                      allProductReviews.map(r => {
-                        const isTrashed = !!trashedReviews[r.id];
+                      allProductReviews.map(rev => {
+                        const isTrashed = !!trashedReviews[rev.id];
                         return (
-                          <tr key={r.id} style={isTrashed ? { opacity: 0.4, background: '#FEF2F2', transition: 'all .3s' } : { transition: 'all .3s' }}>
-                            <td style={{ fontWeight: 700, fontSize: '.83rem' }}>{r.name}</td>
-                            <td style={{ fontWeight: 700, fontSize: '.83rem' }}>{r.productName}</td>
+                          <tr key={rev.id} style={isTrashed ? { opacity: 0.4, background: '#FEF2F2', transition: 'all .3s' } : { transition: 'all .3s' }}>
+                            <td style={{ fontWeight: 700, fontSize: '.83rem' }}>{rev.name}</td>
+                            <td style={{ fontWeight: 700, fontSize: '.83rem' }}>{rev.productName}</td>
                             <td>
                               <span style={{ color: 'var(--gold)' }}>
-                                {'★'.repeat(Math.min(5, Math.max(1, r.rating))) + '☆'.repeat(Math.max(0, 5 - r.rating))}
+                                {'★'.repeat(Math.min(5, Math.max(1, rev.rating))) + '☆'.repeat(Math.max(0, 5 - rev.rating))}
                               </span>
                             </td>
-                            <td style={{ maxWidth: 250, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontSize: '.83rem' }} title={r.text}>
-                              "{r.text}"
+                            <td style={{ maxWidth: 250, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontSize: '.83rem' }} title={rev.text}>
+                              "{rev.text}"
                             </td>
-                            <td style={{ fontSize: '.78rem', fontWeight: 600, color: 'var(--gray4)' }}>{r.date}</td>
+                            <td style={{ fontSize: '.78rem', fontWeight: 600, color: 'var(--gray4)' }}>{rev.date}</td>
                             <td>
                               {isTrashed
                                 ? <span style={{ fontSize: '.72rem', fontWeight: 700, padding: '.2rem .55rem', borderRadius: 100, background: '#FEE2E2', color: '#DC2626', border: '1px solid #FECACA' }}>🗑️ Trashed</span>
@@ -2196,9 +2648,9 @@ export default function Admin() {
                                     className="at-action-btn"
                                     title="Undo deletion"
                                     onClick={() => {
-                                      setTrashedReviews(prev => { const n = { ...prev }; delete n[r.id]; return n; });
-                                      clearTimeout(undoTimersRef.current[r.id]);
-                                      delete undoTimersRef.current[r.id];
+                                      setTrashedReviews(prev => { const n = { ...prev }; delete n[rev.id]; return n; });
+                                      clearTimeout(undoTimersRef.current[rev.id]);
+                                      delete undoTimersRef.current[rev.id];
                                       toast.success('↩️ Deletion undone!');
                                     }}
                                     style={{ background: '#FEF9C3', borderColor: '#FCD34D', color: '#92400E' }}
@@ -2207,7 +2659,7 @@ export default function Admin() {
                                   </button>
                                 ) : (
                                   <button
-                                    onClick={() => handleDeleteReview(r.productId, r.id, r)}
+                                    onClick={() => handleDeleteReview(rev.productId, rev.id, rev)}
                                     className="at-action-btn danger"
                                     title="Trash review (5s undo)"
                                   >
@@ -3164,6 +3616,66 @@ export default function Admin() {
         )}
 
       </main>
+        {/* CRM Customer Modal */}
+        {selectedCustomerDetails && (
+          <div className="modal-overlay" onClick={() => setSelectedCustomerDetails(null)}>
+            <div className="modal-content !max-w-xl" onClick={e => e.stopPropagation()}>
+              <div className="modal-header">
+                <h2>👤 Customer Profile</h2>
+                <button className="modal-close" onClick={() => setSelectedCustomerDetails(null)}>×</button>
+              </div>
+              <div className="modal-body p-6">
+                <div className="flex items-center gap-4 mb-6 pb-6 border-b border-[var(--gray2)]">
+                  <div className="w-16 h-16 rounded-full bg-[var(--primary-pale)] text-[var(--primary)] flex items-center justify-center text-2xl font-black shrink-0">
+                    {selectedCustomerDetails.name?.charAt(0).toUpperCase() || 'U'}
+                  </div>
+                  <div>
+                    <h3 className="text-xl font-black text-[var(--dark)] m-0">{selectedCustomerDetails.name || 'Connoisseur'}</h3>
+                    <p className="text-sm font-semibold text-[var(--gray4)] m-0">{selectedCustomerDetails.email}</p>
+                    <p className="text-sm font-semibold text-[var(--blue)] m-0">{selectedCustomerDetails.phone || 'No phone recorded'}</p>
+                  </div>
+                  {selectedCustomerDetails.isBlocked && (
+                    <div className="ml-auto bg-red-100 text-red-600 px-3 py-1 rounded font-bold text-xs uppercase tracking-wider">
+                      Blocked
+                    </div>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-2 gap-4 mb-6">
+                  <div className="bg-[var(--gray1)] p-4 rounded-brand border border-[var(--gray2)] text-center">
+                    <div className="text-[10px] font-black uppercase tracking-widest text-[var(--gray4)] mb-1">Lifetime Value</div>
+                    <div className="text-2xl font-black text-[var(--primary)]">৳{selectedCustomerDetails.uTotal?.toLocaleString()}</div>
+                  </div>
+                  <div className="bg-[var(--gray1)] p-4 rounded-brand border border-[var(--gray2)] text-center">
+                    <div className="text-[10px] font-black uppercase tracking-widest text-[var(--gray4)] mb-1">Total Orders</div>
+                    <div className="text-2xl font-black text-[var(--dark)]">{selectedCustomerDetails.uOrders?.length || 0}</div>
+                  </div>
+                </div>
+
+                <div className="font-black text-xs uppercase tracking-widest text-[var(--gray4)] mb-3">Order History</div>
+                {selectedCustomerDetails.uOrders?.length > 0 ? (
+                  <div className="max-h-[250px] overflow-y-auto pr-2 custom-scrollbar space-y-2">
+                    {selectedCustomerDetails.uOrders.map(o => (
+                      <div key={o.id} className="p-3 border border-[var(--gray2)] rounded-md flex justify-between items-center text-sm">
+                        <div>
+                          <span className="font-bold text-[var(--dark)]">#{o.id.slice(-6).toUpperCase()}</span>
+                          <span className="ml-2 text-xs font-medium text-[var(--gray4)]">{new Date(o.createdAt?.seconds ? o.createdAt.seconds * 1000 : o.createdAt).toLocaleDateString()}</span>
+                        </div>
+                        <div className="font-bold">৳{o.total}</div>
+                        <span className={`text-[10px] font-black px-2 py-0.5 rounded uppercase tracking-wider ${o.status === 'Delivered' ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'}`}>
+                          {o.status}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-6 text-[var(--gray4)] font-semibold text-sm">No orders placed yet.</div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
       </div>
     </div>
   );

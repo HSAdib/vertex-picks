@@ -450,7 +450,11 @@ export default function CategoriesTab() {
                             className="h-28 w-full bg-gray-100 relative cursor-pointer"
                             onClick={() => { setShowAddExisting(false); openEditForm(prod); }}
                           >
-                            <img src={prod.images?.[0] || 'https://via.placeholder.com/150'} className="w-full h-full object-cover group-hover:scale-105 transition-transform" alt="" />
+                            {prod.images?.[0] ? (
+                              <img src={prod.images[0]} className="w-full h-full object-cover group-hover:scale-105 transition-transform" alt="" />
+                            ) : (
+                              <div className="w-full h-full bg-[var(--gray1)] flex items-center justify-center text-3xl group-hover:scale-105 transition-transform" title="No Image">🥭</div>
+                            )}
                           </div>
 
                           <div className="p-3 flex-1 flex flex-col">
@@ -570,7 +574,11 @@ export default function CategoriesTab() {
                           className="h-28 w-full bg-gray1 relative cursor-pointer"
                           onClick={() => openEditForm(prod)}
                         >
-                          <img src={prod.images?.[0] || 'https://via.placeholder.com/150'} className="w-full h-full object-cover group-hover:opacity-90 transition-opacity" alt="" />
+                          {prod.images?.[0] ? (
+                            <img src={prod.images[0]} className="w-full h-full object-cover group-hover:opacity-90 transition-opacity" alt="" />
+                          ) : (
+                            <div className="w-full h-full bg-[var(--gray1)] flex items-center justify-center text-3xl group-hover:opacity-90 transition-opacity" title="No Image">🥭</div>
+                          )}
                           <div className="absolute inset-0 bg-dark/10 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center pointer-events-none">
                             <span className="bg-dark/70 text-white text-[9px] uppercase font-black px-2 py-0.5 rounded tracking-widest">Edit</span>
                           </div>
