@@ -50,6 +50,58 @@ export default function Admin() {
   const [users, setUsers] = useState([]);
   const [promos, setPromos] = useState([]);
   const [leads, setLeads] = useState([]);
+  const [activeDropdown, setActiveDropdown] = useState(null);
+  const [selectedOrders, setSelectedOrders] = useState(new Set());
+  const [batchUpdating, setBatchUpdating] = useState(false);
+
+  const toggleSelectOrder = (id) => {
+    setSelectedOrders(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const handleBatchStatus = async (newStatus) => {
+    if (selectedOrders.size === 0) return;
+    setBatchUpdating(true);
+    try {
+      await Promise.all([...selectedOrders].map(id => updateDoc(doc(db, 'orders', id), { status: newStatus })));
+      setOrders(orders.map(o => selectedOrders.has(o.id) ? { ...o, status: newStatus } : o));
+      toast.success(`${selectedOrders.size} order(s) marked as ${newStatus}`);
+      setSelectedOrders(new Set());
+    } catch (err) {
+      toast.error('Failed to update orders.');
+    }
+    setBatchUpdating(false);
+  };
+
+  const getCustomWhatsAppLink = (order) => {
+    const phone = order.deliveryPhone || order.customerPhone || '';
+    if (!phone) return '#';
+    let cleanPhone = phone.replace(/\D/g, '');
+    if (cleanPhone.startsWith('0')) cleanPhone = '88' + cleanPhone;
+    else if (!cleanPhone.startsWith('88') && cleanPhone.length === 10) cleanPhone = '880' + cleanPhone;
+    const itemsList = (order.items || []).map(i => `${i.quantity || 1}x ${i.name || 'Item'}`).join(', ');
+    const orderIdShort = order.id.slice(-6).toUpperCase();
+    const customerName = order.deliveryName || order.customerName || 'Valued Customer';
+    const message = `Dear ${customerName},
+
+This is a formal update from Vertex Picks regarding your recent order (#${orderIdShort}).
+
+Order Summary:
+- Items: ${itemsList}
+- Total Amount: ৳${order.total || 0}
+- Delivery Address: ${order.deliveryAddress || 'N/A'}
+- Current Status: ${order.status || 'Pending'}
+
+If you require any modifications to your delivery details or have further inquiries, please reply to this message.
+
+Thank you for choosing Vertex Picks.`;
+    return `https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`;
+  };
+
   const [leadsSearch, setLeadsSearch] = useState('');
   const [storeConfig, setStoreConfig] = useState({ baseDeliveryFee: 110, perKgFee: 21 });
   const [storeName, setStoreName] = useState('Vertex Picks');
@@ -2342,6 +2394,28 @@ export default function Admin() {
             </div>
 
             <div className="admin-card">
+              {selectedOrders.size > 0 && (
+                <div className="flex flex-wrap items-center justify-between p-4 mb-4 gap-4" style={{background:'var(--primary-pale)',border:'1.5px solid rgba(232,84,10,0.2)',borderRadius:14}}>
+                  <div className="flex items-center gap-3">
+                    <span style={{fontSize:'.72rem',fontWeight:900,textTransform:'uppercase',letterSpacing:'.1em',color:'var(--primary)'}}>Bulk Actions:</span>
+                    <span style={{background:'var(--primary)',color:'#fff',fontSize:'.72rem',fontWeight:900,padding:'.25rem .65rem',borderRadius:100}}>
+                      {selectedOrders.size} Selected
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => window.print()}
+                      className="order-action-btn"
+                    >
+                      🖨️ Print Multiple Receipts
+                    </button>
+                    <button onClick={() => handleBatchStatus('Done')} disabled={batchUpdating} className="order-action-btn">Mark Done</button>
+                    <button onClick={() => handleBatchStatus('Shipped')} disabled={batchUpdating} className="order-action-btn">Mark Shipped</button>
+                    <button onClick={() => handleBatchStatus('Delivered')} disabled={batchUpdating} className="order-action-btn">Mark Delivered</button>
+                    <button onClick={() => handleBatchStatus('Cancelled')} disabled={batchUpdating} className="order-action-btn" style={{background:'var(--red-pale)',color:'var(--red)',borderColor:'rgba(220,38,38,0.2)'}}>Cancel Selected</button>
+                  </div>
+                </div>
+              )}
               <div className="admin-action-bar">
                 <div className="aab-left">
                   <div className="aab-search">
@@ -2370,7 +2444,7 @@ export default function Admin() {
                 </div>
               </div>
 
-              <div style={{ overflowX: 'auto' }}>
+              <div style={{ overflow: 'visible', overflowX: 'visible' }}>
                 {filteredOrders.length === 0 ? (
                   <div style={{ padding: '3rem', textAlign: 'center' }}>
                     <div style={{ fontSize: '2.5rem', marginBottom: '.75rem' }}>📭</div>
@@ -2386,7 +2460,17 @@ export default function Admin() {
                       <table className="admin-table">
                         <thead>
                           <tr>
-                            <th><input type="checkbox" className="at-check" /></th>
+                            <th>
+                              <input 
+                                type="checkbox" 
+                                className="at-check" 
+                                checked={selectedOrders.size === pageOrders.length && pageOrders.length > 0}
+                                onChange={() => {
+                                  if (selectedOrders.size === pageOrders.length) setSelectedOrders(new Set());
+                                  else setSelectedOrders(new Set(pageOrders.map(o => o.id)));
+                                }}
+                              />
+                            </th>
                             <th>Order ID</th>
                             <th>Customer</th>
                             <th>Items Booked</th>
@@ -2404,17 +2488,19 @@ export default function Admin() {
                             else if (o.status === 'Shipped' || o.status === 'Confirmed') statusClass = 'status-transit';
                             else if (o.status === 'Cancelled') statusClass = 'status-cancelled';
                             return (
-                              <tr key={o.id}>
-                                <td><input type="checkbox" className="at-check" /></td>
+                              <tr key={o.id} className={activeDropdown === o.id ? 'relative z-[9999]' : 'relative z-10'}>
+                                <td>
+                                  <input 
+                                    type="checkbox" 
+                                    className="at-check" 
+                                    checked={selectedOrders.has(o.id)}
+                                    onChange={() => toggleSelectOrder(o.id)}
+                                  />
+                                </td>
                                 <td><span className="order-id">#{o.id.slice(-6).toUpperCase()}</span></td>
                                 <td>
                                   <div style={{ fontWeight: 700, fontSize: '.83rem' }}>{o.deliveryName || 'Guest User'}</div>
-                                  <div style={{ fontSize: '.72rem', color: 'var(--gray4)' }}>{o.deliveryPhone}</div>
-                                </td>
-                                <td style={{ fontSize: '.8rem', maxWidth: 200 }}>{o.items?.map(i => `${i.name} × ${i.quantity}`).join(', ')}</td>
-                                <td style={{ fontFamily: 'var(--ff-display)', fontWeight: 800, fontSize: '.95rem', color: 'var(--primary)' }}>৳{o.total}</td>
-                                <td style={{ fontSize: '.8rem', fontWeight: 600, color: 'var(--gray4)' }}>{orderDate}</td>
-                                <td>
+                                  <div style={{ fontSize: '.72rem', color: 'var(--g                                <td>
                                   <span className={`order-status ${statusClass}`}>
                                     {o.status === 'Cancelled' ? '✕ Cancelled' :
                                      o.status === 'Delivered' ? '✅ Delivered' :
@@ -2422,11 +2508,80 @@ export default function Admin() {
                                      o.status === 'Confirmed' ? '⚙️ Confirmed' : '⏳ Pending'}
                                   </span>
                                 </td>
-                                <td>
+                                <td className="relative overflow-visible">
                                   <div className="at-actions">
                                     <button onClick={() => { setSelectedOrder(o); setShowOrderDetailModal(true); }} className="at-action-btn" title="View details">👁️</button>
                                     <button onClick={() => openStatusUpdate(o)} className="at-action-btn" title="Edit Status">✏️</button>
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setActiveDropdown(activeDropdown === o.id ? null : o.id);
+                                      }}
+                                      className="order-action-btn"
+                                      style={activeDropdown === o.id ? {background:'var(--primary-pale)',borderColor:'rgba(232,84,10,0.3)',color:'var(--primary)'} : {}}
+                                      title="More Actions"
+                                    >
+                                      ⋮
+                                    </button>
                                   </div>
+
+                                  {activeDropdown === o.id && (
+                                    <>
+                                      <div 
+                                        className="fixed inset-0 z-40 bg-transparent"
+                                        onClick={(e) => { e.stopPropagation(); setActiveDropdown(null); }}
+                                      />
+                                      <div
+                                        className="fixed right-10 mt-12 w-48 bg-white z-[99999] overflow-hidden py-1 text-left"
+                                        style={{borderRadius:14,boxShadow:'var(--shadow-lg)',border:'1.5px solid var(--gray2)'}}
+                                      >
+                                        <button
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            window.print();
+                                            setActiveDropdown(null);
+                                          }}
+                                          className="nud-item"
+                                        >
+                                          🖨️ Print Receipt
+                                        </button>
+                                        
+                                        <button
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            const address = o.deliveryAddress || '';
+                                            window.open('https://maps.google.com/?q=' + encodeURIComponent(address));
+                                            setActiveDropdown(null);
+                                          }}
+                                          className="nud-item"
+                                        >
+                                          📍 See Location
+                                        </button>
+                                        
+                                        {o.deliveryPhone && (
+                                          <a
+                                            href={getCustomWhatsAppLink(o)}
+                                            target="_blank"
+                                            rel="noreferrer"
+                                            onClick={(e) => { e.stopPropagation(); setActiveDropdown(null); }}
+                                            className="nud-item"
+                                            style={{color:'var(--green)'}}
+                                          >
+                                            💬 WhatsApp Order Msg
+                                          </a>
+                                        )}
+                                      </div>
+                                    </>
+                                  )}
+                                </td>
+py-2 hover:bg-gray-50 text-gray-700 font-bold text-xs uppercase tracking-wide transition-colors flex items-center gap-2 bg-transparent cursor-pointer block no-underline"
+                                          >
+                                            💬 WhatsApp Order Msg
+                                          </a>
+                                        )}
+                                      </div>
+                                    </>
+                                  )}
                                 </td>
                               </tr>
                             );

@@ -255,8 +255,8 @@ export default function Checkout() {
         {/* CHECKOUT CART ITEMS COLUMN (Left 2-columns) */}
         <div className="lg:col-span-2 space-y-5">
           {cartItemsWithPrice.length === 0 ? (
-            <div className="bg-white border border-gray-200 rounded-2xl p-12 text-center h-80 flex items-center justify-center shadow-sm">
-              <p className="text-gray-400 font-bold text-sm sm:text-base">Your cart is empty.</p>
+            <div className="bg-white border rounded-2xl p-12 text-center h-80 flex items-center justify-center" style={{border:'1.5px solid var(--gray2)',boxShadow:'var(--shadow-sm)',borderRadius:14}}>
+              <p style={{color:'var(--gray4)',fontWeight:700,fontSize:'.9rem'}}>Your cart is empty.</p>
             </div>
           ) : (
             <>
@@ -271,12 +271,13 @@ export default function Checkout() {
               
               <div className="space-y-4">
                 {cartItemsWithPrice.map(item => (
-                  <div 
-                    key={item.id} 
-                    className="flex items-center gap-4 p-4 rounded-2xl border border-gray-200 bg-white transition-all duration-300"
+                  <div className="flex items-center gap-4 p-4 rounded-2xl border transition-all duration-300"
                     style={{
+                      border:'1.5px solid var(--gray2)',
+                      background:'#fff',
                       boxShadow: 'var(--shadow-sm)',
-                      opacity: item.selected ? 1 : 0.65
+                      opacity: item.selected ? 1 : 0.65,
+                      borderRadius:14
                     }}
                   >
                     <label className="flex items-center justify-center p-1 cursor-pointer flex-shrink-0">
@@ -304,7 +305,7 @@ export default function Checkout() {
                         <span className="text-[10px] font-black uppercase tracking-widest text-[var(--primary)] bg-[var(--primary-pale)] px-2.5 py-0.5 rounded-full">
                           {item.section || 'Variety'}
                         </span>
-                        <span className="text-[10px] font-bold text-gray-600 bg-gray-100 px-2.5 py-0.5 rounded-full">
+                        <span className="text-[10px] font-bold bg-gray-100 px-2.5 py-0.5 rounded-full" style={{color:'var(--gray4)'}}>
                           🌿 Chemical-Free
                         </span>
                       </div>
@@ -350,16 +351,16 @@ export default function Checkout() {
         {/* ACCORDION & PRICING CALCULATIONS COLUMN (Right 1-column) */}
         <div className="lg:col-span-1 w-full flex justify-center lg:block">
           <div 
-            className="bg-white shadow-[0_30px_70px_rgba(0,0,0,0.05)] border border-slate-100 rounded-[28px] overflow-hidden max-w-[420px] w-full mx-auto relative transition-all duration-300 hover:shadow-[0_35px_80px_rgba(0,0,0,0.07)]"
-            style={{ padding: '32px 24px' }}
+            style={{background:'#fff',boxShadow:'0 20px 50px rgba(0,0,0,0.06)',border:'1.5px solid var(--gray2)',borderRadius:14,overflow:'hidden',maxWidth:420,width:'100%',margin:'0 auto',position:'relative',transition:'all .3s',padding:'2rem 1.5rem'}}
+            className="hover:shadow-2xl"
           >
             
             {/* Header section */}
-            <div className="mb-6 border-b border-slate-100 pb-5">
-              <h3 className="font-black text-lg text-slate-800 tracking-tight flex items-center gap-2">
-                <span className="text-xl">🚚</span> Delivery & Payment
+            <div style={{marginBottom:'1.5rem',borderBottom:'1.5px solid var(--gray2)',paddingBottom:'1.25rem'}}>
+              <h3 style={{fontFamily:'var(--ff-display)',fontWeight:900,fontSize:'1.05rem',color:'var(--dark)',letterSpacing:'.02em',display:'flex',alignItems:'center',gap:'.5rem'}}>
+                <span style={{fontSize:'1.25rem'}}>🚚</span> Delivery & Payment
               </h3>
-              <p className="text-xs text-slate-400 mt-1 font-medium font-sans">Enter shipping details to secure your harvest.</p>
+              <p style={{fontSize:'.75rem',color:'var(--gray4)',marginTop:'.25rem',fontWeight:500}}>Enter shipping details to secure your harvest.</p>
             </div>
             
             {/* DELIVERY DETAILS FORM */}
@@ -369,14 +370,14 @@ export default function Checkout() {
               }`}
             >
               <div>
-                <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1.5 font-sans">Recipient Name</label>
+                <label className="form-label">Recipient Name</label>
                 <input 
                   type="text" 
                   value={customerName} 
                   onChange={e => setCustomerName(e.target.value)} 
                   required 
                   placeholder="E.g. Adnan Rahman" 
-                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200/80 rounded-xl text-xs font-semibold text-slate-800 placeholder:text-slate-400/50 placeholder:font-normal focus:bg-white focus:border-[var(--primary)] focus:ring-2 focus:ring-[var(--primary)]/10 outline-none transition-all duration-200 font-sans" 
+                  className="form-input" 
                 />
               </div>
               
@@ -387,11 +388,8 @@ export default function Checkout() {
                     {savedAddresses.map(addr => (
                       <label 
                         key={addr.id} 
-                        className={`flex items-start gap-3 p-3.5 border rounded-xl cursor-pointer transition-all ${
-                          selectedAddressId === addr.id 
-                            ? 'border-[var(--primary)] bg-[var(--primary-pale)]/30 shadow-sm' 
-                            : 'border-slate-200 bg-white hover:bg-slate-50/50'
-                        }`}
+                        className={`flex items-start gap-3 p-3.5 border rounded-[14px] cursor-pointer transition-all ${selectedAddressId === addr.id ? 'bg-[var(--primary-pale)]/30' : 'bg-white'}`}
+                        style={{border: selectedAddressId === addr.id ? '1.5px solid var(--primary)' : '1.5px solid var(--gray2)'}}
                       >
                         <input 
                           type="radio" 
@@ -401,20 +399,17 @@ export default function Checkout() {
                           className="w-4 h-4 mt-0.5 accent-[var(--primary)] cursor-pointer flex-shrink-0" 
                         />
                         <div className="min-w-0 text-left">
-                          <span className="inline-block uppercase tracking-wider text-[8px] text-slate-400 font-black bg-slate-100 px-2 py-0.5 rounded">
+                          <span style={{display:'inline-block',textTransform:'uppercase',letterSpacing:'.08em',fontSize:'.7rem',color:'var(--gray4)',fontWeight:900,background:'var(--gray1)',padding:'.15rem .5rem',borderRadius:4}}>
                             {addr.label} {addr.isDefault && '• Default'}
                           </span>
-                          <p className="text-slate-800 font-bold text-xs mt-1.5 whitespace-normal break-words leading-relaxed">{addr.address}</p>
-                          <p className="text-slate-500 text-[10px] font-semibold mt-1">{addr.phone}</p>
+                          <p style={{color:'var(--dark)',fontWeight:700,fontSize:'.78rem',marginTop:'.4rem',whiteSpace:'normal',wordBreak:'break-word',lineHeight:1.55}}>{addr.address}</p>
+                          <p style={{color:'var(--gray4)',fontSize:'.7rem',fontWeight:600,marginTop:'.25rem'}}>{addr.phone}</p>
                         </div>
                       </label>
                     ))}
                     <label 
-                      className={`flex items-center gap-3 p-3.5 border rounded-xl cursor-pointer transition-all ${
-                        selectedAddressId === 'new' 
-                          ? 'border-[var(--primary)] bg-[var(--primary-pale)]/30 shadow-sm' 
-                          : 'border-slate-200 bg-white hover:bg-slate-50/50'
-                      }`}
+                      className={`flex items-center gap-3 p-3.5 border rounded-[14px] cursor-pointer transition-all ${selectedAddressId === 'new' ? 'bg-[var(--primary-pale)]/30' : 'bg-white'}`}
+                      style={{border: selectedAddressId === 'new' ? '1.5px solid var(--primary)' : '1.5px solid var(--gray2)'}}
                     >
                       <input 
                         type="radio" 
@@ -423,7 +418,7 @@ export default function Checkout() {
                         onChange={() => handleAddressSelect('new')} 
                         className="w-4 h-4 accent-[var(--primary)] cursor-pointer flex-shrink-0" 
                       />
-                      <span className="font-bold text-slate-700 text-xs text-left">Deliver to a New Address</span>
+                      <span style={{fontWeight:700,color:'var(--dark)',fontSize:'.8rem'}}>Deliver to a New Address</span>
                     </label>
                   </div>
                 </div>
@@ -432,26 +427,26 @@ export default function Checkout() {
               {(selectedAddressId === 'new' || savedAddresses.length === 0) && (
                 <div className="space-y-4 pt-1">
                   <div>
-                    <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1.5 font-sans">BD Phone Number</label>
+                    <label className="form-label">BD Phone Number</label>
                     <input 
                       type="tel" 
                       value={deliveryPhone} 
                       onChange={e => setDeliveryPhone(e.target.value)} 
                       required 
                       placeholder="E.g. 01712345678" 
-                      className={`w-full px-4 py-2.5 bg-slate-50 border rounded-xl text-xs font-semibold text-slate-800 placeholder:text-slate-400/50 placeholder:font-normal focus:bg-white focus:border-[var(--primary)] focus:ring-2 focus:ring-[var(--primary)]/10 outline-none transition-all duration-200 font-sans ${
-                        phoneError ? 'border-[var(--red)] bg-[var(--red-pale)] animate-shake' : 'border-slate-200'
-                      }`} 
+                      className="form-input"
+                      style={phoneError ? {borderColor:'var(--red)',background:'var(--red-pale)'} : {}}
                     />
                   </div>
                   <div>
                     <div className="flex justify-between items-center mb-1.5">
-                      <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-500 font-sans">Full Shipping Address</label>
+                      <label className="form-label" style={{marginBottom:0}}>Full Shipping Address</label>
                       <button
                         type="button"
                         onClick={() => fetchCurrentLocation(setDeliveryAddress, setLocating, setDeliveryCoords)}
                         disabled={locating}
-                        className="text-[10px] font-bold text-[var(--primary)] hover:text-[var(--primary-dark)] flex items-center gap-1 transition-colors outline-none disabled:opacity-50"
+                        className="text-[10px] font-bold flex items-center gap-1 transition-colors outline-none disabled:opacity-50"
+                        style={{color:'var(--primary)',border:'none',background:'none',cursor:'pointer'}}
                         title="Fetch Current Location Coordinates"
                       >
                         {locating ? '⏳ Locating...' : '📍 Auto-detect'}
@@ -462,7 +457,8 @@ export default function Checkout() {
                       onChange={e => { setDeliveryAddress(e.target.value); setDeliveryCoords(null); }} 
                       required 
                       placeholder="House, Road, Apartment, Area, City..." 
-                      className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 placeholder:text-slate-400/50 placeholder:font-normal focus:bg-white focus:border-[var(--primary)] focus:ring-2 focus:ring-[var(--primary)]/10 outline-none h-20 resize-none transition-all font-sans leading-relaxed"
+                      className="form-input"
+                      style={{height:80,resize:'none'}}
                     />
                   </div>
                 </div>
@@ -470,21 +466,21 @@ export default function Checkout() {
             </div>
 
             {/* GIFT CARD OR PROMO CODE SECTION */}
-            <div className="mt-5 pt-5 border-t border-slate-100 text-left relative z-10">
-              <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1.5 font-sans">
-                Promo Code
-              </label>
-              <div className="flex items-center bg-slate-50 border border-slate-200/80 rounded-xl overflow-hidden focus-within:bg-white focus-within:border-[var(--primary)] focus-within:ring-2 focus-within:ring-[var(--primary)]/10 transition-all duration-200">
+            <div style={{marginTop:'1.25rem',paddingTop:'1.25rem',borderTop:'1.5px solid var(--gray2)',position:'relative',zIndex:10}}>
+              <label className="form-label">Promo Code</label>
+              <div style={{display:'flex',alignItems:'center',background:'var(--gray1)',border:'1.5px solid var(--gray2)',borderRadius:14,overflow:'hidden'}} className="focus-within:bg-white focus-within:border-[var(--primary)] focus-within:ring-2 focus-within:ring-[var(--primary)]/10 transition-all duration-200">
                 <input 
                   type="text" 
                   value={promoCode} 
                   onChange={(e) => setPromoCode(e.target.value)} 
                   placeholder="Enter code" 
-                  className="flex-1 min-w-0 bg-transparent px-4 py-2.5 text-xs font-bold text-slate-800 placeholder:text-slate-400/50 placeholder:font-normal placeholder:normal-case uppercase outline-none font-sans tracking-wide" 
+                  style={{flex:1,minWidth:0,background:'transparent',padding:'.6rem 1rem',fontSize:'.8rem',fontWeight:700,color:'var(--dark)',textTransform:'uppercase',outline:'none',letterSpacing:'.05em'}}
+                  className="placeholder:text-[var(--gray3)] placeholder:font-normal placeholder:normal-case"
                 />
                 <button 
                   onClick={handleApplyPromo} 
-                  className="mr-1.5 px-4 py-1.5 bg-slate-900 hover:bg-slate-800 text-white text-[10px] font-bold uppercase rounded-lg tracking-wider transition-colors flex-shrink-0"
+                  style={{margin:'0 .5rem',padding:'.4rem .9rem',background:'var(--dark)',color:'#fff',fontSize:'.72rem',fontWeight:700,textTransform:'uppercase',borderRadius:100,letterSpacing:'.08em',border:'none',cursor:'pointer',flexShrink:0}}
+                  className="hover:bg-[var(--primary)] transition-colors"
                 >
                   Apply
                 </button>
@@ -501,40 +497,46 @@ export default function Checkout() {
             </div>
 
             {/* Calculations Fields */}
-            <div className="space-y-3.5 text-sm font-semibold text-slate-500 mt-6 border-b border-slate-100 pb-5 mb-5 relative z-10">
-              <div className="flex justify-between items-center">
+            <div style={{display:'flex',flexDirection:'column',gap:'.75rem',fontSize:'.875rem',fontWeight:600,color:'var(--gray4)',marginTop:'1.5rem',borderBottom:'1.5px solid var(--gray2)',paddingBottom:'1.25rem',marginBottom:'1.25rem',position:'relative',zIndex:10}}>
+              <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
                 <span>Subtotal ({activeItems.reduce((sum, item) => sum + item.quantity, 0)} items)</span>
-                <span className="text-slate-800 font-bold">৳{subtotal.toLocaleString()}</span>
+                <span style={{color:'var(--dark)',fontWeight:700}}>৳{subtotal.toLocaleString()}</span>
               </div>
-              <div className="flex justify-between items-center">
+              <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
                 <span>Delivery Fee ({totalWeight}kg)</span>
-                <span className="text-slate-800 font-bold">৳{deliveryFee.toLocaleString()}</span>
+                <span style={{color:'var(--dark)',fontWeight:700}}>৳{deliveryFee.toLocaleString()}</span>
               </div>
               {appliedPromo && (
-                <div className="flex justify-between items-center text-[var(--green)]">
+                <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',color:'var(--green)'}}>
                   <span>Discount ({appliedPromo.code})</span>
-                  <span className="font-bold">- ৳{discountAmount.toLocaleString()}</span>
+                  <span style={{fontWeight:700}}>- ৳{discountAmount.toLocaleString()}</span>
                 </div>
               )}
             </div>
 
             {/* Invoicing Values */}
-            <div className="flex justify-between items-center mb-6 relative z-10">
-              <span className="font-bold text-slate-800 text-sm sm:text-base uppercase tracking-wider">Total</span>
-              <span className="font-black text-2xl text-slate-900">৳{total.toLocaleString()}</span>
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'1.5rem',position:'relative',zIndex:10}}>
+              <span style={{fontWeight:700,color:'var(--dark)',fontSize:'.9rem',textTransform:'uppercase',letterSpacing:'.08em'}}>Total</span>
+              <span style={{fontWeight:900,fontSize:'1.75rem',color:'var(--dark)'}}>৳{total.toLocaleString()}</span>
             </div>
             
             <button 
               onClick={handleConfirmOrder} 
               disabled={activeItems.length === 0}
-              className={`w-full py-5 text-center tracking-wider uppercase rounded-xl font-black text-sm sm:text-base flex items-center justify-center gap-2.5 transition-all duration-300 relative z-10 shadow-lg ${
-                activeItems.length === 0
-                  ? 'bg-slate-200 text-slate-400 cursor-not-allowed shadow-none'
-                  : 'bg-gradient-to-r from-[#e8540a] to-[#ff7a35] hover:from-[#d84a00] hover:to-[#ff6c20] text-white hover:scale-[1.02] active:scale-[0.98] cursor-pointer shadow-orange-500/10'
+              className={`btn-primary w-full relative z-10 ${
+                activeItems.length === 0 ? 'opacity-40 cursor-not-allowed' : ''
               }`}
+              style={{
+                justifyContent:'center',
+                fontSize:'.95rem',
+                padding:'1.1rem',
+                background: activeItems.length === 0 ? 'var(--gray2)' : 'linear-gradient(135deg,#E8540A,#FF7A35)',
+                color: activeItems.length === 0 ? 'var(--gray4)' : '#fff',
+                boxShadow: activeItems.length > 0 ? '0 8px 24px rgba(232,84,10,0.25)' : 'none'
+              }}
             >
               <span>Confirm Order</span>
-              <span className="text-lg font-bold">→</span>
+              <span style={{fontSize:'1.25rem',fontWeight:700}}>→</span>
             </button>
           </div>
         </div>
