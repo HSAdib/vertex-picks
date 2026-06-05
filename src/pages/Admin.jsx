@@ -2488,7 +2488,7 @@ Thank you for choosing Vertex Picks.`;
                             else if (o.status === 'Shipped' || o.status === 'Confirmed') statusClass = 'status-transit';
                             else if (o.status === 'Cancelled') statusClass = 'status-cancelled';
                             return (
-                              <tr key={o.id} className={activeDropdown === o.id ? 'relative z-[9999]' : 'relative z-10'}>
+                              <tr key={o.id} className="relative group hover:bg-gray-50 transition-colors">
                                 <td>
                                   <input 
                                     type="checkbox" 
@@ -2497,14 +2497,13 @@ Thank you for choosing Vertex Picks.`;
                                     onChange={() => toggleSelectOrder(o.id)}
                                   />
                                 </td>
-                                <td><span className="order-id">#{o.id.slice(-6).toUpperCase()}</span></td>
+                                <td><span className="order-id font-mono text-sm font-semibold">#{o.id.slice(-6).toUpperCase()}</span></td>
                                 <td>
-                                  <div style={{ fontWeight: 700, fontSize: '.83rem' }}>{o.deliveryName || 'Guest User'}</div>
-                                  <div style={{ fontSize: '.72rem', color: 'var(--gray4)' }}>{o.deliveryPhone}</div>
+                                  <div style={{ fontWeight: 700, fontSize: '.85rem', color: 'var(--dark)' }}>{o.deliveryName || 'Guest User'}</div>
+                                  <div style={{ fontSize: '.75rem', color: 'var(--gray4)' }}>{o.deliveryPhone}</div>
                                 </td>
-                                <td style={{ fontSize: '.8rem', maxWidth: 200 }}>{o.items?.map(i => `${i.name} × ${i.quantity}`).join(', ')}</td>
+                                <td style={{ fontSize: '.8rem', maxWidth: 200, color: 'var(--gray5)' }}>{o.items?.map(i => `${i.name} × ${i.quantity}`).join(', ')}</td>
                                 <td style={{ fontFamily: 'var(--ff-display)', fontWeight: 800, fontSize: '.95rem', color: 'var(--primary)' }}>৳{o.total}</td>
-                                <td style={{ fontSize: '.8rem', fontWeight: 600, color: 'var(--gray4)' }}>{orderDate}</td>
                                 <td>
                                   <span className={`order-status ${statusClass}`}>
                                     {o.status === 'Cancelled' ? '✕ Cancelled' :
@@ -2514,16 +2513,15 @@ Thank you for choosing Vertex Picks.`;
                                   </span>
                                 </td>
                                 <td className="relative overflow-visible">
-                                  <div className="at-actions">
-                                    <button onClick={() => { setSelectedOrder(o); setShowOrderDetailModal(true); }} className="at-action-btn" title="View details">👁️</button>
-                                    <button onClick={() => openStatusUpdate(o)} className="at-action-btn" title="Edit Status">✏️</button>
+                                  <div className="flex items-center justify-end gap-2">
+                                    <button onClick={() => { setSelectedOrder(o); setShowOrderDetailModal(true); }} className="p-1.5 hover:bg-gray-100 rounded-lg text-gray-500 transition-colors" title="View details">👁️</button>
+                                    <button onClick={() => openStatusUpdate(o)} className="p-1.5 hover:bg-gray-100 rounded-lg text-gray-500 transition-colors" title="Edit Status">✏️</button>
                                     <button
                                       onClick={(e) => {
                                         e.stopPropagation();
                                         setActiveDropdown(activeDropdown === o.id ? null : o.id);
                                       }}
-                                      className="order-action-btn"
-                                      style={activeDropdown === o.id ? {background:'var(--primary-pale)',borderColor:'rgba(232,84,10,0.3)',color:'var(--primary)'} : {}}
+                                      className={`p-1.5 rounded-lg transition-colors ${activeDropdown === o.id ? 'bg-primary/10 text-primary' : 'hover:bg-gray-100 text-gray-500'}`}
                                       title="More Actions"
                                     >
                                       ⋮
@@ -2533,16 +2531,13 @@ Thank you for choosing Vertex Picks.`;
                                   {activeDropdown === o.id && (
                                     <>
                                       <div 
-                                        className="fixed inset-0 z-40 bg-transparent"
+                                        className="fixed inset-0 z-[9998]"
                                         onClick={(e) => { e.stopPropagation(); setActiveDropdown(null); }}
                                       />
-                                      <div
-                                        className="fixed right-10 mt-12 w-48 bg-white z-[99999] overflow-hidden py-1 text-left"
-                                        style={{borderRadius:14,boxShadow:'var(--shadow-lg)',border:'1.5px solid var(--gray2)'}}
-                                      >
+                                      <div className="absolute right-0 top-full mt-2 w-48 bg-white rounded-xl shadow-2xl border border-gray-200 z-[9999] overflow-hidden py-1 text-left">
                                         <button
                                           onClick={(e) => { e.stopPropagation(); window.print(); setActiveDropdown(null); }}
-                                          className="nud-item"
+                                          className="w-full text-left px-4 py-2.5 text-[0.85rem] font-medium text-gray-700 hover:bg-gray-50 hover:text-primary transition-colors flex items-center gap-2"
                                         >
                                           🖨️ Print Receipt
                                         </button>
@@ -2550,12 +2545,24 @@ Thank you for choosing Vertex Picks.`;
                                         <button
                                           onClick={(e) => {
                                             e.stopPropagation();
-                                            window.open('https://maps.google.com/?q=' + encodeURIComponent(o.deliveryAddress || ''));
+                                            setSelectedOrder(o);
+                                            setShowOrderDetailModal(true); // Assuming Address edits can happen via the modal
                                             setActiveDropdown(null);
                                           }}
-                                          className="nud-item"
+                                          className="w-full text-left px-4 py-2.5 text-[0.85rem] font-medium text-gray-700 hover:bg-gray-50 hover:text-primary transition-colors flex items-center gap-2"
                                         >
-                                          📍 See Location
+                                          📍 Edit Address
+                                        </button>
+
+                                        <button
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            openStatusUpdate(o); // Tracking typically added during status updates
+                                            setActiveDropdown(null);
+                                          }}
+                                          className="w-full text-left px-4 py-2.5 text-[0.85rem] font-medium text-gray-700 hover:bg-gray-50 hover:text-primary transition-colors flex items-center gap-2"
+                                        >
+                                          📦 Add Tracking
                                         </button>
                                         
                                         {o.deliveryPhone && (
@@ -2564,10 +2571,9 @@ Thank you for choosing Vertex Picks.`;
                                             target="_blank"
                                             rel="noreferrer"
                                             onClick={(e) => { e.stopPropagation(); setActiveDropdown(null); }}
-                                            className="nud-item"
-                                            style={{color:'var(--green)'}}
+                                            className="w-full text-left px-4 py-2.5 text-[0.85rem] font-medium text-green-600 hover:bg-green-50 transition-colors flex items-center gap-2"
                                           >
-                                            💬 WhatsApp Order Msg
+                                            💬 WhatsApp Msg
                                           </a>
                                         )}
                                       </div>
