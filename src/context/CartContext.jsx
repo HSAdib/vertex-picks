@@ -20,7 +20,12 @@ export function CartProvider({ children }) {
     localStorage.setItem('vertex_cart', JSON.stringify(cart));
   }, [cart]);
 
-  const addToCart = (productId, quantityToAdd = 1) => {
+  const addToCart = (productId, quantityToAdd = 1, productData = null) => {
+    // B7: check stock if product data is provided
+    if (productData && productData.inStock === false) {
+      toast.error('Sorry, this item is out of stock!', { icon: '🚫' });
+      return;
+    }
     setCart((prevCart) => {
       const existingItem = prevCart.find(item => item.id === productId);
       if (existingItem) {
@@ -30,7 +35,8 @@ export function CartProvider({ children }) {
       }
       return [...prevCart, { id: productId, quantity: quantityToAdd, selected: true }];
     });
-    toast.success('Item added to Cart!', { 
+    // B18: toast here only — callers (ProductInfo, ProductDetail) should NOT show their own toast
+    toast.success('Added to cart!', { 
       icon: '🛒',
       style: {
         borderRadius: '10px',
@@ -49,7 +55,11 @@ export function CartProvider({ children }) {
   };
 
   const updateQuantity = (productId, newQuantity) => {
-    if (newQuantity < 1) return; 
+    // B20: remove item when quantity reaches 0
+    if (newQuantity < 1) {
+      setCart((prevCart) => prevCart.filter(item => item.id !== productId));
+      return;
+    }
     setCart((prevCart) => prevCart.map(item => item.id === productId ? { ...item, quantity: newQuantity } : item));
   };
 
@@ -61,10 +71,12 @@ export function CartProvider({ children }) {
   // Clear the cart
   const clearCart = () => setCart([]);
 
-  // Auto-clear cart on logout
+  // Auto-clear cart only on sign-out (not on initial load for guests)
   useEffect(() => {
+    let previousUser = auth.currentUser;
     const unsubscribe = onAuthStateChanged(auth, (user) => {
-      if (!user) clearCart();
+      if (!user && previousUser) clearCart(); // only fires when transitioning from logged-in → logged-out
+      previousUser = user;
     });
     return () => unsubscribe();
   }, []);

@@ -98,11 +98,25 @@ export default function ProductTabs({ product, onReviewSubmit, isSubmitting }) {
             </div>
             <div className="rs-count" id="rs-count">Based on {product.reviews} reviews</div>
             <div className="rs-bars">
-              <div className="rs-bar-row"><span className="rs-bar-label">5★</span><div className="rs-bar-track"><div className="rs-bar-fill" style={{width:'84%'}}></div></div><span className="rs-bar-count">107</span></div>
-              <div className="rs-bar-row"><span className="rs-bar-label">4★</span><div className="rs-bar-track"><div className="rs-bar-fill" style={{width:'12%'}}></div></div><span className="rs-bar-count">15</span></div>
-              <div className="rs-bar-row"><span className="rs-bar-label">3★</span><div className="rs-bar-track"><div className="rs-bar-fill" style={{width:'3%'}}></div></div><span className="rs-bar-count">4</span></div>
-              <div className="rs-bar-row"><span className="rs-bar-label">2★</span><div className="rs-bar-track"><div className="rs-bar-fill" style={{width:'1%'}}></div></div><span className="rs-bar-count">1</span></div>
-              <div className="rs-bar-row"><span className="rs-bar-label">1★</span><div className="rs-bar-track"><div className="rs-bar-fill" style={{width:'0%'}}></div></div><span className="rs-bar-count">0</span></div>
+              {/* B21 fix: compute from real data */}
+              {[5, 4, 3, 2, 1].map(star => {
+                // prefer admin-set breakdown, fallback to counting reviewsList
+                const breakdown = product.stats?.ratingBreakdown;
+                const count = breakdown
+                  ? (breakdown[star] || 0)
+                  : reviews.filter(r => r.rating === star).length;
+                const total = breakdown
+                  ? Object.values(breakdown).reduce((s, v) => s + v, 0)
+                  : reviews.length;
+                const pct = total > 0 ? Math.round((count / total) * 100) : 0;
+                return (
+                  <div key={star} className="rs-bar-row">
+                    <span className="rs-bar-label">{star}★</span>
+                    <div className="rs-bar-track"><div className="rs-bar-fill" style={{ width: `${pct}%` }} /></div>
+                    <span className="rs-bar-count">{count}</span>
+                  </div>
+                );
+              })}
             </div>
           </div>
           <div>

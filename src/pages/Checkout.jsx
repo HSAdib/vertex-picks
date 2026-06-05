@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { collection, getDocs, addDoc, doc, getDoc, setDoc, arrayUnion } from 'firebase/firestore';
 import { db, auth } from '../firebaseConfig'; 
+import { onAuthStateChanged } from 'firebase/auth';
 import { useCart } from '../context/CartContext';
 import { useNavigate, Link } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
@@ -31,10 +32,10 @@ export default function Checkout() {
   const [highlightDelivery, setHighlightDelivery] = useState(false);
   const [phoneError, setPhoneError] = useState(false);
   const [locating, setLocating] = useState(false);
-  const [storeConfig, setStoreConfig] = useState({ baseDeliveryFee: 110, perKgFee: 21 });
+  const [storeConfig, setStoreConfig] = useState({ baseDeliveryFee: 110, perKgFee: 21, freeDeliveryMin: 1500 });
 
   useEffect(() => {
-    const fetchCheckoutData = async () => {
+    const fetchCheckoutData = async (currentUser) => {
       try {
         const productSnap = await getDocs(collection(db, 'mangoes'));
         setLiveProducts(productSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
@@ -46,16 +47,17 @@ export default function Checkout() {
         if (configSnap.exists()) {
           setStoreConfig({
             baseDeliveryFee: configSnap.data().baseDeliveryFee ?? 110,
-            perKgFee: configSnap.data().perKgFee ?? 21
+            perKgFee: configSnap.data().perKgFee ?? 21,
+            freeDeliveryMin: configSnap.data().freeDeliveryMin ?? 1500,
           });
         }
         
-        // Load User profile or local storage saved guest profiles
-        if (auth.currentUser) {
-          const userDoc = await getDoc(doc(db, 'users', auth.currentUser.uid));
+        // B8 fix: use the resolved currentUser from onAuthStateChanged
+        if (currentUser) {
+          const userDoc = await getDoc(doc(db, 'users', currentUser.uid));
           if (userDoc.exists()) {
             const data = userDoc.data();
-            setCustomerName(data.name || auth.currentUser.displayName || '');
+            setCustomerName(data.name || currentUser.displayName || '');
             
             if (data.addresses && data.addresses.length > 0) {
               setSavedAddresses(data.addresses);
@@ -70,7 +72,7 @@ export default function Checkout() {
               setDeliveryCoords(null);
             }
           } else {
-            setCustomerName(auth.currentUser.displayName || '');
+            setCustomerName(currentUser.displayName || '');
           }
         } else {
           const guestAddrs = JSON.parse(localStorage.getItem('vertex_guest_addresses') || '[]');
@@ -89,7 +91,11 @@ export default function Checkout() {
         setLoading(false);
       }
     };
-    fetchCheckoutData();
+    // B8 fix: use onAuthStateChanged so auth resolves before loading profile
+    const unsubscribeAuth = onAuthStateChanged(auth, (currentUser) => {
+      fetchCheckoutData(currentUser);
+    });
+    return () => unsubscribeAuth();
   }, []);
 
   const handleAddressSelect = (addrId) => {
@@ -126,25 +132,61 @@ export default function Checkout() {
   }, 0);
 
   const totalWeight = activeItems.reduce((sum, item) => sum + (item.weight * item.quantity), 0);
-  const deliveryFee = totalWeight > 0 ? storeConfig.baseDeliveryFee + ((totalWeight - 1) * storeConfig.perKgFee) : 0;
+  // B6 fix: apply free delivery threshold
+  const rawDeliveryFee = totalWeight > 0 ? storeConfig.baseDeliveryFee + ((totalWeight - 1) * storeConfig.perKgFee) : 0;
+  const deliveryFee = subtotal >= storeConfig.freeDeliveryMin ? 0 : rawDeliveryFee;
 
+  // B5 fix: support both flat and percentage discounts
   let discountAmount = 0;
-  if (appliedPromo) discountAmount = Math.round(subtotal * (appliedPromo.discountPercent / 100));
+  if (appliedPromo) {
+    if (appliedPromo.discountType === 'flat') {
+      discountAmount = appliedPromo.discountValue || 0;
+    } else {
+      discountAmount = Math.round(subtotal * ((appliedPromo.discountPercent || appliedPromo.discountValue || 0) / 100));
+    }
+  }
 
   const total = Math.max(0, subtotal + deliveryFee - discountAmount);
 
   const handleApplyPromo = () => {
     const codeEntered = promoCode.trim().toUpperCase();
     const foundPromo = livePromos.find(p => p.code === codeEntered);
-    if (foundPromo) {
-      setAppliedPromo(foundPromo);
-      setPromoMessage({ text: `${foundPromo.discountPercent}% VIP Discount Applied!`, type: 'success' });
-      toast.success("Promo code applied successfully!");
-    } else {
+    if (!foundPromo) {
       setAppliedPromo(null);
       setPromoMessage({ text: 'Invalid or expired code.', type: 'error' });
-      toast.error("Invalid coupon code");
+      toast.error('Invalid coupon code');
+      return;
     }
+    // B5 fix: check expiry
+    if (foundPromo.expiresAt) {
+      const expiry = foundPromo.expiresAt.toDate ? foundPromo.expiresAt.toDate() : new Date(foundPromo.expiresAt);
+      if (expiry < new Date()) {
+        setAppliedPromo(null);
+        setPromoMessage({ text: 'This coupon has expired.', type: 'error' });
+        toast.error('Coupon has expired');
+        return;
+      }
+    }
+    // B5 fix: check usage limit
+    if (foundPromo.usageLimit && (foundPromo.usedCount || 0) >= foundPromo.usageLimit) {
+      setAppliedPromo(null);
+      setPromoMessage({ text: 'This coupon has reached its usage limit.', type: 'error' });
+      toast.error('Coupon usage limit reached');
+      return;
+    }
+    // B5 fix: check minimum order amount
+    if (foundPromo.minOrderAmount && subtotal < foundPromo.minOrderAmount) {
+      setAppliedPromo(null);
+      setPromoMessage({ text: `Min. order of ৳${foundPromo.minOrderAmount} required.`, type: 'error' });
+      toast.error(`Min. order ৳${foundPromo.minOrderAmount} required`);
+      return;
+    }
+    setAppliedPromo(foundPromo);
+    const label = foundPromo.discountType === 'flat'
+      ? `৳${foundPromo.discountValue} OFF Applied!`
+      : `${foundPromo.discountPercent || foundPromo.discountValue}% Discount Applied!`;
+    setPromoMessage({ text: label, type: 'success' });
+    toast.success('Promo code applied!');
   };
 
   const handleConfirmOrder = async () => {
@@ -205,9 +247,14 @@ export default function Checkout() {
             addresses: arrayUnion(newAddrObj)
           }, { merge: true });
         } else {
-          const guestAddresses = JSON.parse(localStorage.getItem('guest_addresses') || '[]');
-          guestAddresses.push(newAddrObj);
-          localStorage.setItem('vertex_guest_addresses', JSON.stringify(guestAddresses));
+          // B3 fix: use consistent 'vertex_guest_addresses' key
+          // B10 fix: deduplicate before saving
+          const guestAddresses = JSON.parse(localStorage.getItem('vertex_guest_addresses') || '[]');
+          const alreadyExists = guestAddresses.some(a => a.address === newAddrObj.address && a.phone === newAddrObj.phone);
+          if (!alreadyExists) {
+            guestAddresses.push(newAddrObj);
+            localStorage.setItem('vertex_guest_addresses', JSON.stringify(guestAddresses));
+          }
         }
       }
 
@@ -271,7 +318,7 @@ export default function Checkout() {
               
               <div className="space-y-4">
                 {cartItemsWithPrice.map(item => (
-                  <div className="flex items-center gap-4 p-4 rounded-2xl border transition-all duration-300"
+                  <div key={item.id} className="flex items-center gap-4 p-4 rounded-2xl border transition-all duration-300"
                     style={{
                       border:'1.5px solid var(--gray2)',
                       background:'#fff',

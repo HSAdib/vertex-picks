@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react';
-import { signOut, updateProfile } from 'firebase/auth';
+import { signOut, updateProfile, sendPasswordResetEmail } from 'firebase/auth';
 import { doc, getDoc, setDoc, collection, query, where, getDocs, updateDoc } from 'firebase/firestore';
 import { auth, db } from '../firebaseConfig';
 import { useAuth } from '../context/AuthContext';
-import { Navigate, Link, useNavigate } from 'react-router-dom';
+import { Navigate, Link, useNavigate, useLocation } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
 import { isValidBDPhoneNumber } from '../utils/phoneValidation';
 import { fetchCurrentLocation } from '../utils/geolocation';
@@ -51,7 +51,9 @@ export default function Profile() {
   const { user, isAdmin, authLoading } = useAuth();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState('overview');
+  const location = useLocation();
+  const urlTab = new URLSearchParams(location.search).get('tab');
+  const [activeTab, setActiveTab] = useState(urlTab || 'overview');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   const [name, setName] = useState('');
@@ -679,18 +681,39 @@ export default function Profile() {
           {/* ── SECURITY ── */}
           {activeTab === 'security' && (
             <div className="dash-tab active">
-              <div className="dash-header"><div className="dash-title">🔒 Security</div><div className="dash-subtitle">Update your password and security settings</div></div>
-              <div className="dash-card">
-                <form className="profile-form" onSubmit={e => { e.preventDefault(); toast.success('Password updated successfully!'); }}>
-                  <div className="profile-grid">
-                    <div><label className="form-label">Current Password</label><input type="password" className="form-input" placeholder="••••••••" required /></div>
-                    <div><label className="form-label">New Password</label><input type="password" className="form-input" placeholder="Min. 8 characters" required /></div>
-                    <div className="profile-full"><label className="form-label">Confirm New Password</label><input type="password" className="form-input" placeholder="••••••••" style={{ maxWidth: 380 }} required /></div>
+              <div className="dash-header"><div className="dash-title">🔒 Security</div><div className="dash-subtitle">Manage your password and account security</div></div>
+              <div className="dash-card" style={{ padding: '2rem' }}>
+                <div style={{ maxWidth: 440 }}>
+                  <h3 style={{ fontFamily: 'var(--ff-display)', fontSize: '1rem', fontWeight: 800, color: 'var(--dark)', marginBottom: '.5rem' }}>Password Reset</h3>
+                  <p style={{ fontSize: '.82rem', color: 'var(--gray4)', lineHeight: 1.65, marginBottom: '1.5rem' }}>
+                    We'll send a secure password reset link to <strong>{user.email}</strong>. Click the link in your email to set a new password.
+                  </p>
+                  <button
+                    className="btn-primary"
+                    style={{ borderRadius: 'var(--radius-sm)' }}
+                    onClick={async () => {
+                      try {
+                        await sendPasswordResetEmail(auth, user.email);
+                        toast.success('Password reset email sent! Check your inbox.');
+                      } catch (err) {
+                        console.error(err);
+                        toast.error('Failed to send reset email. Try again.');
+                      }
+                    }}
+                  >
+                    📧 Send Password Reset Email
+                  </button>
+                  <div style={{ marginTop: '2rem', paddingTop: '1.5rem', borderTop: '1px solid var(--gray2)' }}>
+                    <h4 style={{ fontSize: '.82rem', fontWeight: 700, color: 'var(--dark)', marginBottom: '.75rem' }}>🛡️ Active Sessions</h4>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '.75rem 1rem', background: 'var(--gray1)', borderRadius: 10, border: '1.5px solid var(--gray2)', fontSize: '.8rem' }}>
+                      <div>
+                        <div style={{ fontWeight: 700, color: 'var(--dark)' }}>Current Device</div>
+                        <div style={{ color: 'var(--gray4)', marginTop: 2 }}>Last active: just now</div>
+                      </div>
+                      <span style={{ fontSize: '.7rem', fontWeight: 700, padding: '.25rem .6rem', borderRadius: 100, background: '#DCFCE7', color: 'var(--green)' }}>Active</span>
+                    </div>
                   </div>
-                  <div className="form-save-row">
-                    <button type="submit" className="btn-primary" style={{ borderRadius: 'var(--radius-sm)' }}>Update Password</button>
-                  </div>
-                </form>
+                </div>
               </div>
             </div>
           )}

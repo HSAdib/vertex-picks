@@ -1,10 +1,18 @@
 import React, { useState } from 'react';
+import { useCart } from '../../context/CartContext';
+import { useNavigate } from 'react-router-dom';
+import { collection, getDocs } from 'firebase/firestore';
+import { db } from '../../firebaseConfig';
+import { toast } from 'react-hot-toast';
 
 export default function ProductInfo({ product, qty, setQty }) {
+  const { addToCart } = useCart();
+  const navigate = useNavigate();
   const [activePackIndex, setActivePackIndex] = useState(0);
   const [coupon, setCoupon] = useState('');
-  const [couponSuccess, setCouponSuccess] = useState(false);
+  const [couponResult, setCouponResult] = useState(null); // { success, message, discount }
   const [isAdded, setIsAdded] = useState(false);
+  const [applyingCoupon, setApplyingCoupon] = useState(false);
 
   const packs = product.packs || [
     { name: '1 Dozen', price: product.price },
@@ -12,17 +20,72 @@ export default function ProductInfo({ product, qty, setQty }) {
     { name: '2 Kg', price: Math.round(product.price * 0.38) }
   ];
 
+  const selectedPrice = packs[activePackIndex].price;
+
+  // B2 fix: actually add the product to cart
   const handleAddToCart = () => {
     if (!product.inStock) return;
+    addToCart(product.id, qty);
     setIsAdded(true);
     setTimeout(() => setIsAdded(false), 2000);
-    // showToast equivalent can be implemented
   };
 
-  const applyCoupon = () => {
-    if (coupon.trim()) {
-      setCouponSuccess(true);
+  // B17 fix: Buy Now → add to cart + navigate
+  const handleBuyNow = () => {
+    if (!product.inStock) return;
+    addToCart(product.id, qty);
+    navigate('/checkout');
+  };
+
+  // B16 fix: wire coupon to real Firestore promo-codes
+  const applyCoupon = async () => {
+    const code = coupon.trim().toUpperCase();
+    if (!code) return;
+    setApplyingCoupon(true);
+    setCouponResult(null);
+    try {
+      const snap = await getDocs(collection(db, 'promoCodes'));
+      const promo = snap.docs.map(d => ({ id: d.id, ...d.data() })).find(p => p.code === code);
+      if (!promo) {
+        setCouponResult({ success: false, message: 'Invalid coupon code.' });
+        setApplyingCoupon(false);
+        return;
+      }
+      // Check expiry
+      if (promo.expiresAt) {
+        const expiry = promo.expiresAt.toDate ? promo.expiresAt.toDate() : new Date(promo.expiresAt);
+        if (expiry < new Date()) {
+          setCouponResult({ success: false, message: 'This coupon has expired.' });
+          setApplyingCoupon(false);
+          return;
+        }
+      }
+      // Check usage limit
+      if (promo.usageLimit && (promo.usedCount || 0) >= promo.usageLimit) {
+        setCouponResult({ success: false, message: 'This coupon has reached its usage limit.' });
+        setApplyingCoupon(false);
+        return;
+      }
+      // Check minimum order
+      const orderValue = selectedPrice * qty;
+      if (promo.minOrderAmount && orderValue < promo.minOrderAmount) {
+        setCouponResult({ success: false, message: `Minimum order of ৳${promo.minOrderAmount} required.` });
+        setApplyingCoupon(false);
+        return;
+      }
+      // Calculate discount
+      let discount = 0;
+      if (promo.discountType === 'flat') {
+        discount = promo.discountValue || 0;
+      } else {
+        discount = Math.round(orderValue * ((promo.discountValue || promo.discount || 0) / 100));
+      }
+      setCouponResult({ success: true, message: `✅ ${promo.code} applied! ৳${discount} off.`, discount });
+    } catch (err) {
+      console.error('Coupon check failed:', err);
+      toast.error('Could not verify coupon. Try again.');
     }
+    setApplyingCoupon(false);
   };
 
   return (
@@ -112,7 +175,7 @@ export default function ProductInfo({ product, qty, setQty }) {
         >
           {product.inStock ? '🛒 Add to Cart' : 'Out of Stock'}
         </button>
-        <button className="pdp-buy-now" onClick={() => alert('Redirecting to checkout...')}>
+        <button className="pdp-buy-now" onClick={handleBuyNow} disabled={!product.inStock}>
           ⚡ Buy Now
         </button>
       </div>
@@ -141,11 +204,17 @@ export default function ProductInfo({ product, qty, setQty }) {
           value={coupon}
           onChange={(e) => setCoupon(e.target.value)}
         />
-        <button className="pdp-coupon-btn" onClick={applyCoupon}>Apply</button>
+        <button className="pdp-coupon-btn" onClick={applyCoupon} disabled={applyingCoupon}>
+          {applyingCoupon ? '…' : 'Apply'}
+        </button>
       </div>
-      {couponSuccess && (
-        <div className="pdp-coupon-success" id="pdpCouponSuccess" style={{ display: 'block' }}>
-          ✅ Coupon applied! ৳100 off.
+      {couponResult && (
+        <div
+          className="pdp-coupon-success"
+          id="pdpCouponSuccess"
+          style={{ display: 'block', color: couponResult.success ? 'var(--green)' : 'var(--red)', background: couponResult.success ? '#DCFCE7' : 'var(--red-pale)', border: `1px solid ${couponResult.success ? '#BBF7D0' : 'rgba(220,38,38,0.2)'}` }}
+        >
+          {couponResult.message}
         </div>
       )}
 

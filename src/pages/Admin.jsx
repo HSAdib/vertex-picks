@@ -2500,7 +2500,12 @@ Thank you for choosing Vertex Picks.`;
                                 <td><span className="order-id">#{o.id.slice(-6).toUpperCase()}</span></td>
                                 <td>
                                   <div style={{ fontWeight: 700, fontSize: '.83rem' }}>{o.deliveryName || 'Guest User'}</div>
-                                  <div style={{ fontSize: '.72rem', color: 'var(--g                                <td>
+                                  <div style={{ fontSize: '.72rem', color: 'var(--gray4)' }}>{o.deliveryPhone}</div>
+                                </td>
+                                <td style={{ fontSize: '.8rem', maxWidth: 200 }}>{o.items?.map(i => `${i.name} × ${i.quantity}`).join(', ')}</td>
+                                <td style={{ fontFamily: 'var(--ff-display)', fontWeight: 800, fontSize: '.95rem', color: 'var(--primary)' }}>৳{o.total}</td>
+                                <td style={{ fontSize: '.8rem', fontWeight: 600, color: 'var(--gray4)' }}>{orderDate}</td>
+                                <td>
                                   <span className={`order-status ${statusClass}`}>
                                     {o.status === 'Cancelled' ? '✕ Cancelled' :
                                      o.status === 'Delivered' ? '✅ Delivered' :
@@ -2536,11 +2541,7 @@ Thank you for choosing Vertex Picks.`;
                                         style={{borderRadius:14,boxShadow:'var(--shadow-lg)',border:'1.5px solid var(--gray2)'}}
                                       >
                                         <button
-                                          onClick={(e) => {
-                                            e.stopPropagation();
-                                            window.print();
-                                            setActiveDropdown(null);
-                                          }}
+                                          onClick={(e) => { e.stopPropagation(); window.print(); setActiveDropdown(null); }}
                                           className="nud-item"
                                         >
                                           🖨️ Print Receipt
@@ -2549,8 +2550,7 @@ Thank you for choosing Vertex Picks.`;
                                         <button
                                           onClick={(e) => {
                                             e.stopPropagation();
-                                            const address = o.deliveryAddress || '';
-                                            window.open('https://maps.google.com/?q=' + encodeURIComponent(address));
+                                            window.open('https://maps.google.com/?q=' + encodeURIComponent(o.deliveryAddress || ''));
                                             setActiveDropdown(null);
                                           }}
                                           className="nud-item"
@@ -2566,15 +2566,6 @@ Thank you for choosing Vertex Picks.`;
                                             onClick={(e) => { e.stopPropagation(); setActiveDropdown(null); }}
                                             className="nud-item"
                                             style={{color:'var(--green)'}}
-                                          >
-                                            💬 WhatsApp Order Msg
-                                          </a>
-                                        )}
-                                      </div>
-                                    </>
-                                  )}
-                                </td>
-py-2 hover:bg-gray-50 text-gray-700 font-bold text-xs uppercase tracking-wide transition-colors flex items-center gap-2 bg-transparent cursor-pointer block no-underline"
                                           >
                                             💬 WhatsApp Order Msg
                                           </a>

@@ -318,10 +318,12 @@ export default function OrdersTab() {
         createdAt: new Date(),
       });
       setShowManualModal(false);
-      setMName(''); setMPhone(''); setMItem(''); setMCharged('');  useEffect(() => {
-    Promise.resolve().then(() => fetchOrders());
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+      setMName(''); setMPhone(''); setMItem(''); setMCharged('');
+      toast.success('Offline sale recorded!');
+    } catch {
+      toast.error('Failed to save offline sale.');
+    }
+  };
 
   /*
    * Close dropdown on any click outside it.
@@ -331,10 +333,7 @@ export default function OrdersTab() {
     const handler = () => setActiveDropdown(null);
     document.addEventListener('click', handler);
     return () => document.removeEventListener('click', handler);
-  }, [activeDropdown]); } catch {
-      toast.error('Failed to save offline sale.');
-    }
-  };
+  }, [activeDropdown]);
 
   /* ─────────────────────────────────────────
      FILTERED / DISPLAYED LIST

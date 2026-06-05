@@ -116,7 +116,7 @@ export default function Navbar() {
         {/* Nav actions */}
         <div className="nav-actions">
           {/* Wishlist */}
-          <Link to="/profile" className="nav-icon-btn" title="Wishlist">
+          <Link to="/profile?tab=wishlist" className="nav-icon-btn" title="Wishlist">
             ❤️
           </Link>
 
@@ -160,10 +160,10 @@ export default function Navbar() {
                   style={{ display: 'block', position: 'absolute', top: '100%', right: 0, border: 'none', background: 'transparent', boxShadow: 'none', overflow: 'visible' }}
                 >
                   <div className="bg-white border border-gray2 rounded-brand shadow-lg min-w-[180px] overflow-hidden">
-                    <Link to="/profile" className="nud-item" onClick={() => setIsDropdownOpen(false)}>👤 My Account</Link>
-                    <Link to="/profile" className="nud-item" onClick={() => setIsDropdownOpen(false)}>📦 My Orders</Link>
-                    <Link to="/profile" className="nud-item" onClick={() => setIsDropdownOpen(false)}>❤️ Wishlist</Link>
-                    <Link to="/profile" className="nud-item" onClick={() => setIsDropdownOpen(false)}>👛 Wallet & Points</Link>
+                    <Link to="/profile?tab=account" className="nud-item" onClick={() => setIsDropdownOpen(false)}>👤 My Account</Link>
+                    <Link to="/profile?tab=orders" className="nud-item" onClick={() => setIsDropdownOpen(false)}>📦 My Orders</Link>
+                    <Link to="/profile?tab=wishlist" className="nud-item" onClick={() => setIsDropdownOpen(false)}>❤️ Wishlist</Link>
+                    <Link to="/profile?tab=wallet" className="nud-item" onClick={() => setIsDropdownOpen(false)}>👛 Wallet & Points</Link>
                     <div className="nud-divider"></div>
                     <button 
                       onClick={() => { setIsDropdownOpen(false); signOut(auth); }} 
@@ -247,7 +247,7 @@ export default function Navbar() {
               
               {/* Wishlist and Cart Links */}
               <Link 
-                to="/profile" 
+                to="/profile?tab=wishlist" 
                 onClick={() => setIsMobileMenuOpen(false)} 
                 className="font-semibold text-sm text-gray4 hover:text-primary flex items-center gap-2"
               >

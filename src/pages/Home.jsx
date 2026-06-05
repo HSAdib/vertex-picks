@@ -241,12 +241,12 @@ export default function Home() {
       <div className="cat-section">
         <div className="cat-scroll">
           <div className="cat-pill active" onClick={() => navigate('/shop')}>🥭 All Varieties</div>
-          <div className="cat-pill" onClick={() => navigate('/shop')}>✨ Himsagar</div>
-          <div className="cat-pill" onClick={() => navigate('/shop')}>💚 Langra</div>
-          <div className="cat-pill" onClick={() => navigate('/shop')}>🟠 Fazli</div>
-          <div className="cat-pill" onClick={() => navigate('/shop')}>⭐ Gopalbhog</div>
-          <div className="cat-pill" onClick={() => navigate('/shop')}>🌸 Amrapali</div>
-          <div className="cat-pill" onClick={() => navigate('/shop')}>🎁 Gift Boxes</div>
+          <div className="cat-pill" onClick={() => navigate('/shop?category=Himsagar')}>✨ Himsagar</div>
+          <div className="cat-pill" onClick={() => navigate('/shop?category=Langra')}>💚 Langra</div>
+          <div className="cat-pill" onClick={() => navigate('/shop?category=Fazli')}>🟠 Fazli</div>
+          <div className="cat-pill" onClick={() => navigate('/shop?category=Gopalbhog')}>⭐ Gopalbhog</div>
+          <div className="cat-pill" onClick={() => navigate('/shop?category=Amrapali')}>🌸 Amrapali</div>
+          <div className="cat-pill" onClick={() => navigate('/shop?category=Gift')}>🎁 Gift Boxes</div>
         </div>
       </div>
 
@@ -284,7 +284,7 @@ export default function Home() {
             </div>
           ) : (
             featuredProducts.map(p => (
-              <div key={p.id} className="product-card" onClick={() => navigate('/shop')}>
+              <div key={p.id} className="product-card" onClick={() => navigate(`/product/${p.id}`)}>
                 {p.discountPrice && (
                   <div className="tag-strip">
                     <span className="badge badge-orange">Sale</span>
@@ -308,7 +308,7 @@ export default function Home() {
                       ৳{(p.discountPrice || p.price).toLocaleString()} <span className="unit">/ {p.fixedWeight || 1}kg box</span>
                       {p.discountPrice && <span className="old">৳{p.price}</span>}
                     </div>
-                    <button className="pc-add" onClick={(e) => { e.stopPropagation(); navigate('/shop'); }}>+</button>
+                    <button className="pc-add" onClick={(e) => { e.stopPropagation(); navigate(`/product/${p.id}`); }}>+</button>
                   </div>
                 </div>
               </div>
@@ -459,10 +459,7 @@ export default function Home() {
           <div className="footer-col">
             <h5>Company</h5>
             <ul>
-              <li><Link to="/">About Us</Link></li>
-              <li><Link to="/">How It Works</Link></li>
-              <li><Link to="/">Blog</Link></li>
-              <li><Link to="/">Reviews</Link></li>
+              <li><Link to="/shop">How It Works</Link></li>
             </ul>
           </div>
           <div className="footer-col">

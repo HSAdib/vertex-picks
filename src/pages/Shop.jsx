@@ -12,6 +12,7 @@ export default function Shop() {
   const queryParams = new URLSearchParams(location.search);
   const tabId = queryParams.get('tabId');
   const urlSearch = queryParams.get('search');
+  const urlCategory = queryParams.get('category');
 
   const [searchQuery, setSearchQuery] = useState(urlSearch || '');
   const [prevUrlSearch, setPrevUrlSearch] = useState(urlSearch);
@@ -20,7 +21,7 @@ export default function Shop() {
   const [loading, setLoading] = useState(true);
   const [quantities, setQuantities] = useState({});
 
-  const [selectedVarieties, setSelectedVarieties] = useState([]);
+  const [selectedVarieties, setSelectedVarieties] = useState(urlCategory ? [urlCategory] : []);
   const [minPrice, setMinPrice] = useState(0);
   const [maxPrice, setMaxPrice] = useState(2000);
   const [selectedWeights, setSelectedWeights] = useState([]);
@@ -39,10 +40,13 @@ export default function Shop() {
     } catch { return []; }
   });
 
-  if (urlSearch !== prevUrlSearch) {
-    setPrevUrlSearch(urlSearch);
-    setSearchQuery(urlSearch || '');
-  }
+  // B11 fix: sync URL search param changes via useEffect, not during render
+  useEffect(() => {
+    if (urlSearch !== prevUrlSearch) {
+      setPrevUrlSearch(urlSearch);
+      setSearchQuery(urlSearch || '');
+    }
+  }, [urlSearch, prevUrlSearch]);
 
   const { addToCart, cart } = useCart();
   const { isAdmin } = useAuth();
