@@ -7,6 +7,7 @@ import { Navigate, Link, useNavigate, useLocation } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
 import { isValidBDPhoneNumber } from '../utils/phoneValidation';
 import { fetchCurrentLocation } from '../utils/geolocation';
+import { useWishlist } from '../hooks/useWishlist';
 
 const ORDER_STEPS = ['Pending', 'Confirmed', 'Shipped', 'Delivered'];
 
@@ -81,7 +82,7 @@ export default function Profile() {
 
   const [confirmModal, setConfirmModal] = useState({ isOpen: false, title: '', message: '', action: null });
 
-  const [wishlist, setWishlist] = useState([]);
+  const { wishlist, toggleWishlist } = useWishlist();
   const [wishlistProducts, setWishlistProducts] = useState([]);
 
   useEffect(() => {
@@ -133,9 +134,7 @@ export default function Profile() {
 
   useEffect(() => {
     const fetchWishlist = async () => {
-      const saved = localStorage.getItem('vertex_wishlist');
-      const ids = saved ? JSON.parse(saved) : [];
-      setWishlist(ids);
+      const ids = wishlist;
       if (ids.length === 0) { setWishlistProducts([]); return; }
       try {
         const snap = await getDocs(collection(db, 'mangoes'));
@@ -144,7 +143,7 @@ export default function Profile() {
       } catch (err) { console.error('Wishlist load error:', err); }
     };
     if (activeTab === 'wishlist' || activeTab === 'overview') fetchWishlist();
-  }, [activeTab]);
+  }, [activeTab, wishlist]); // Added wishlist to dependencies so it refetches when toggled
 
   const handleSaveProfile = async (e) => {
     e.preventDefault();
@@ -438,7 +437,7 @@ export default function Profile() {
                   {myOrders.length === 0 ? (
                     <div style={{ padding: '3rem', textAlign: 'center', fontSize: '.85rem', color: 'var(--gray4)' }}>No orders yet. <Link to="/shop" style={{ color: 'var(--primary)', fontWeight: 700 }}>Shop Now →</Link></div>
                   ) : (
-                    <table className="orders-table">
+                    <table className="admin-table">
                       <thead><tr><th>Order ID</th><th>Items</th><th>Date</th><th>Amount</th><th>Status</th><th>Action</th></tr></thead>
                       <tbody>
                         {myOrders.slice(0, 3).map(order => (
@@ -492,7 +491,7 @@ export default function Profile() {
                   {filteredOrders.length === 0 ? (
                     <div style={{ padding: '3rem', textAlign: 'center', fontSize: '.85rem', color: 'var(--gray4)' }}>No matching orders found.</div>
                   ) : (
-                    <table className="orders-table">
+                    <table className="admin-table">
                       <thead><tr><th>Order ID</th><th>Items</th><th>Date</th><th>Amount</th><th>Status / Progress</th><th>Actions</th></tr></thead>
                       <tbody>
                         {filteredOrders.map(order => (
@@ -551,12 +550,7 @@ export default function Profile() {
                       const stars = Math.round(Number(mango.stats?.rating) || Number(mango.rating) || 5);
                       return (
                         <div key={mango.id} className="product-card">
-                          <button className="pc-wishlist" style={{ color: 'var(--primary)' }} onClick={() => {
-                            const updated = wishlist.filter(id => id !== mango.id);
-                            setWishlist(updated); setWishlistProducts(wishlistProducts.filter(p => p.id !== mango.id));
-                            localStorage.setItem('vertex_wishlist', JSON.stringify(updated));
-                            toast.success(`Removed from Wishlist!`, { icon: '💔' });
-                          }}>♥</button>
+                          <button className="pc-wishlist" style={{ color: 'var(--primary)' }} onClick={() => toggleWishlist(mango)}>♥</button>
                           <Link to={`/product/${mango.id}`}><div className="pc-img" style={{ background: 'var(--gray1)' }}>{img ? <img src={img} alt={mango.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <span style={{ fontSize: '3rem' }}>🥭</span>}</div></Link>
                           <div className="pc-body">
                             {mango.section && <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.08em', color: 'var(--primary)', marginBottom: 4 }}>{mango.section}</div>}

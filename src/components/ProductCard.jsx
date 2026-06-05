@@ -1,11 +1,13 @@
 import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
 import { Link, useNavigate } from 'react-router-dom';
+import { useWishlist } from '../hooks/useWishlist';
 
 export default function ProductCard({ product }) {
   const { addToCart, cart } = useCart();
   const { isAdmin } = useAuth();
   const navigate = useNavigate();
+  const { toggleWishlist, isInWishlist } = useWishlist();
 
   const isAdded = cart.some(item => item.id === product.id);
 
@@ -51,9 +53,10 @@ export default function ProductCard({ product }) {
       {/* Favorite Wishlist Icon Button */}
       <button 
         className="pc-wishlist" 
-        onClick={(e) => { e.preventDefault(); alert(`${product.name} added to your wishlist!`); }}
+        onClick={(e) => { e.preventDefault(); toggleWishlist(product); }}
+        style={{ color: isInWishlist(product.id) ? 'var(--primary)' : 'inherit' }}
       >
-        🤍
+        {isInWishlist(product.id) ? '♥' : '♡'}
       </button>
 
       {/* Primary Detail Navigation Link */}

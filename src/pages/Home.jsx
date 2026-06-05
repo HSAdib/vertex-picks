@@ -4,6 +4,7 @@ import { collection, getDocs, addDoc, doc, getDoc, query, where, orderBy, limit 
 import { Share2, Camera, Globe, MessageCircle } from 'lucide-react';
 import { db } from '../firebaseConfig';
 import { toast } from 'react-hot-toast';
+import { useWishlist } from '../hooks/useWishlist';
 
 export default function Home() {
   const navigate = useNavigate();
@@ -12,6 +13,7 @@ export default function Home() {
   const [emailVal, setEmailVal] = useState('');
   const [featuredProducts, setFeaturedProducts] = useState([]);
   const [featuredLoading, setFeaturedLoading] = useState(true);
+  const { toggleWishlist, isInWishlist } = useWishlist();
   
   const [reviews, setReviews] = useState([]);
   const [reviewsLoading, setReviewsLoading] = useState(true);
@@ -290,7 +292,13 @@ export default function Home() {
                     <span className="badge badge-orange">Sale</span>
                   </div>
                 )}
-                <button className="pc-wishlist" onClick={(e) => e.stopPropagation()}>♡</button>
+                <button 
+                  className="pc-wishlist" 
+                  onClick={(e) => { e.stopPropagation(); toggleWishlist(p); }}
+                  style={{ color: isInWishlist(p.id) ? 'var(--primary)' : 'inherit' }}
+                >
+                  {isInWishlist(p.id) ? '♥' : '♡'}
+                </button>
                 <div className="pc-img" style={{ background: 'linear-gradient(135deg,#FFF3C4,#FFE082)', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   {(p.images?.[0] || p.image)
                     ? <img src={p.images?.[0] || p.image} alt={p.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />

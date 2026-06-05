@@ -3,6 +3,7 @@ import { collection, getDocs, doc, getDoc } from 'firebase/firestore';
 import { db } from '../firebaseConfig';
 import { useAuth } from '../context/AuthContext';
 import { useCart } from '../context/CartContext';
+import { useWishlist } from '../hooks/useWishlist';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
 
@@ -33,12 +34,7 @@ export default function Shop() {
   const [viewMode, setViewMode] = useState('grid');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
-  const [wishlist, setWishlist] = useState(() => {
-    try {
-      const saved = localStorage.getItem('vertex_wishlist');
-      return saved ? JSON.parse(saved) : [];
-    } catch { return []; }
-  });
+  const { wishlist, toggleWishlist, isInWishlist } = useWishlist();
 
   // B11 fix: sync URL search param changes via useEffect, not during render
   useEffect(() => {
@@ -117,20 +113,7 @@ export default function Shop() {
     navigate('/admin');
   };
 
-  const toggleWishlist = (mango) => {
-    setWishlist(prev => {
-      let updated;
-      if (prev.includes(mango.id)) {
-        updated = prev.filter(id => id !== mango.id);
-        toast.success(`Removed ${mango.name} from Wishlist!`, { icon: '💔' });
-      } else {
-        updated = [...prev, mango.id];
-        toast.success(`Added ${mango.name} to Wishlist!`, { icon: '❤️' });
-      }
-      localStorage.setItem('vertex_wishlist', JSON.stringify(updated));
-      return updated;
-    });
-  };
+
 
   const getVarietyCount = (varietyName) =>
     mangoes.filter(m => {
@@ -452,7 +435,7 @@ export default function Shop() {
                 const displayPrice = mango.discountPrice || mango.price;
                 const oldPrice = mango.discountPrice ? mango.price : null;
                 const ratingStars = Math.round(Number(mango.stats?.rating) || Number(mango.rating) || 5);
-                const isLiked = wishlist.includes(mango.id);
+                const isLiked = isInWishlist(mango.id);
 
                 return (
                   <div key={mango.id} className="product-card" onClick={() => navigate(`/product/${mango.id}`)}>

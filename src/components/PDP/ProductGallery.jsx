@@ -1,16 +1,13 @@
 import React, { useState } from 'react';
+import { toast } from 'react-hot-toast';
+import { useWishlist } from '../../hooks/useWishlist';
 
 export default function ProductGallery({ product }) {
-  const [isWishlistActive, setIsWishlistActive] = useState(false);
+  const { toggleWishlist, isInWishlist } = useWishlist();
   const [activeImageIndex, setActiveImageIndex] = useState(0);
 
-  const toggleWishlist = () => {
-    setIsWishlistActive((prev) => !prev);
-  };
-
   const showToast = (msg) => {
-    // Basic toast function for mock
-    alert(msg);
+    toast.success(msg);
   };
 
   const thumbs = product.images || [];
@@ -45,11 +42,12 @@ export default function ProductGallery({ product }) {
           )}
         </div>
         <button
-          className={`pdp-wishlist-btn ${isWishlistActive ? 'active' : ''}`}
+          className="pdp-wishlist-btn"
           id="pdp-wishlist-btn"
-          onClick={toggleWishlist}
+          onClick={() => toggleWishlist(product)}
+          style={{ color: isInWishlist(product.id) ? 'var(--primary)' : 'inherit' }}
         >
-          ♡
+          {isInWishlist(product.id) ? '♥' : '♡'}
         </button>
       </div>
 
