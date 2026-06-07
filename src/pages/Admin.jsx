@@ -368,7 +368,9 @@ Thank you for choosing Vertex Picks.`;
         const cData = configSnap.data();
         setStoreConfig({
           baseDeliveryFee: cData.baseDeliveryFee ?? 110,
-          perKgFee: cData.perKgFee ?? 21
+          perKgFee: cData.perKgFee ?? 21,
+          automatedLeadEmail: cData.automatedLeadEmail || "আসসালামু আলাইকুম,\nVertex Picks-এর আর্লি অ্যাক্সেস লিস্টে যুক্ত হওয়ার জন্য আপনাকে ধন্যবাদ! আমাদের নতুন সিজনের প্রিমিয়াম রাজশাহীর আম যখনই স্টকে আসবে, আমরা সবার আগে আপনাকে জানাবো। \n\nযেকোনো প্রয়োজনে আমাদের সাথে যোগাযোগ করতে পারেন।\nধন্যবাদ,\nVertex Picks টিম",
+          automatedLeadWhatsapp: cData.automatedLeadWhatsapp || "আসসালামু আলাইকুম! Vertex Picks-এর আর্লি অ্যাক্সেস লিস্টে যুক্ত হওয়ার জন্য ধন্যবাদ 🥭 নতুন সিজনের আম স্টকে আসলে আমরা আপনাকে এখানেই জানিয়ে দিবো!"
         });
         setStoreName(cData.storeName || 'Vertex Picks');
         setContactEmail(cData.contactEmail || 'hello@vertexpicks.com');
@@ -794,6 +796,37 @@ Thank you for choosing Vertex Picks.`;
         toast.error('Failed to remove subscriber/lead.');
       }
     }
+  };
+
+  const handleSaveLeadTemplates = async (e) => {
+    e.preventDefault();
+    try {
+      const emailTemplate = e.target.elements.emailBody.value;
+      const whatsappTemplate = e.target.elements.whatsappBody.value;
+
+      await setDoc(doc(db, 'mangoes', 'STORE_SETTINGS'), {
+        automatedLeadEmail: emailTemplate,
+        automatedLeadWhatsapp: whatsappTemplate
+      }, { merge: true });
+
+      setStoreConfig(prev => ({
+        ...prev,
+        automatedLeadEmail: emailTemplate,
+        automatedLeadWhatsapp: whatsappTemplate
+      }));
+
+      toast.success('Automated reply templates saved!');
+    } catch (err) {
+      console.error(err);
+      toast.error('Failed to save templates.');
+    }
+  };
+
+  const formatLeadPhone = (phone) => {
+    let cleanPhone = phone.replace(/[^0-9]/g, '');
+    if (cleanPhone.startsWith('0')) cleanPhone = '88' + cleanPhone;
+    else if (!cleanPhone.startsWith('88') && cleanPhone.length === 10) cleanPhone = '880' + cleanPhone;
+    return cleanPhone;
   };
 
   // Review soft-delete with 5s undo
@@ -2968,6 +3001,38 @@ Thank you for choosing Vertex Picks.`;
               </div>
             </div>
 
+            {/* Automated Message Templates Form */}
+            <div className="admin-card" style={{ marginBottom: '2rem' }}>
+              <div className="admin-card-head">
+                <div className="ach-title">🤖 Automated Reply Templates</div>
+              </div>
+              <form onSubmit={handleSaveLeadTemplates} style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+                <div className="form-group">
+                  <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: '.5rem' }}>📧 Email Body (Bangla)</label>
+                  <textarea 
+                    name="emailBody"
+                    rows="6" 
+                    className="form-input" 
+                    style={{ resize: 'vertical' }}
+                    defaultValue={storeConfig.automatedLeadEmail || ''}
+                  />
+                </div>
+                <div className="form-group">
+                  <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: '.5rem' }}>💬 WhatsApp Message (Bangla)</label>
+                  <textarea 
+                    name="whatsappBody"
+                    rows="4" 
+                    className="form-input" 
+                    style={{ resize: 'vertical' }}
+                    defaultValue={storeConfig.automatedLeadWhatsapp || ''}
+                  />
+                </div>
+                <div>
+                  <button type="submit" className="btn-primary">Save Templates</button>
+                </div>
+              </form>
+            </div>
+
             <div className="admin-card">
               <div className="admin-action-bar">
                 <div className="aab-left">
@@ -2989,12 +3054,12 @@ Thank you for choosing Vertex Picks.`;
                         toast.error("No subscribers to export!");
                         return;
                       }
-                      const emails = leads.map(l => l.emailOrPhone).join('\n');
+                      const emails = leads.map(l => l.email || l.whatsapp || l.emailOrPhone).filter(Boolean).join('\n');
                       navigator.clipboard.writeText(emails);
                       toast.success('📋 Copied all subscriber emails/phones to clipboard!');
                     }}
                   >
-                    📥 Copy All
+                    📋 Copy All
                   </button>
                 </div>
               </div>
@@ -3005,14 +3070,15 @@ Thank you for choosing Vertex Picks.`;
                     <tr>
                       <th>Subscriber Contact</th>
                       <th>Date Subscribed</th>
-                      <th style={{ width: '120px', textAlign: 'right' }}>Actions</th>
+                      <th style={{ width: '220px', textAlign: 'right' }}>Actions</th>
                     </tr>
                   </thead>
                   <tbody>
                     {(() => {
-                      const filtered = leads.filter(l => 
-                        l.emailOrPhone?.toLowerCase().includes(leadsSearch.toLowerCase())
-                      );
+                      const filtered = leads.filter(l => {
+                        const searchTarget = (l.email || '') + ' ' + (l.whatsapp || '') + ' ' + (l.emailOrPhone || '');
+                        return searchTarget.toLowerCase().includes(leadsSearch.toLowerCase());
+                      });
                       if (filtered.length === 0) {
                         return (
                           <tr>
@@ -3022,16 +3088,30 @@ Thank you for choosing Vertex Picks.`;
                           </tr>
                         );
                       }
-                      return filtered.map((l) => (
+                      return filtered.map((l) => {
+                        // Compatibility variables
+                        const hasEmail = l.email || (l.emailOrPhone && l.emailOrPhone.includes('@'));
+                        const hasWhatsapp = l.whatsapp || (l.emailOrPhone && !l.emailOrPhone.includes('@'));
+                        
+                        const displayEmail = l.email || (l.emailOrPhone && l.emailOrPhone.includes('@') ? l.emailOrPhone : null);
+                        const displayWhatsapp = l.whatsapp || (l.emailOrPhone && !l.emailOrPhone.includes('@') ? l.emailOrPhone : null);
+
+                        return (
                         <tr key={l.id}>
                           <td>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '.6rem' }}>
-                              <span style={{ fontSize: '1.2rem' }}>
-                                {l.emailOrPhone?.includes('@') ? '✉️' : '📱'}
-                              </span>
-                              <span style={{ fontWeight: 700, fontSize: '.9rem', color: 'var(--dark)' }}>
-                                {l.emailOrPhone}
-                              </span>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '.4rem' }}>
+                              {displayEmail && (
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '.6rem' }}>
+                                  <span style={{ fontSize: '1.2rem' }}>📧</span>
+                                  <span style={{ fontWeight: 700, fontSize: '.9rem', color: 'var(--dark)' }}>{displayEmail}</span>
+                                </div>
+                              )}
+                              {displayWhatsapp && (
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '.6rem' }}>
+                                  <span style={{ fontSize: '1.2rem' }}>📱</span>
+                                  <span style={{ fontWeight: 700, fontSize: '.9rem', color: 'var(--dark)' }}>{displayWhatsapp}</span>
+                                </div>
+                              )}
                             </div>
                           </td>
                           <td style={{ fontSize: '.83rem', fontWeight: 600, color: 'var(--gray4)' }}>
@@ -3044,18 +3124,42 @@ Thank you for choosing Vertex Picks.`;
                             }) : 'N/A'}
                           </td>
                           <td>
-                            <div className="at-actions" style={{ justifyContent: 'flex-end' }}>
+                            <div className="at-actions" style={{ justifyContent: 'flex-end', gap: '0.75rem' }}>
+                              {hasEmail && (
+                                <a
+                                  href={`mailto:${displayEmail}?subject=${encodeURIComponent('Vertex Picks - আর্লি অ্যাক্সেসে স্বাগতম! 🥭')}&body=${encodeURIComponent(storeConfig.automatedLeadEmail)}`}
+                                  target="_blank" rel="noreferrer"
+                                  className="at-action-btn"
+                                  style={{ background: 'var(--gray1)', border: '1.5px solid var(--gray2)', color: 'var(--dark)', fontWeight: 700, fontSize: '.8rem', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '.4rem' }}
+                                  title="Send Email"
+                                >
+                                  📧 Reply Email
+                                </a>
+                              )}
+                              {hasWhatsapp && (
+                                <a
+                                  href={`https://wa.me/${formatLeadPhone(displayWhatsapp)}?text=${encodeURIComponent(storeConfig.automatedLeadWhatsapp)}`}
+                                  target="_blank" rel="noreferrer"
+                                  className="at-action-btn"
+                                  style={{ background: '#25D36615', border: '1.5px solid #25D36630', color: '#128C7E', fontWeight: 700, fontSize: '.8rem', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '.4rem' }}
+                                  title="Send WhatsApp"
+                                >
+                                  💬 WhatsApp
+                                </a>
+                              )}
                               <button
                                 onClick={() => handleDeleteLead(l.id)}
                                 className="at-action-btn danger"
                                 title="Remove subscriber"
+                                style={{ padding: '.5rem', minWidth: 'auto', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                               >
                                 🗑️
                               </button>
                             </div>
                           </td>
                         </tr>
-                      ));
+                        );
+                      });
                     })()}
                   </tbody>
                 </table>

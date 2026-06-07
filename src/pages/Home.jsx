@@ -11,6 +11,7 @@ export default function Home() {
   const [notifyText, setNotifyText] = useState('Notify Me');
   const [notifyBg, setNotifyBg] = useState('');
   const [emailVal, setEmailVal] = useState('');
+  const [whatsappVal, setWhatsappVal] = useState('');
   const [featuredProducts, setFeaturedProducts] = useState([]);
   const [featuredLoading, setFeaturedLoading] = useState(true);
   const { toggleWishlist, isInWishlist } = useWishlist();
@@ -113,22 +114,26 @@ export default function Home() {
   }, []);
 
   const handleNotify = async () => {
-    const clean = emailVal.trim();
-    if (!clean) {
-      toast.error('Please enter a valid phone number or email address.');
+    const cleanEmail = emailVal.trim();
+    const cleanWhatsapp = whatsappVal.trim();
+    
+    if (!cleanEmail && !cleanWhatsapp) {
+      toast.error('Please enter at least an email or WhatsApp number.');
       return;
     }
 
     try {
       setNotifyText('Sending...');
       await addDoc(collection(db, 'leads'), {
-        emailOrPhone: clean,
+        email: cleanEmail || null,
+        whatsapp: cleanWhatsapp || null,
         createdAt: new Date().toISOString()
       });
       toast.success('🎉 Welcome to early access list!');
       setNotifyText('✓ Subscribed!');
       setNotifyBg('var(--green)');
       setEmailVal('');
+      setWhatsappVal('');
       setTimeout(() => {
         setNotifyText('Notify Me');
         setNotifyBg('');
@@ -422,18 +427,27 @@ export default function Home() {
       <div className="newsletter">
         <div className="nl-title">🥭 Get Early Access</div>
         <div className="nl-sub">Be first to know when new season stock drops. No spam, ever.</div>
-        <div className="nl-form">
+        <div className="nl-form" style={{ display: 'flex', flexDirection: 'column', gap: '1rem', width: '100%', maxWidth: 400 }}>
           <input
-            type="text"
+            type="email"
             className="nl-input"
-            placeholder="Your phone or email"
+            placeholder="Your email address (Optional)"
             value={emailVal}
             onChange={e => setEmailVal(e.target.value)}
+            style={{ width: '100%' }}
+          />
+          <input
+            type="tel"
+            className="nl-input"
+            placeholder="Your WhatsApp number"
+            value={whatsappVal}
+            onChange={e => setWhatsappVal(e.target.value)}
             onKeyDown={e => e.key === 'Enter' && handleNotify()}
+            style={{ width: '100%' }}
           />
           <button
             className="nl-btn"
-            style={notifyBg ? { background: notifyBg } : {}}
+            style={{ ...(notifyBg ? { background: notifyBg } : {}), width: '100%', borderRadius: 100 }}
             onClick={handleNotify}
           >
             {notifyText}
