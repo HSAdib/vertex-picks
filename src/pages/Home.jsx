@@ -140,7 +140,7 @@ export default function Home() {
     }
   };
 
-  const renderStars = (rating) => '★'.repeat(rating) + '☆'.repeat(5 - rating);
+  
 
   // Fetch reviews from Firestore
   useEffect(() => {

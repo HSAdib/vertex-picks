@@ -3,7 +3,7 @@ import { collection, getDocs, addDoc, doc, getDoc, setDoc, arrayUnion } from 'fi
 import { db, auth } from '../firebaseConfig'; 
 import { onAuthStateChanged } from 'firebase/auth';
 import { useCart } from '../context/CartContext';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
 import { isValidBDPhoneNumber } from '../utils/phoneValidation';
 import { fetchCurrentLocation } from '../utils/geolocation';
@@ -32,7 +32,7 @@ export default function Checkout() {
   const [highlightDelivery, setHighlightDelivery] = useState(false);
   const [phoneError, setPhoneError] = useState(false);
   const [locating, setLocating] = useState(false);
-  const [storeConfig, setStoreConfig] = useState({ baseDeliveryFee: 110, perKgFee: 21, freeDeliveryMin: 1500 });
+  const [storeConfig, setStoreConfig] = useState({ baseDeliveryFee: 110, perKgFee: 21, freeDeliveryMin: 1500, enableFreeDelivery: true });
 
   useEffect(() => {
     const fetchCheckoutData = async (currentUser) => {
@@ -49,6 +49,7 @@ export default function Checkout() {
             baseDeliveryFee: configSnap.data().baseDeliveryFee ?? 110,
             perKgFee: configSnap.data().perKgFee ?? 21,
             freeDeliveryMin: configSnap.data().freeDeliveryMin ?? 1500,
+            enableFreeDelivery: configSnap.data().enableFreeDelivery ?? true,
           });
         }
         
@@ -134,7 +135,7 @@ export default function Checkout() {
   const totalWeight = activeItems.reduce((sum, item) => sum + (item.weight * item.quantity), 0);
   // B6 fix: apply free delivery threshold
   const rawDeliveryFee = totalWeight > 0 ? storeConfig.baseDeliveryFee + ((totalWeight - 1) * storeConfig.perKgFee) : 0;
-  const deliveryFee = subtotal >= storeConfig.freeDeliveryMin ? 0 : rawDeliveryFee;
+  const deliveryFee = (storeConfig.enableFreeDelivery && subtotal >= storeConfig.freeDeliveryMin) ? 0 : rawDeliveryFee;
 
   // B5 fix: support both flat and percentage discounts
   let discountAmount = 0;

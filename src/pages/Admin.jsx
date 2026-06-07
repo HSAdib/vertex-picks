@@ -109,6 +109,7 @@ Thank you for choosing Vertex Picks.`;
   const [footerDesc, setFooterDesc] = useState('Hand-picked, tree-bagged, and delivered flawlessly. Premium Rajshahi mangoes, direct from farm to your door.');
   const [contactPhone, setContactPhone] = useState('+880 1581-221084');
   const [contactAddress, setContactAddress] = useState('Rajshahi, Bangladesh');
+  const [enableFreeDelivery, setEnableFreeDelivery] = useState(true);
   const [freeDeliveryMin, setFreeDeliveryMin] = useState(1500);
   const [dashboardView, setDashboardView] = useState('overview');
 
@@ -122,6 +123,8 @@ Thank you for choosing Vertex Picks.`;
     '⭐ 4.9/5 rating from 500+ customers'
   ]);
   const [newMarqueeText, setNewMarqueeText] = useState('');
+  const [editingMarqueeIndex, setEditingMarqueeIndex] = useState(null);
+  const [editingMarqueeText, setEditingMarqueeText] = useState('');
 
   // Hero Copy States
   const [heroBadge1, setHeroBadge1] = useState('🥭 Season 2026');
@@ -206,12 +209,26 @@ Thank you for choosing Vertex Picks.`;
     const monthMap = {};
     
     orders.filter(o => o.status !== 'Cancelled').forEach(o => {
-      const city = o.deliveryAddress?.city || 'Dhaka';
+      const addrLower = (typeof o.deliveryAddress === 'string' ? o.deliveryAddress : '').toLowerCase();
+      let city = 'Other';
+      if (addrLower.includes('dhaka')) city = 'Dhaka';
+      else if (addrLower.includes('rajshahi')) city = 'Rajshahi';
+      else if (addrLower.includes('chattogram') || addrLower.includes('chittagong')) city = 'Chattogram';
+      else if (addrLower.includes('sylhet')) city = 'Sylhet';
+      else if (addrLower.includes('khulna')) city = 'Khulna';
+      else if (addrLower.includes('barishal') || addrLower.includes('barisal')) city = 'Barishal';
+      else if (addrLower.includes('rangpur')) city = 'Rangpur';
+      else if (addrLower.includes('mymensingh')) city = 'Mymensingh';
+      else if (addrLower.includes('gazipur')) city = 'Gazipur';
+      else if (addrLower.includes('narayanganj')) city = 'Narayanganj';
+      else if (addrLower.includes('savar')) city = 'Savar';
+      else city = 'Dhaka'; // Default fallback if no city matched but address exists
+      
       cityMap[city] = (cityMap[city] || 0) + 1;
       
       (o.items || []).forEach(item => {
         const variety = item.variety || item.section || 'Unknown';
-        const itemRevenue = (Number(item.price) || 0) * (Number(item.quantity) || 1);
+        const itemRevenue = (Number(item.discountPrice) || Number(item.price) || 0) * (Number(item.quantity) || 1);
         varietyMap[variety] = (varietyMap[variety] || 0) + itemRevenue;
       });
       
@@ -358,6 +375,7 @@ Thank you for choosing Vertex Picks.`;
         setFooterDesc(cData.footerDesc || 'Hand-picked, tree-bagged, and delivered flawlessly. Premium Rajshahi mangoes, direct from farm to your door.');
         setContactPhone(cData.contactPhone || '+880 1581-221084');
         setContactAddress(cData.contactAddress || 'Rajshahi, Bangladesh');
+        setEnableFreeDelivery(cData.enableFreeDelivery ?? true);
         setFreeDeliveryMin(cData.freeDeliveryMin ?? 1500);
         if (cData.deliveryZones && Array.isArray(cData.deliveryZones)) {
           setDeliveryZones(cData.deliveryZones);
@@ -696,6 +714,7 @@ Thank you for choosing Vertex Picks.`;
       await setDoc(doc(db, 'mangoes', 'STORE_SETTINGS'), {
         storeName,
         contactEmail,
+        enableFreeDelivery,
         freeDeliveryMin: Number(freeDeliveryMin)
       }, { merge: true });
       toast.success('General store configurations updated!');
@@ -912,6 +931,37 @@ Thank you for choosing Vertex Picks.`;
   const totalRevenue = activeOrders.reduce((sum, o) => sum + (Number(o.total) || 0), 0);
   const totalOrdersCount = orders.length;
   const customersCount = users.length;
+  
+  // Dynamic Analytics Overhaul
+  const deliveredOrders = orders.filter(o => o.status === 'Delivered').length;
+  const fulfillmentRate = totalOrdersCount > 0 ? ((deliveredOrders / totalOrdersCount) * 100).toFixed(1) : '0.0';
+  
+  const customerCounts = orders.reduce((acc, o) => {
+    const key = o.customerEmail || o.customerPhone || o.userId;
+    if (key) acc[key] = (acc[key] || 0) + 1;
+    return acc;
+  }, {});
+  const uniqueOrderingCustomers = Object.keys(customerCounts).length;
+  const repeatCustomersCount = Object.values(customerCounts).filter(count => count > 1).length;
+  const repeatCustomersRate = uniqueOrderingCustomers > 0 ? ((repeatCustomersCount / uniqueOrderingCustomers) * 100).toFixed(0) : '0';
+
+  const donutColors = ['#E8540A', '#F5A623', '#2A9445', '#7C3AED', '#2563EB'];
+  const totalVarietyRevenue = analyticsRevenueByVariety.reduce((sum, v) => sum + v.revenue, 0);
+  let currentOffset = 25;
+  const dynamicDonutSegments = analyticsRevenueByVariety.map((v, i) => {
+    const percentage = totalVarietyRevenue > 0 ? (v.revenue / totalVarietyRevenue) * 100 : 0;
+    const dashLength = percentage;
+    const gapLength = 100 - percentage;
+    const offset = currentOffset;
+    currentOffset -= percentage;
+    return {
+      ...v,
+      color: donutColors[i % donutColors.length],
+      percentageStr: percentage.toFixed(0) + '%',
+      dashArray: `${dashLength} ${gapLength}`,
+      dashOffset: offset
+    };
+  });
   
   // Weekly Revenue Trend
   const today = new Date();
@@ -1737,7 +1787,7 @@ Thank you for choosing Vertex Picks.`;
 
         <div className="admin-nav-section">
           <span className="admin-nav-label">Manage</span>
-          {[{ id: 'coupons', icon: '🎟️', label: 'Coupons' }, { id: 'reviews', icon: '⭐', label: 'Reviews', badge: allProductReviews.length }, { id: 'leads', icon: '📧', label: 'Leads', badge: leads.length }, { id: 'analytics', icon: '📈', label: 'Analytics' }, { id: 'customizer', icon: '🎨', label: 'UI Customizer' }, { id: 'settings', icon: '⚙️', label: 'Settings' }].map(item => (
+          {[{ id: 'coupons', icon: '🎟️', label: 'Coupons' }, { id: 'reviews', icon: '⭐', label: 'Reviews', badge: allProductReviews.length }, { id: 'leads', icon: '📧', label: 'Leads', badge: leads.length }, { id: 'analytics', icon: '📈', label: 'Analytics' }, { id: 'customizer', icon: '🎨', label: 'UI Customizer' }].map(item => (
             <button key={item.id} className={`admin-nav-item${activeAdminTab === item.id ? ' active' : ''}`} onClick={() => { setActiveAdminTab(item.id); setIsSidebarOpen(false); }}>
               <span className="ani-icon">{item.icon}</span>
               {item.label}
@@ -1870,71 +1920,141 @@ Thank you for choosing Vertex Picks.`;
                 <div className="admin-card-head"><div className="ach-title">🥭 Sales by Variety</div></div>
                 <div className="donut-wrap">
                   <svg className="donut-svg" viewBox="0 0 36 36" id="donutChart">
-                    <circle cx="18" cy="18" r="15.9" fill="none" stroke="#E8540A" strokeWidth="3.8" strokeDasharray="38 62" strokeDashoffset="25" />
-                    <circle cx="18" cy="18" r="15.9" fill="none" stroke="#F5A623" strokeWidth="3.8" strokeDasharray="24 76" strokeDashoffset="-13" />
-                    <circle cx="18" cy="18" r="15.9" fill="none" stroke="#2A9445" strokeWidth="3.8" strokeDasharray="18 82" strokeDashoffset="-37" />
-                    <circle cx="18" cy="18" r="15.9" fill="none" stroke="#7C3AED" strokeWidth="3.8" strokeDasharray="12 88" strokeDashoffset="-55" />
-                    <circle cx="18" cy="18" r="15.9" fill="none" stroke="#2563EB" strokeWidth="3.8" strokeDasharray="8 92" strokeDashoffset="-67" />
+                    {dynamicDonutSegments.map((seg, idx) => (
+                      <circle 
+                        key={idx}
+                        cx="18" cy="18" r="15.9" 
+                        fill="none" 
+                        stroke={seg.color} 
+                        strokeWidth="3.8" 
+                        strokeDasharray={seg.dashArray} 
+                        strokeDashoffset={seg.dashOffset} 
+                      />
+                    ))}
                     <text x="18" y="19.5" textAnchor="middle" fontSize="4" fontWeight="bold" fill="#1A1A1A" fontFamily="Fraunces,serif">{totalOrdersCount}</text>
                     <text x="18" y="24" textAnchor="middle" fontSize="2.5" fill="#888" fontFamily="Sora,sans-serif">orders</text>
                   </svg>
                   <div className="donut-legend">
-                    <div className="dl-row"><div className="dl-dot" style={{ background: '#E8540A' }} /><span className="dl-name">Himsagar</span><span className="dl-val">38%</span></div>
-                    <div className="dl-row"><div className="dl-dot" style={{ background: '#F5A623' }} /><span className="dl-name">Langra</span><span className="dl-val">24%</span></div>
-                    <div className="dl-row"><div className="dl-dot" style={{ background: '#2A9445' }} /><span className="dl-name">Fazli</span><span className="dl-val">18%</span></div>
-                    <div className="dl-row"><div className="dl-dot" style={{ background: '#7C3AED' }} /><span className="dl-name">Gift Boxes</span><span className="dl-val">12%</span></div>
-                    <div className="dl-row"><div className="dl-dot" style={{ background: '#2563EB' }} /><span className="dl-name">Others</span><span className="dl-val">8%</span></div>
+                    {dynamicDonutSegments.length === 0 && <div className="text-xs text-center text-gray-400 font-bold p-4">No data</div>}
+                    {dynamicDonutSegments.map((seg, idx) => (
+                      <div className="dl-row" key={idx}>
+                        <div className="dl-dot" style={{ background: seg.color }} />
+                        <span className="dl-name">{seg.name}</span>
+                        <span className="dl-val">{seg.percentageStr}</span>
+                      </div>
+                    ))}
                   </div>
                 </div>
               </div>
             </div>
-
-            {/* Recent Orders table */}
-            <div className="admin-card">
-              <div className="admin-card-head">
-                <div className="ach-title">🛒 Recent Orders Overview</div>
-                <span className="dch-action" onClick={() => setActiveAdminTab('orders')}>View Full List →</span>
-              </div>
-              <div style={{ overflowX: 'auto' }}>
-                <table className="admin-table">
-                  <thead><tr><th>Order ID</th><th>Customer</th><th>Items</th><th>Amount</th><th>Status</th><th>Date</th><th>Action</th></tr></thead>
-                  <tbody>
-                  {orders.slice(0, 5).map(o => {
-                    const orderDate = new Date(o.createdAt?.seconds ? o.createdAt.seconds * 1000 : o.createdAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
-                    let statusClass = 'status-processing';
-                    if (o.status === 'Delivered') statusClass = 'status-delivered';
-                    else if (o.status === 'Shipped' || o.status === 'Confirmed') statusClass = 'status-transit';
-                    else if (o.status === 'Cancelled') statusClass = 'status-cancelled';
-
-                    return (
-                      <tr key={o.id}>
-                        <td><span className="order-id">#{o.id.slice(-6).toUpperCase()}</span></td>
-                        <td>{o.deliveryName || 'Guest User'}</td>
-                        <td className="text-xs max-w-[200px] truncate">{o.items?.map(i => `${i.name} × ${i.quantity}`).join(', ')}</td>
-                        <td><strong>৳{o.total}</strong></td>
-                        <td>
-                          <span className={`order-status ${statusClass}`}>
-                            {o.status === 'Cancelled' ? '✕ Cancelled' : 
-                             o.status === 'Delivered' ? '✅ Delivered' : 
-                             o.status === 'Shipped' ? '🚚 Shipped' : 
-                             o.status === 'Confirmed' ? '⚙️ Confirmed' : '⏳ Pending'}
-                          </span>
-                        </td>
-                        <td className="text-xs font-semibold text-gray4">{orderDate}</td>
-                        <td>
-                          <div className="at-actions">
-                            <button onClick={() => { setSelectedOrder(o); setShowOrderDetailModal(true); }} className="at-action-btn" title="View details">👁️</button>
-                            <button onClick={() => openStatusUpdate(o)} className="at-action-btn" title="Edit status">✏️</button>
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                  </tbody>
-                </table>
-              </div>
+            {/* Settings Module */}
+            <div className="admin-header" style={{ marginTop: '2.5rem' }}>
+              <div className="admin-title">⚙️ Control Panel Settings</div>
             </div>
+            <div className="settings-grid">
 
+              
+              {/* Store configurations */}
+              <div className="admin-card">
+                <div className="admin-card-head"><div className="ach-title">🏪 Store Configuration</div></div>
+                <form onSubmit={handleSaveStoreGeneral} className="settings-form">
+                  <div className="form-group">
+                    <label className="form-label">Store Name</label>
+                    <input 
+                      type="text" 
+                      className="form-input" 
+                      value={storeName} 
+                      onChange={e => setStoreName(e.target.value)}
+                      required 
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Contact Email</label>
+                    <input 
+                      type="email" 
+                      className="form-input" 
+                      value={contactEmail} 
+                      onChange={e => setContactEmail(e.target.value)}
+                      required 
+                    />
+                  </div>
+                  <div className="form-group" style={{ display: 'flex', alignItems: 'center', gap: '.75rem', marginTop: '1rem' }}>
+                    <input 
+                      type="checkbox" 
+                      id="enableFreeDelivery"
+                      checked={enableFreeDelivery}
+                      onChange={e => setEnableFreeDelivery(e.target.checked)}
+                      style={{ width: '1.2rem', height: '1.2rem', accentColor: 'var(--primary)', cursor: 'pointer' }}
+                    />
+                    <label htmlFor="enableFreeDelivery" className="form-label" style={{ margin: 0, cursor: 'pointer' }}>Enable Free Delivery Feature</label>
+                  </div>
+                  {enableFreeDelivery && (
+                    <div className="form-group">
+                      <label className="form-label">Free Delivery Threshold (৳)</label>
+                      <input 
+                        type="number" 
+                        className="form-input" 
+                        value={freeDeliveryMin} 
+                        onChange={e => setFreeDeliveryMin(Number(e.target.value))}
+                        required 
+                      />
+                    </div>
+                  )}
+                  <button type="submit" className="btn-primary shiny-btn !rounded-full shadow-lg shadow-orange-500/10 font-bold uppercase tracking-wider text-[10px] px-6 py-2.5">Save Changes</button>
+                </form>
+              </div>
+
+              {/* Notification Toggles */}
+              <div className="admin-card">
+                <div className="admin-card-head"><div className="ach-title">🔔 Notification Switches</div></div>
+                <div style={{ padding: '1rem 1.5rem' }}>
+                  <div className="toggle-row">
+                    <div><div className="toggle-label">New Order Alerts</div><div className="toggle-desc">Email notifications on every new booking</div></div>
+                    <label className="toggle-switch"><input type="checkbox" defaultChecked /><span className="toggle-slider" /></label>
+                  </div>
+                  <div className="toggle-row">
+                    <div><div className="toggle-label">Low Stock Alerts</div><div className="toggle-desc">Notification when stock drops below threshold limit</div></div>
+                    <label className="toggle-switch"><input type="checkbox" defaultChecked /><span className="toggle-slider" /></label>
+                  </div>
+                  <div className="toggle-row">
+                    <div><div className="toggle-label">Daily Sales Digest</div><div className="toggle-desc">Auto sales summary report emailed at 8:00am</div></div>
+                    <label className="toggle-switch"><input type="checkbox" /><span className="toggle-slider" /></label>
+                  </div>
+                </div>
+              </div>
+
+              {/* Baseline delivery parameters */}
+              <div className="admin-card settings-full">
+                <div className="admin-card-head"><div className="ach-title">🚚 Baseline Delivery Fees</div></div>
+                <form onSubmit={handleSaveStoreConfig} className="settings-form">
+                  <div className="settings-grid">
+                    <div className="form-group">
+                      <label className="form-label">Baseline Shipping Fee (৳)</label>
+                      <input 
+                        type="number" 
+                        className="form-input" 
+                        value={storeConfig.baseDeliveryFee}
+                        onChange={e => setStoreConfig({ ...storeConfig, baseDeliveryFee: Number(e.target.value) })}
+                        required 
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label">Additional Rate Per Kg (৳)</label>
+                      <input 
+                        type="number" 
+                        className="form-input" 
+                        value={storeConfig.perKgFee}
+                        onChange={e => setStoreConfig({ ...storeConfig, perKgFee: Number(e.target.value) })}
+                        required 
+                      />
+                    </div>
+                  </div>
+                  <button type="submit" className="btn-primary shiny-btn !rounded-full shadow-lg shadow-orange-500/10 font-bold uppercase tracking-wider text-[10px] px-6 py-2.5">Apply Baseline</button>
+                </form>
+              </div>
+
+            
+            </div>
           </div>
         )}
 
@@ -1944,8 +2064,8 @@ Thank you for choosing Vertex Picks.`;
             <div className="admin-header"><div className="admin-title">📈 Analytics</div></div>
             <div className="mini-stat-row">
               <div className="mini-stat"><div className="ms-label">Avg. Order Value</div><div className="ms-val">৳{(totalRevenue / (totalOrdersCount || 1)).toFixed(0)}</div></div>
-              <div className="mini-stat"><div className="ms-label">Conversion Rate</div><div className="ms-val">3.8%</div></div>
-              <div className="mini-stat"><div className="ms-label">Repeat Customers</div><div className="ms-val">64%</div></div>
+              <div className="mini-stat"><div className="ms-label">Fulfillment Rate</div><div className="ms-val">{fulfillmentRate}%</div></div>
+              <div className="mini-stat"><div className="ms-label">Repeat Customers</div><div className="ms-val">{repeatCustomersRate}%</div></div>
             </div>
             
             <div className="analytics-row">
@@ -3028,26 +3148,78 @@ Thank you for choosing Vertex Picks.`;
                           color: 'var(--dark)'
                         }}
                       >
-                        <span>{item}</span>
-                        <button 
-                          type="button" 
-                          onClick={() => {
-                            const updated = marqueeItems.filter((_, i) => i !== idx);
-                            setMarqueeItems(updated);
-                            toast.success('Badge removed!');
-                          }}
-                          style={{ 
-                            background: 'transparent', 
-                            border: 'none', 
-                            color: '#ef4444', 
-                            fontSize: '1rem', 
-                            cursor: 'pointer',
-                            padding: '0 .25rem',
-                            fontWeight: 'bold'
-                          }}
-                        >
-                          ✕
-                        </button>
+                        {editingMarqueeIndex === idx ? (
+                          <input 
+                            type="text" 
+                            className="form-input" 
+                            value={editingMarqueeText} 
+                            onChange={(e) => setEditingMarqueeText(e.target.value)} 
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') {
+                                if (!editingMarqueeText.trim()) return toast.error('Cannot be empty');
+                                const updated = [...marqueeItems];
+                                updated[idx] = editingMarqueeText.trim();
+                                setMarqueeItems(updated);
+                                setEditingMarqueeIndex(null);
+                                toast.success('Badge updated!');
+                              }
+                            }}
+                            autoFocus
+                            style={{ padding: '.4rem .6rem', fontSize: '.8rem', margin: 0, flex: 1, marginRight: '.5rem' }}
+                          />
+                        ) : (
+                          <span>{item}</span>
+                        )}
+
+                        <div style={{ display: 'flex', gap: '.5rem' }}>
+                          {editingMarqueeIndex === idx ? (
+                            <button 
+                              type="button" 
+                              onClick={() => {
+                                if (!editingMarqueeText.trim()) return toast.error('Cannot be empty');
+                                const updated = [...marqueeItems];
+                                updated[idx] = editingMarqueeText.trim();
+                                setMarqueeItems(updated);
+                                setEditingMarqueeIndex(null);
+                                toast.success('Badge updated!');
+                              }}
+                              style={{ padding: '.3rem .6rem', fontSize: '.75rem', background: 'var(--green)', color: '#fff', borderRadius: 4, fontWeight: 'bold' }}
+                            >
+                              Save
+                            </button>
+                          ) : (
+                            <button 
+                              type="button" 
+                              onClick={() => {
+                                setEditingMarqueeIndex(idx);
+                                setEditingMarqueeText(item);
+                              }}
+                              style={{ padding: '.3rem .6rem', fontSize: '.75rem', background: 'var(--gray2)', color: 'var(--dark)', borderRadius: 4, fontWeight: 'bold', border: 'none', cursor: 'pointer' }}
+                            >
+                              Edit
+                            </button>
+                          )}
+                          <button 
+                            type="button" 
+                            onClick={() => {
+                              const updated = marqueeItems.filter((_, i) => i !== idx);
+                              setMarqueeItems(updated);
+                              if (editingMarqueeIndex === idx) setEditingMarqueeIndex(null);
+                              toast.success('Badge removed!');
+                            }}
+                            style={{ 
+                              background: 'transparent', 
+                              border: 'none', 
+                              color: '#ef4444', 
+                              fontSize: '1rem', 
+                              cursor: 'pointer',
+                              padding: '0 .25rem',
+                              fontWeight: 'bold'
+                            }}
+                          >
+                            ✕
+                          </button>
+                        </div>
                       </div>
                     ))}
                     {marqueeItems.length === 0 && (
@@ -3536,103 +3708,6 @@ Thank you for choosing Vertex Picks.`;
                     
                   </div>
                 </div>
-              </div>
-
-            </div>
-          </div>
-        )}
-
-        {/* TAB 8: STORE SETTINGS TAB */}
-        {activeAdminTab === 'settings' && (
-          <div className="admin-tab active" id="atab-settings">
-            <div className="admin-header"><div className="admin-title">⚙️ Control Panel Settings</div></div>
-            <div className="settings-grid">
-              
-              {/* Store configurations */}
-              <div className="admin-card">
-                <div className="admin-card-head"><div className="ach-title">🏪 Store Configuration</div></div>
-                <form onSubmit={handleSaveStoreGeneral} className="settings-form">
-                  <div className="form-group">
-                    <label className="form-label">Store Name</label>
-                    <input 
-                      type="text" 
-                      className="form-input" 
-                      value={storeName} 
-                      onChange={e => setStoreName(e.target.value)}
-                      required 
-                    />
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label">Contact Email</label>
-                    <input 
-                      type="email" 
-                      className="form-input" 
-                      value={contactEmail} 
-                      onChange={e => setContactEmail(e.target.value)}
-                      required 
-                    />
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label">Free Delivery Threshold (৳)</label>
-                    <input 
-                      type="number" 
-                      className="form-input" 
-                      value={freeDeliveryMin} 
-                      onChange={e => setFreeDeliveryMin(Number(e.target.value))}
-                      required 
-                    />
-                  </div>
-                  <button type="submit" className="btn-primary shiny-btn !rounded-full shadow-lg shadow-orange-500/10 font-bold uppercase tracking-wider text-[10px] px-6 py-2.5">Save Changes</button>
-                </form>
-              </div>
-
-              {/* Notification Toggles */}
-              <div className="admin-card">
-                <div className="admin-card-head"><div className="ach-title">🔔 Notification Switches</div></div>
-                <div style={{ padding: '1rem 1.5rem' }}>
-                  <div className="toggle-row">
-                    <div><div className="toggle-label">New Order Alerts</div><div className="toggle-desc">Email notifications on every new booking</div></div>
-                    <label className="toggle-switch"><input type="checkbox" defaultChecked /><span className="toggle-slider" /></label>
-                  </div>
-                  <div className="toggle-row">
-                    <div><div className="toggle-label">Low Stock Alerts</div><div className="toggle-desc">Notification when stock drops below threshold limit</div></div>
-                    <label className="toggle-switch"><input type="checkbox" defaultChecked /><span className="toggle-slider" /></label>
-                  </div>
-                  <div className="toggle-row">
-                    <div><div className="toggle-label">Daily Sales Digest</div><div className="toggle-desc">Auto sales summary report emailed at 8:00am</div></div>
-                    <label className="toggle-switch"><input type="checkbox" /><span className="toggle-slider" /></label>
-                  </div>
-                </div>
-              </div>
-
-              {/* Baseline delivery parameters */}
-              <div className="admin-card settings-full">
-                <div className="admin-card-head"><div className="ach-title">🚚 Baseline Delivery Fees</div></div>
-                <form onSubmit={handleSaveStoreConfig} className="settings-form">
-                  <div className="settings-grid">
-                    <div className="form-group">
-                      <label className="form-label">Baseline Shipping Fee (৳)</label>
-                      <input 
-                        type="number" 
-                        className="form-input" 
-                        value={storeConfig.baseDeliveryFee}
-                        onChange={e => setStoreConfig({ ...storeConfig, baseDeliveryFee: Number(e.target.value) })}
-                        required 
-                      />
-                    </div>
-                    <div className="form-group">
-                      <label className="form-label">Additional Rate Per Kg (৳)</label>
-                      <input 
-                        type="number" 
-                        className="form-input" 
-                        value={storeConfig.perKgFee}
-                        onChange={e => setStoreConfig({ ...storeConfig, perKgFee: Number(e.target.value) })}
-                        required 
-                      />
-                    </div>
-                  </div>
-                  <button type="submit" className="btn-primary shiny-btn !rounded-full shadow-lg shadow-orange-500/10 font-bold uppercase tracking-wider text-[10px] px-6 py-2.5">Apply Baseline</button>
-                </form>
               </div>
 
             </div>

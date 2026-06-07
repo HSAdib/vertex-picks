@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import FAQSection from './FAQSection';
 
 export default function ProductTabs({ product, onReviewSubmit, isSubmitting }) {

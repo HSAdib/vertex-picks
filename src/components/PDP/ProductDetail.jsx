@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { doc, getDoc, collection, getDocs, updateDoc, arrayUnion } from 'firebase/firestore';
 import { db, auth } from '../../firebaseConfig';
-import { useAuth } from '../../context/AuthContext';
+
 import { useCart } from '../../context/CartContext';
 import { toast } from 'react-hot-toast';
 
@@ -14,8 +14,8 @@ import ProductTabs from './ProductTabs';
 export default function ProductDetail() {
   const { id } = useParams();
   const { addToCart } = useCart();
-  const { isAdmin } = useAuth();
-  const navigate = useNavigate();
+  
+  
 
   const [loading, setLoading] = useState(true);
   const [qty, setQty] = useState(1);

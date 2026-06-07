@@ -148,7 +148,7 @@ export default function ProductInfo({ product, qty, setQty }) {
         <div className="pdp-delivery-row">
           <span className="pdp-delivery-icon">⚡</span>
           <span className="pdp-delivery-text"><strong>Same-Day Dispatch</strong> — order before 12pm</span>
-          <span className="pdp-delivery-tag">Free on ৳1500+</span>
+
         </div>
         <div className="pdp-delivery-row">
           <span className="pdp-delivery-icon">📍</span>
