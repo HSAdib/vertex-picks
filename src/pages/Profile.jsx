@@ -261,8 +261,6 @@ export default function Profile() {
   const initials = displayName ? displayName.charAt(0).toUpperCase() : (user.email ? user.email.charAt(0).toUpperCase() : 'U');
   const deliveredOrders = myOrders.filter(o => o.status === 'Delivered');
   const ltvAmount = deliveredOrders.reduce((s, o) => s + Number(o.total || 0), 0);
-  const loyaltyPoints = Math.floor(ltvAmount * 0.1);
-  const loyaltyValue = (ltvAmount * 0.01).toFixed(2);
 
   const NavItem = ({ tabId, icon, label, badge, danger }) => {
     const active = activeTab === tabId;
@@ -367,7 +365,6 @@ export default function Profile() {
             <NavItem tabId="overview" icon="🏠" label="Overview" />
             <NavItem tabId="orders" icon="📦" label="My Orders" badge={myOrders.length} />
             <NavItem tabId="wishlist" icon="❤️" label="Wishlist" badge={wishlist.length} />
-            <NavItem tabId="wallet" icon="💰" label="Wallet & Points" />
             <NavItem tabId="addresses" icon="📍" label="Addresses" />
             <NavItem tabId="reviews" icon="⭐" label="My Reviews" />
             <NavItem tabId="notifications" icon="🔔" label="Notifications" badge={2} />
@@ -424,7 +421,6 @@ export default function Profile() {
               <div className="stats-row">
                 <div className="stat-card"><div className="sc-label">📦 Total Orders</div><div className="sc-val">{myOrders.length}</div><div className="sc-trend up">↑ {myOrders.filter(o => o.status !== 'Cancelled').length} active</div></div>
                 <div className="stat-card"><div className="sc-label">💰 Total Spent</div><div className="sc-val">৳{ltvAmount.toLocaleString()}</div><div className="sc-sub">Lifetime value</div></div>
-                <div className="stat-card"><div className="sc-label">🌟 Points</div><div className="sc-val">{loyaltyPoints.toLocaleString()}</div><div className="sc-sub">≈ ৳{loyaltyValue} value</div></div>
                 <div className="stat-card"><div className="sc-label">❤️ Wishlist</div><div className="sc-val">{wishlist.length}</div><div className="sc-sub">Saved for later</div></div>
               </div>
 
@@ -458,8 +454,8 @@ export default function Profile() {
 
               <div className="dash-card">
                 <div className="dash-card-head"><div className="dch-title">⚡ Quick Actions</div></div>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: '1rem', padding: '1.5rem' }}>
-                  {[{ icon: '🛒', label: 'Shop Now', action: () => navigate('/shop') }, { icon: '📦', label: 'Track Order', action: () => setActiveTab('orders') }, { icon: '❤️', label: 'Wishlist', action: () => setActiveTab('wishlist') }, { icon: '💰', label: 'My Points', action: () => setActiveTab('wallet') }].map(a => (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: '1rem', padding: '1.5rem' }}>
+                  {[{ icon: '🛒', label: 'Shop Now', action: () => navigate('/shop') }, { icon: '📦', label: 'Track Order', action: () => setActiveTab('orders') }, { icon: '❤️', label: 'Wishlist', action: () => setActiveTab('wishlist') }].map(a => (
                     <button key={a.label} className="feat-card" style={{ cursor: 'pointer', border: '1.5px solid var(--gray2)', textAlign: 'center' }} onClick={a.action}>
                       <div className="feat-icon">{a.icon}</div>
                       <div className="feat-title" style={{ fontSize: '.78rem' }}>{a.label}</div>
@@ -566,22 +562,6 @@ export default function Profile() {
                     })}
                   </div>
                 )}
-              </div>
-            </div>
-          )}
-
-          {/* ── WALLET ── */}
-          {activeTab === 'wallet' && (
-            <div className="dash-tab active">
-              <div className="dash-header"><div className="dash-title">💰 Wallet & Points</div><div className="dash-subtitle">Your earnings and transaction history</div></div>
-              <div className="wallet-row">
-                <div className="wallet-card wc-orange"><div className="wc-label">Mango Points</div><div className="wc-val">{loyaltyPoints.toLocaleString()} pts</div><div className="wc-sub">≈ ৳{loyaltyValue} redeemable value</div><div className="wc-bg-emoji">🌟</div></div>
-                <div className="wallet-card"><div className="wc-label">Store Credit</div><div className="wc-val">৳0.00</div><div className="wc-sub">Available for instant checkout</div><div className="wc-bg-emoji">💵</div></div>
-              </div>
-              <div className="dash-card">
-                <div className="dash-card-head"><div className="dch-title">🎁 Transaction Ledger</div></div>
-                <div className="txn-row"><div className="txn-left"><div className="txn-icon earn">🎁</div><div><div className="txn-desc">Points Earned – LTV Reward</div><div className="txn-date">Today</div></div></div><span className="txn-amt earn">+{loyaltyPoints} pts</span></div>
-                <div className="txn-row"><div className="txn-left"><div className="txn-icon earn">🌿</div><div><div className="txn-desc">Sign-up Bonus</div><div className="txn-date">Welcome</div></div></div><span className="txn-amt earn">+100 pts</span></div>
               </div>
             </div>
           )}

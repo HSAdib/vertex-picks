@@ -163,7 +163,6 @@ export default function Navbar() {
                     <Link to="/profile?tab=account" className="nud-item" onClick={() => setIsDropdownOpen(false)}>👤 My Account</Link>
                     <Link to="/profile?tab=orders" className="nud-item" onClick={() => setIsDropdownOpen(false)}>📦 My Orders</Link>
                     <Link to="/profile?tab=wishlist" className="nud-item" onClick={() => setIsDropdownOpen(false)}>❤️ Wishlist</Link>
-                    <Link to="/profile?tab=wallet" className="nud-item" onClick={() => setIsDropdownOpen(false)}>👛 Wallet & Points</Link>
                     <div className="nud-divider"></div>
                     <button 
                       onClick={() => { setIsDropdownOpen(false); signOut(auth); }} 
