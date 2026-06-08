@@ -9,7 +9,7 @@ import { signOut } from 'firebase/auth';
 export default function Navbar() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
-  const [navTabs, setNavTabs] = useState([]);
+  const [categories, setCategories] = useState([]);
   const [searchVal, setSearchVal] = useState('');
   const [isScrolled, setIsScrolled] = useState(false);
   
@@ -20,7 +20,7 @@ export default function Navbar() {
   const location = useLocation();
   
   const queryParams = new URLSearchParams(location.search);
-  const currentTabId = queryParams.get('tabId');
+  const currentCategory = queryParams.get('category');
 
   useEffect(() => {
     const handleScroll = () => {
@@ -35,19 +35,19 @@ export default function Navbar() {
   }, []);
 
   useEffect(() => {
-    const fetchTabs = async () => {
+    const fetchCategories = async () => {
       try {
-        const docSnap = await getDoc(doc(db, 'mangoes', 'NAVBAR_TABS'));
+        const docSnap = await getDoc(doc(db, 'mangoes', 'CATEGORIES'));
         if (docSnap.exists() && docSnap.data().list) {
-          setNavTabs(docSnap.data().list);
+          setCategories(docSnap.data().list);
         } else {
-          setNavTabs([{ id: 'default', name: 'Premium Mangoes', sections: [] }]);
+          setCategories([]);
         }
       } catch (err) {
-        console.error("Error loading tabs", err);
+        console.error("Error loading categories", err);
       }
     };
-    fetchTabs();
+    fetchCategories();
   }, []);
 
   const totalItems = cart.reduce((total, item) => total + item.quantity, 0);
@@ -98,17 +98,23 @@ export default function Navbar() {
         <div className="nav-links">
           <Link 
             to="/" 
-            className={location.pathname === '/' && !currentTabId ? 'active' : ''}
+            className={location.pathname === '/' && !currentCategory ? 'active' : ''}
           >
             Home
           </Link>
-          {navTabs.map(tab => (
+          <Link 
+            to="/shop" 
+            className={location.pathname === '/shop' && !currentCategory ? 'active' : ''}
+          >
+            Shop All
+          </Link>
+          {categories.map(cat => (
             <Link 
-              key={tab.id} 
-              to={`/shop?tabId=${tab.id}`} 
-              className={currentTabId === tab.id ? 'active' : ''}
+              key={cat} 
+              to={`/shop?category=${encodeURIComponent(cat)}`} 
+              className={currentCategory === cat ? 'active' : ''}
             >
-              {tab.name}
+              {cat}
             </Link>
           ))}
         </div>
@@ -228,18 +234,25 @@ export default function Navbar() {
               <Link 
                 to="/" 
                 onClick={() => setIsMobileMenuOpen(false)} 
-                className={`font-semibold text-sm transition-colors ${location.pathname === '/' && !currentTabId ? 'text-primary' : 'text-gray4 hover:text-primary'}`}
+                className={`font-semibold text-sm transition-colors ${location.pathname === '/' && !currentCategory ? 'text-primary' : 'text-gray4 hover:text-primary'}`}
               >
                 Home
               </Link>
-              {navTabs.map(tab => (
+              <Link 
+                to="/shop" 
+                onClick={() => setIsMobileMenuOpen(false)} 
+                className={`font-semibold text-sm transition-colors ${location.pathname === '/shop' && !currentCategory ? 'text-primary' : 'text-gray4 hover:text-primary'}`}
+              >
+                Shop All
+              </Link>
+              {categories.map(cat => (
                 <Link 
-                  key={tab.id} 
-                  to={`/shop?tabId=${tab.id}`} 
+                  key={cat} 
+                  to={`/shop?category=${encodeURIComponent(cat)}`} 
                   onClick={() => setIsMobileMenuOpen(false)} 
-                  className={`font-semibold text-sm transition-colors ${currentTabId === tab.id ? 'text-primary' : 'text-gray4 hover:text-primary'}`}
+                  className={`font-semibold text-sm transition-colors ${currentCategory === cat ? 'text-primary' : 'text-gray4 hover:text-primary'}`}
                 >
-                  {tab.name}
+                  {cat}
                 </Link>
               ))}
               <div className="h-[1px] bg-gray2 my-1" />

@@ -5,8 +5,10 @@ import { auth, db } from '../firebaseConfig';
 import { useAuth } from '../context/AuthContext';
 import { Link, Navigate } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import CategoriesTab from '../components/admin/CategoriesTab';
+import FiltersTab from '../components/admin/FiltersTab';
+import { ResponsiveContainer, BarChart, CartesianGrid, XAxis, YAxis, Tooltip, Bar, PieChart, Pie, Cell } from 'recharts';
+import { Eye, Edit3, Trash2, Package, Search, Filter, Plus, Save, Camera, Link as LinkIcon, DollarSign, Activity, Bell, Calendar, User, Truck, CheckCircle, XCircle } from 'lucide-react';
 
 const exportToCSV = (filename, rows, headers) => {
   const escapeCsvField = (field) => {
@@ -266,15 +268,18 @@ Thank you for choosing Vertex Picks.`;
   const [prodPrice, setProdPrice] = useState(100);
   const [prodDiscountPrice, setProdDiscountPrice] = useState('');
   const [prodStock, setProdStock] = useState(50);
-  const [prodSection, setProdSection] = useState('Himsagar');
+  const [prodCategories, setProdCategories] = useState([]);
+  const [prodVariety, setProdVariety] = useState([]);
+  const [adminCategories, setAdminCategories] = useState([]);
+  const [adminFilters, setAdminFilters] = useState({ rating: [], season: [], weight: [], priceRange: [], variety: [] });
   const [prodSku, setProdSku] = useState('');
   const [prodMinThreshold, setProdMinThreshold] = useState(10);
-  const [prodSeason, setProdSeason] = useState('Peak');
+  const [prodSeason, setProdSeason] = useState([]);
   const [prodGrade, setProdGrade] = useState('Premium');
   const [prodImages, setProdImages] = useState(['']);
   const [prodDescription, setProdDescription] = useState('');
   const [prodFeatured, setProdFeatured] = useState(false);
-  const [prodFixedWeight, setProdFixedWeight] = useState(1);
+  const [prodFixedWeight, setProdFixedWeight] = useState([]);
   const [prodBadge, setProdBadge] = useState('');
   const [prodPacks, setProdPacks] = useState([{ name: '1 Box', price: '' }]);
   const [prodTrustStrip, setProdTrustStrip] = useState([
@@ -325,7 +330,27 @@ Thank you for choosing Vertex Picks.`;
       const mangoesSnap = await getDocs(collection(db, 'mangoes'));
       const productsList = [];
       mangoesSnap.docs.forEach(d => {
-        if (d.id !== 'STORE_SECTIONS' && d.id !== 'STORE_SETTINGS' && d.id !== 'NAVBAR_TABS') {
+        if (d.id === 'CATEGORIES') {
+          const list = d.data().list || [];
+          setAdminCategories(list.length > 0 ? list : ['Mangoes', 'Gift Boxes', 'Pickles']);
+        } else if (d.id === 'FILTERS') {
+          const data = d.data() || {};
+          const isFunctionallyEmpty = (!data.variety || data.variety.length === 0) && 
+                                      (!data.weight || data.weight.length === 0) && 
+                                      (!data.season || data.season.length === 0);
+          if (isFunctionallyEmpty) {
+            setAdminFilters({
+              variety: ['Himsagar', 'Langra', 'Fazli', 'Gopalbhog', 'Amrapali', 'Gift Box'],
+              weight: ['5kg', '10kg', '20kg'],
+              season: ['Early Season', 'Peak Season', 'Late Season'],
+              priceRange: ['0-500', '501-1000', '1000+']
+            });
+          } else {
+            setAdminFilters({
+              rating: data.rating || [], season: data.season || [], weight: data.weight || [], priceRange: data.priceRange || [], variety: data.variety || []
+            });
+          }
+        } else if (d.id !== 'STORE_SECTIONS' && d.id !== 'STORE_SETTINGS' && d.id !== 'NAVBAR_TABS' && d.id !== 'VARIETIES') {
           productsList.push({ id: d.id, ...d.data() });
         }
       });
@@ -485,9 +510,9 @@ Thank you for choosing Vertex Picks.`;
         price: Number(prodPrice),
         discountPrice: prodDiscountPrice === '' ? null : Number(prodDiscountPrice),
         stock: Number(prodStock),
-        section: prodSection,
-        variety: prodSection,
-        sku: prodSku || `VP-${prodSection.slice(0,3).toUpperCase()}-${pId.slice(-3).toUpperCase()}`,
+        category: prodCategories,
+        variety: prodVariety,
+        sku: prodSku || `VP-${prodCategories.length > 0 ? prodCategories[0].slice(0,3).toUpperCase() : 'MGO'}-${pId.slice(-3).toUpperCase()}`,
         minThreshold: Number(prodMinThreshold),
         season: prodSeason,
         grade: prodGrade,
@@ -495,7 +520,7 @@ Thank you for choosing Vertex Picks.`;
         image: finalImages[0] || '',
         description: prodDescription || 'Fresh premium bagged mango from Rajshahi orchards.',
         featured: prodFeatured,
-        fixedWeight: Number(prodFixedWeight) || 1,
+        fixedWeight: prodFixedWeight,
         order: editProductId ? (mangoes.find(m => m.id === editProductId)?.order ?? mangoes.length + 1) : mangoes.length + 1,
         badge: prodBadge ? prodBadge.trim() : '',
         packs: cleanPacks.map(p => ({ name: p.name.trim(), price: Number(p.price) })),
@@ -527,10 +552,11 @@ Thank you for choosing Vertex Picks.`;
     setProdPrice(p.price || 100);
     setProdDiscountPrice(p.discountPrice || '');
     setProdStock(p.stock || 50);
-    setProdSection(p.section || 'Himsagar');
+    setProdCategories(Array.isArray(p.category) ? p.category : [p.category || p.section || p.variety].filter(Boolean));
+    setProdVariety(Array.isArray(p.variety) ? p.variety : [p.variety].filter(Boolean));
     setProdSku(p.sku || '');
     setProdMinThreshold(p.minThreshold || 10);
-    setProdSeason(p.season || 'Peak');
+    setProdSeason(Array.isArray(p.season) ? p.season : [p.season].filter(Boolean));
     setProdGrade(p.grade || 'Premium');
     const loadedImages = Array.isArray(p.images) && p.images.length > 0
       ? p.images
@@ -538,7 +564,7 @@ Thank you for choosing Vertex Picks.`;
     setProdImages(loadedImages);
     setProdDescription(p.description || '');
     setProdFeatured(p.featured || false);
-    setProdFixedWeight(p.fixedWeight || 1);
+    setProdFixedWeight(Array.isArray(p.fixedWeight) ? p.fixedWeight : [p.fixedWeight].filter(Boolean));
     
     setProdBadge(p.badge || '');
     setProdPacks(p.packs?.length ? p.packs : [{ name: '1 Box', price: '' }]);
@@ -585,15 +611,16 @@ Thank you for choosing Vertex Picks.`;
     setProdPrice(100);
     setProdDiscountPrice('');
     setProdStock(50);
-    setProdSection('Himsagar');
+    setProdCategories([]);
+    setProdVariety([]);
     setProdSku('');
     setProdMinThreshold(10);
-    setProdSeason('Peak');
+    setProdSeason([]);
     setProdGrade('Premium');
     setProdImages(['']);
     setProdDescription('');
     setProdFeatured(false);
-    setProdFixedWeight(1);
+    setProdFixedWeight([]);
     
     setProdBadge('');
     setProdPacks([{ name: '1 Box', price: '' }]);
@@ -1126,6 +1153,14 @@ Thank you for choosing Vertex Picks.`;
                   >
                     2. Rich Display Details
                   </button>
+                  <button 
+                    type="button"
+                    onClick={() => setActiveProdFormTab('filters')}
+                    className={`modal-tab${activeProdFormTab === 'filters' ? ' active' : ''}`}
+                    style={activeProdFormTab !== 'filters' ? { color: 'rgba(255,255,255,0.8)' } : {}}
+                  >
+                    3. Classification & Filters
+                  </button>
                 </div>
               </div>
               <button 
@@ -1182,21 +1217,6 @@ Thank you for choosing Vertex Picks.`;
                     />
                   </div>
                   <div>
-                    <label className="form-label">Variety / Section</label>
-                    <select 
-                      value={prodSection} 
-                      onChange={e => setProdSection(e.target.value)} 
-                      className="form-input font-bold text-xs cursor-pointer"
-                    >
-                      <option>Himsagar</option>
-                      <option>Langra</option>
-                      <option>Fazli</option>
-                      <option>Gopalbhog</option>
-                      <option>Amrapali</option>
-                      <option>Gift Box</option>
-                    </select>
-                  </div>
-                  <div>
                     <label className="form-label">SKU Code (Auto if blank)</label>
                     <input 
                       type="text" 
@@ -1215,18 +1235,7 @@ Thank you for choosing Vertex Picks.`;
                       className="form-input font-bold text-xs" 
                     />
                   </div>
-                  <div>
-                    <label className="form-label">Harvest Season</label>
-                    <select 
-                      value={prodSeason} 
-                      onChange={e => setProdSeason(e.target.value)} 
-                      className="form-input font-bold text-xs cursor-pointer"
-                    >
-                      <option>Early</option>
-                      <option>Peak</option>
-                      <option>Late</option>
-                    </select>
-                  </div>
+
                   <div>
                     <label className="form-label">Orchard Grade</label>
                     <input 
@@ -1278,17 +1287,6 @@ Thank you for choosing Vertex Picks.`;
                       className="form-input font-medium text-xs h-20 resize-none !rounded-2xl"
                     />
                   </div>
-                  <div>
-                    <label className="form-label">Box Weight (kg)</label>
-                    <input
-                      type="number"
-                      step="0.5"
-                      min="0.5"
-                      value={prodFixedWeight}
-                      onChange={e => setProdFixedWeight(e.target.value)}
-                      className="form-input font-bold text-xs"
-                    />
-                  </div>
                   <div className="flex items-center gap-4 pt-6">
                     <label className="flex items-center gap-3" style={{ cursor: 'pointer', userSelect: 'none' }}>
                       <div
@@ -1312,6 +1310,72 @@ Thank you for choosing Vertex Picks.`;
                     </label>
                   </div>
                 </div>
+                </div>
+
+                {/* TAB 3: CLASSIFICATION & FILTERS */}
+                <div style={{ display: activeProdFormTab === 'filters' ? 'block' : 'none' }}>
+                  <div className="admin-card p-6" style={{ borderColor: 'rgba(232,84,10,0.2)' }}>
+                    <h4 className="text-xs font-black uppercase text-dark mb-6">🏷️ Classification & Global Filters</h4>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+                      {/* Category */}
+                      <div>
+                        <div className="text-[10px] font-bold mb-3 text-gray-500 uppercase tracking-wider">Categories</div>
+                        <div className="flex flex-col gap-2 bg-gray-50 p-4 rounded-xl border border-gray-100">
+                          {adminCategories?.map(c => (
+                            <label key={c} className="flex items-center gap-2 cursor-pointer text-xs font-medium">
+                              <input type="checkbox" checked={prodCategories.includes(c)} onChange={() => setProdCategories(p => p.includes(c) ? p.filter(i => i !== c) : [...p, c])} style={{ transform: 'scale(1.1)' }} />
+                              {c}
+                            </label>
+                          ))}
+                          {(!adminCategories || adminCategories.length === 0) && <span className="text-xs text-gray-400">No categories added</span>}
+                        </div>
+                      </div>
+
+                      {/* Variety */}
+                      <div>
+                        <div className="text-[10px] font-bold mb-3 text-gray-500 uppercase tracking-wider">Variety</div>
+                        <div className="flex flex-col gap-2 bg-gray-50 p-4 rounded-xl border border-gray-100">
+                          {adminFilters.variety?.map(v => (
+                            <label key={v} className="flex items-center gap-2 cursor-pointer text-xs font-medium">
+                              <input type="checkbox" checked={prodVariety.includes(v)} onChange={() => setProdVariety(p => p.includes(v) ? p.filter(i => i !== v) : [...p, v])} style={{ transform: 'scale(1.1)' }} />
+                              {v}
+                            </label>
+                          ))}
+                          {(!adminFilters.variety || adminFilters.variety.length === 0) && <span className="text-xs text-gray-400">No varieties added</span>}
+                        </div>
+                      </div>
+
+                      {/* Season */}
+                      <div>
+                        <div className="text-[10px] font-bold mb-3 text-gray-500 uppercase tracking-wider">Season</div>
+                        <div className="flex flex-col gap-2 bg-gray-50 p-4 rounded-xl border border-gray-100">
+                          {adminFilters.season?.map(s => (
+                            <label key={s} className="flex items-center gap-2 cursor-pointer text-xs font-medium">
+                              <input type="checkbox" checked={prodSeason.includes(s)} onChange={() => setProdSeason(p => p.includes(s) ? p.filter(i => i !== s) : [...p, s])} style={{ transform: 'scale(1.1)' }} />
+                              {s}
+                            </label>
+                          ))}
+                          {(!adminFilters.season || adminFilters.season.length === 0) && <span className="text-xs text-gray-400">No seasons added</span>}
+                        </div>
+                      </div>
+
+                      {/* Weight */}
+                      <div>
+                        <div className="text-[10px] font-bold mb-3 text-gray-500 uppercase tracking-wider">Weight Options</div>
+                        <div className="flex flex-col gap-2 bg-gray-50 p-4 rounded-xl border border-gray-100">
+                          {adminFilters.weight?.map(w => (
+                            <label key={w} className="flex items-center gap-2 cursor-pointer text-xs font-medium">
+                              <input type="checkbox" checked={prodFixedWeight.includes(w)} onChange={() => setProdFixedWeight(p => p.includes(w) ? p.filter(i => i !== w) : [...p, w])} style={{ transform: 'scale(1.1)' }} />
+                              {w}
+                            </label>
+                          ))}
+                          {(!adminFilters.weight || adminFilters.weight.length === 0) && <span className="text-xs text-gray-400">No weights added</span>}
+                        </div>
+                      </div>
+
+                    </div>
+                  </div>
                 </div>
 
                 {/* TAB 2: RICH DISPLAY DETAILS */}
@@ -1809,7 +1873,7 @@ Thank you for choosing Vertex Picks.`;
 
         <div className="admin-nav-section">
           <span className="admin-nav-label">Main</span>
-          {[{ id: 'dashboard', icon: '📊', label: 'Dashboard' }, { id: 'categories', icon: '📁', label: 'Categories' }, { id: 'products', icon: '🥭', label: 'Products' }, { id: 'orders', icon: '📦', label: 'Orders', badge: orders.length }, { id: 'customers', icon: '👥', label: 'Customers' }].map(item => (
+          {[{ id: 'dashboard', icon: '📊', label: 'Dashboard' }, { id: 'categories', icon: '📁', label: 'Categories' }, { id: 'filters', icon: '🎛️', label: 'Filters' }, { id: 'products', icon: '🥭', label: 'Products' }, { id: 'orders', icon: '📦', label: 'Orders', badge: orders.length }, { id: 'customers', icon: '👥', label: 'Customers' }].map(item => (
             <button key={item.id} className={`admin-nav-item${activeAdminTab === item.id ? ' active' : ''}`} onClick={() => { setActiveAdminTab(item.id); setIsSidebarOpen(false); }}>
               <span className="ani-icon">{item.icon}</span>
               {item.label}
@@ -2174,11 +2238,12 @@ Thank you for choosing Vertex Picks.`;
           </div>
         )}
 
-        {/* TAB 2: PRODUCTS CATALOG TAB */}
         {activeAdminTab === 'categories' && (
-          <div className="admin-tab active" id="atab-categories">
-            <CategoriesTab />
-          </div>
+          <CategoriesTab />
+        )}
+
+        {activeAdminTab === 'filters' && (
+          <FiltersTab />
         )}
 
         {activeAdminTab === 'products' && (

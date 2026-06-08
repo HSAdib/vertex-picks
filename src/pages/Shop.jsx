@@ -11,20 +11,19 @@ export default function Shop() {
   const [mangoes, setMangoes] = useState([]);
   const location = useLocation();
   const queryParams = new URLSearchParams(location.search);
-  const tabId = queryParams.get('tabId');
   const urlSearch = queryParams.get('search');
   const urlCategory = queryParams.get('category');
 
   const [searchQuery, setSearchQuery] = useState(urlSearch || '');
   const [prevUrlSearch, setPrevUrlSearch] = useState(urlSearch);
-  const [sections, setSections] = useState([]);
-  const [activeTabObj, setActiveTabObj] = useState(null);
+  const [categories, setCategories] = useState([]);
+  const [filters, setFilters] = useState({ rating: [], season: [], weight: [], priceRange: [], variety: [] });
   const [loading, setLoading] = useState(true);
   const [quantities, setQuantities] = useState({});
 
-  const [selectedVarieties, setSelectedVarieties] = useState(urlCategory ? [urlCategory] : []);
-  const [minPrice, setMinPrice] = useState(0);
-  const [maxPrice, setMaxPrice] = useState(2000);
+  const [selectedCategories, setSelectedCategories] = useState(urlCategory ? [urlCategory] : []);
+  const [selectedVarieties, setSelectedVarieties] = useState([]);
+  const [selectedPriceRanges, setSelectedPriceRanges] = useState([]);
   const [selectedWeights, setSelectedWeights] = useState([]);
   const [selectedSeasons, setSelectedSeasons] = useState([]);
   const [minRating, setMinRating] = useState(null);
@@ -51,38 +50,30 @@ export default function Shop() {
   useEffect(() => {
     const fetchMangoes = async () => {
       try {
-        let allowedSections = [];
-        if (tabId) {
-          const navDoc = await getDoc(doc(db, 'mangoes', 'NAVBAR_TABS'));
-          if (navDoc.exists() && navDoc.data().list) {
-            const activeTab = navDoc.data().list.find(t => t.id === tabId);
-            if (activeTab) {
-              setActiveTabObj(activeTab);
-              if (activeTab.sections) allowedSections = activeTab.sections;
-            }
-          }
-        } else {
-          setActiveTabObj(null);
-        }
-
         const querySnapshot = await getDocs(collection(db, 'mangoes'));
         const productsArray = [];
-        let fetchedSections = [];
+        let fetchedCategories = [];
+        let fetchedFilters = { rating: [], season: [], weight: [], priceRange: [], variety: [] };
 
         querySnapshot.docs.forEach(d => {
-          if (d.id === 'STORE_SECTIONS') {
-            fetchedSections = d.data().list || [];
-          } else if (d.id !== 'NAVBAR_TABS' && d.id !== 'STORE_SETTINGS') {
+          if (d.id === 'CATEGORIES') {
+            fetchedCategories = d.data().list || [];
+          } else if (d.id === 'FILTERS') {
+            fetchedFilters = d.data() || fetchedFilters;
+          } else if (d.id !== 'STORE_SECTIONS' && d.id !== 'NAVBAR_TABS' && d.id !== 'STORE_SETTINGS' && d.id !== 'VARIETIES') {
             productsArray.push({ id: d.id, ...d.data() });
           }
         });
 
-        if (tabId && allowedSections.length > 0) {
-          fetchedSections = fetchedSections.filter(s => allowedSections.includes(s));
-        }
-
         productsArray.sort((a, b) => (a.order || 0) - (b.order || 0));
-        setSections(fetchedSections);
+        setCategories(fetchedCategories);
+        setFilters({
+          rating: fetchedFilters.rating || [],
+          season: fetchedFilters.season || [],
+          weight: fetchedFilters.weight || [],
+          priceRange: fetchedFilters.priceRange || [],
+          variety: fetchedFilters.variety || []
+        });
         setMangoes(productsArray);
         setLoading(false);
       } catch (error) {
@@ -91,7 +82,7 @@ export default function Shop() {
       }
     };
     fetchMangoes();
-  }, [tabId]);
+  }, []);
 
   const updateQty = (id, amount) => {
     setQuantities(prev => {
@@ -115,52 +106,65 @@ export default function Shop() {
 
 
 
+  const getCategoryCount = (catName) =>
+    mangoes.filter(m => {
+      const v = m.category || '';
+      return v.toLowerCase() === (catName || '').toLowerCase();
+    }).length;
+
   const getVarietyCount = (varietyName) =>
     mangoes.filter(m => {
-      if (tabId && sections.length > 0 && !sections.includes(m.section)) return false;
-      return (
-        m.name?.toLowerCase().includes(varietyName.toLowerCase()) ||
-        m.section?.toLowerCase().includes(varietyName.toLowerCase()) ||
-        m.variety?.toLowerCase().includes(varietyName.toLowerCase())
-      );
+      const v = m.variety || m.section || m.name || '';
+      return v.toLowerCase().includes((varietyName || '').toLowerCase());
     }).length;
 
   const filteredMangoes = mangoes
     .filter(mango => {
-      if (tabId && sections.length > 0 && !sections.includes(mango.section)) return false;
+      if (selectedCategories.length > 0) {
+        const v = mango.category || '';
+        const vArray = Array.isArray(v) ? v : [v];
+        if (!selectedCategories.some(sc => vArray.some(item => String(item).toLowerCase() === (sc || '').toLowerCase()))) return false;
+      }
       if (selectedVarieties.length > 0) {
         const v = mango.variety || mango.section || mango.name || '';
-        if (!selectedVarieties.some(sv => v.toLowerCase().includes(sv.toLowerCase()))) return false;
+        const vArray = Array.isArray(v) ? v : [v];
+        if (!selectedVarieties.some(sv => vArray.some(item => String(item).toLowerCase().includes((sv || '').toLowerCase())))) return false;
       }
       if (searchQuery.trim() !== '') {
         const q = searchQuery.toLowerCase();
+        const vStr = Array.isArray(mango.variety) ? mango.variety.join(' ') : (mango.variety || '');
+        const cStr = Array.isArray(mango.category) ? mango.category.join(' ') : (mango.category || '');
         if (
           !mango.name?.toLowerCase().includes(q) &&
           !mango.description?.toLowerCase().includes(q) &&
-          !mango.section?.toLowerCase().includes(q) &&
-          !mango.variety?.toLowerCase().includes(q)
+          !(cStr || mango.section || vStr || '').toLowerCase().includes(q)
         ) return false;
       }
       const activePrice = Number(mango.discountPrice) || Number(mango.price) || 0;
-      if (minPrice !== '' && activePrice < Number(minPrice)) return false;
-      if (maxPrice !== '' && activePrice > Number(maxPrice)) return false;
-      if (selectedWeights.length > 0) {
-        const itemWeight = Number(mango.fixedWeight) || Number(mango.weight) || 1;
-        const itemUnit = mango.unit || 'kg';
-        const pass = selectedWeights.some(w => {
-          const wl = w.toLowerCase();
-          if (wl.includes('dozen')) {
-            if (wl.includes('½') || wl.includes('1/2') || wl.includes('half'))
-              return itemWeight === 6 || (itemUnit.toLowerCase().includes('dozen') && itemWeight === 0.5);
-            return itemWeight === 12 || (itemUnit.toLowerCase().includes('dozen') && itemWeight === 1);
+      if (selectedPriceRanges.length > 0) {
+        const passPrice = selectedPriceRanges.some(pr => {
+          if (pr.includes('+')) {
+            const min = Number(pr.replace('+', '').trim());
+            return activePrice >= min;
           }
-          return itemWeight === parseFloat(wl);
+          const [minStr, maxStr] = pr.split('-');
+          const min = Number(minStr?.trim() || 0);
+          const max = Number(maxStr?.trim() || Infinity);
+          return activePrice >= min && activePrice <= max;
         });
+        if (!passPrice) return false;
+      }
+      if (selectedWeights.length > 0) {
+        const wVal = mango.fixedWeight || '';
+        const wArray = Array.isArray(wVal) ? wVal : [wVal];
+        const pass = selectedWeights.some(sw => wArray.some(item => String(item).toLowerCase() === sw.toLowerCase()));
         if (!pass) return false;
       }
       if (selectedSeasons.length > 0) {
-        const s = mango.season || 'Peak';
-        if (!selectedSeasons.some(ss => s.toLowerCase().includes(ss.toLowerCase()))) return false;
+        const sVal = mango.season || 'Peak';
+        const sArray = Array.isArray(sVal) ? sVal : [sVal];
+        const pass = selectedSeasons.some(ss => sArray.some(item => String(item).toLowerCase().includes(ss.toLowerCase())));
+        if (!pass) return false;
       }
       if (minRating !== null) {
         const r = Number(mango.stats?.rating) || Number(mango.rating) || 5;
@@ -186,8 +190,9 @@ export default function Shop() {
     });
 
   const activeFiltersList = [];
+  selectedCategories.forEach(v => activeFiltersList.push({ label: v, clear: () => setSelectedCategories(p => p.filter(i => i !== v)) }));
   selectedVarieties.forEach(v => activeFiltersList.push({ label: v, clear: () => setSelectedVarieties(p => p.filter(i => i !== v)) }));
-  if (minPrice > 0 || maxPrice < 2000) activeFiltersList.push({ label: `৳${minPrice}–৳${maxPrice}`, clear: () => { setMinPrice(0); setMaxPrice(2000); } });
+  selectedPriceRanges.forEach(v => activeFiltersList.push({ label: `৳${v}`, clear: () => setSelectedPriceRanges(p => p.filter(i => i !== v)) }));
   selectedWeights.forEach(w => activeFiltersList.push({ label: w, clear: () => setSelectedWeights(p => p.filter(i => i !== w)) }));
   selectedSeasons.forEach(s => activeFiltersList.push({ label: `${s} Season`, clear: () => setSelectedSeasons(p => p.filter(i => i !== s)) }));
   if (minRating !== null) activeFiltersList.push({ label: `★ ${minRating} & Up`, clear: () => setMinRating(null) });
@@ -195,7 +200,7 @@ export default function Shop() {
   if (onSaleOnly) activeFiltersList.push({ label: 'On Sale', clear: () => setOnSaleOnly(false) });
 
   const clearAllFilters = () => {
-    setSelectedVarieties([]); setMinPrice(0); setMaxPrice(2000);
+    setSelectedCategories([]); setSelectedVarieties([]); setSelectedPriceRanges([]);
     setSelectedWeights([]); setSelectedSeasons([]); setMinRating(null);
     setInStockOnly(false); setOnSaleOnly(false); setSearchQuery('');
   };
@@ -219,11 +224,11 @@ export default function Shop() {
     );
   }
 
-  const titleRaw = activeTabObj?.heroTitle;
-  const subtitleRaw = activeTabObj?.heroSubtitle;
-  const showTitle = titleRaw !== undefined ? titleRaw.trim() !== '' : true;
-  const showSubtitle = subtitleRaw !== undefined ? subtitleRaw.trim() !== '' : true;
-  const showHeader = showTitle || showSubtitle;
+  const titleRaw = urlCategory ? `${urlCategory}` : 'All Categories';
+  const subtitleRaw = urlCategory ? `Browse our fresh selection of ${urlCategory}.` : 'Fresh from the orchards of Rajshahi. Hand-picked for excellence.';
+  const showTitle = true;
+  const showSubtitle = true;
+  const showHeader = true;
 
   return (
     <div style={{ paddingTop: 'var(--nav-height)', background: '#fff', minHeight: '100vh' }}>
@@ -275,13 +280,32 @@ export default function Shop() {
             </div>
           </div>
 
+          {/* Categories */}
+          <div className="sidebar-block">
+            <div className="sb-title">
+              Category
+              {selectedCategories.length > 0 && <span className="sb-clear" onClick={() => setSelectedCategories([])}>Clear</span>}
+            </div>
+            {categories.map(v => (
+              <label key={v} className="filter-check">
+                <input
+                  type="checkbox"
+                  checked={selectedCategories.includes(v)}
+                  onChange={() => setSelectedCategories(p => p.includes(v) ? p.filter(i => i !== v) : [...p, v])}
+                />
+                <span>{v}</span>
+                <span className="fc-count">{getCategoryCount(v)}</span>
+              </label>
+            ))}
+          </div>
+
           {/* Variety */}
           <div className="sidebar-block">
             <div className="sb-title">
               Variety
               {selectedVarieties.length > 0 && <span className="sb-clear" onClick={() => setSelectedVarieties([])}>Clear</span>}
             </div>
-            {['Himsagar', 'Langra', 'Fazli', 'Gopalbhog', 'Amrapali', 'Gift Box'].map(v => (
+            {filters.variety.map(v => (
               <label key={v} className="filter-check">
                 <input
                   type="checkbox"
@@ -294,17 +318,22 @@ export default function Shop() {
             ))}
           </div>
 
-          {/* Price */}
+          {/* Price Range */}
           <div className="sidebar-block">
             <div className="sb-title">
               Price Range (৳)
-              {(minPrice > 0 || maxPrice < 2000) && <span className="sb-clear" onClick={() => { setMinPrice(0); setMaxPrice(2000); }}>Clear</span>}
+              {selectedPriceRanges.length > 0 && <span className="sb-clear" onClick={() => setSelectedPriceRanges([])}>Clear</span>}
             </div>
-            <input type="range" className="range-slider" min="0" max="2000" value={maxPrice} onChange={e => setMaxPrice(Number(e.target.value))} />
-            <div className="price-inputs">
-              <input type="number" className="price-inp" placeholder="Min ৳" value={minPrice || ''} onChange={e => setMinPrice(e.target.value === '' ? '' : Number(e.target.value))} />
-              <input type="number" className="price-inp" placeholder="Max ৳" value={maxPrice || ''} onChange={e => setMaxPrice(e.target.value === '' ? '' : Number(e.target.value))} />
-            </div>
+            {filters.priceRange.map(pr => (
+              <label key={pr} className="filter-check">
+                <input
+                  type="checkbox"
+                  checked={selectedPriceRanges.includes(pr)}
+                  onChange={() => setSelectedPriceRanges(p => p.includes(pr) ? p.filter(i => i !== pr) : [...p, pr])}
+                />
+                <span>{pr}</span>
+              </label>
+            ))}
           </div>
 
           {/* Weight */}
@@ -314,7 +343,7 @@ export default function Shop() {
               {selectedWeights.length > 0 && <span className="sb-clear" onClick={() => setSelectedWeights([])}>Clear</span>}
             </div>
             <div className="chip-group">
-              {['½ Dozen', '1 Dozen', '2 Kg', '5 Kg', '10 Kg'].map(w => (
+              {filters.weight.map(w => (
                 <div key={w} className={`chip${selectedWeights.includes(w) ? ' active' : ''}`} onClick={() => setSelectedWeights(p => p.includes(w) ? p.filter(i => i !== w) : [...p, w])}>
                   {w}
                 </div>
@@ -328,10 +357,10 @@ export default function Shop() {
               Season
               {selectedSeasons.length > 0 && <span className="sb-clear" onClick={() => setSelectedSeasons([])}>Clear</span>}
             </div>
-            {[{ key: 'Early', label: 'Early Season (May–Jun)' }, { key: 'Peak', label: 'Peak Season (Jun–Jul)' }, { key: 'Late', label: 'Late Season (Jul–Aug)' }].map(s => (
-              <label key={s.key} className="filter-check">
-                <input type="checkbox" checked={selectedSeasons.includes(s.key)} onChange={() => setSelectedSeasons(p => p.includes(s.key) ? p.filter(i => i !== s.key) : [...p, s.key])} />
-                <span>{s.label}</span>
+            {filters.season.map(s => (
+              <label key={s} className="filter-check">
+                <input type="checkbox" checked={selectedSeasons.includes(s)} onChange={() => setSelectedSeasons(p => p.includes(s) ? p.filter(i => i !== s) : [...p, s])} />
+                <span>{s} Season</span>
               </label>
             ))}
           </div>
@@ -352,6 +381,7 @@ export default function Shop() {
               ))}
             </div>
           </div>
+
 
           {/* Availability */}
           <div className="sidebar-block">

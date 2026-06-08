@@ -176,7 +176,7 @@ export default function Home() {
       try {
         const snap = await getDocs(collection(db, 'mangoes'));
         const list = snap.docs
-          .filter(d => !['STORE_SECTIONS', 'STORE_SETTINGS', 'NAVBAR_TABS'].includes(d.id))
+          .filter(d => !['STORE_SECTIONS', 'STORE_SETTINGS', 'NAVBAR_TABS', 'CATEGORIES'].includes(d.id))
           .map(d => ({ id: d.id, ...d.data() }))
           .filter(p => p.featured === true)
           .sort((a, b) => (a.order || 0) - (b.order || 0))
@@ -471,11 +471,11 @@ export default function Home() {
           <div className="footer-col">
             <h5>Shop</h5>
             <ul>
-              <li><Link to="/shop">Himsagar</Link></li>
-              <li><Link to="/shop">Langra</Link></li>
-              <li><Link to="/shop">Fazli</Link></li>
-              <li><Link to="/shop">Gopalbhog</Link></li>
-              <li><Link to="/shop">Gift Boxes</Link></li>
+              <li><Link to="/shop?category=Himsagar">Himsagar</Link></li>
+              <li><Link to="/shop?category=Langra">Langra</Link></li>
+              <li><Link to="/shop?category=Fazli">Fazli</Link></li>
+              <li><Link to="/shop?category=Gopalbhog">Gopalbhog</Link></li>
+              <li><Link to="/shop?category=Gift Box">Gift Boxes</Link></li>
             </ul>
           </div>
           <div className="footer-col">
