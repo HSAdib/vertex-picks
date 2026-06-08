@@ -77,7 +77,16 @@ export default function Navbar() {
 
       {/* NAVBAR */}
       <nav className={`navbar relative ${isScrolled ? 'scrolled' : ''}`}>
-        <Link to="/" className="nav-logo">
+        <Link 
+          to="/" 
+          onClick={(e) => {
+            if (location.pathname === '/') {
+              e.preventDefault();
+              window.location.reload();
+            }
+          }}
+          className="nav-logo"
+        >
           <span className="nav-logo-full">Vertex<span className="nav-logo-accent">Picks</span></span>
           <span className="nav-logo-short">V<span>P</span></span>
         </Link>
@@ -106,7 +115,7 @@ export default function Navbar() {
             to="/shop" 
             className={location.pathname === '/shop' && !currentCategory ? 'active' : ''}
           >
-            Shop All
+            Shop
           </Link>
           {categories.map(cat => (
             <Link 
@@ -121,6 +130,11 @@ export default function Navbar() {
 
         {/* Nav actions */}
         <div className="nav-actions">
+          {/* Mobile Shop Icon */}
+          <Link to="/shop" className="nav-icon-btn mobile-shop-btn" title="Shop">
+            🏪
+          </Link>
+
           {/* Wishlist */}
           <Link to="/profile?tab=wishlist" className="nav-icon-btn" title="Wishlist">
             ❤️
@@ -243,7 +257,7 @@ export default function Navbar() {
                 onClick={() => setIsMobileMenuOpen(false)} 
                 className={`font-semibold text-sm transition-colors ${location.pathname === '/shop' && !currentCategory ? 'text-primary' : 'text-gray4 hover:text-primary'}`}
               >
-                Shop All
+                Shop
               </Link>
               {categories.map(cat => (
                 <Link 
