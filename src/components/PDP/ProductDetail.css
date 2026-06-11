@@ -258,10 +258,20 @@
   .pdp-details-grid{grid-template-columns:1fr}
 }
 @media(max-width:768px){
+  .pdp-sticky-bar{padding:.5rem .8rem; width:94%; left:3%; right:3%;}
   .pdp-sticky-product{display:none}
   .pdp-sticky-spacer{display:none}
-  .pdp-sticky-actions{flex:1;max-width:100%}
-  .pdp-sticky-btn{max-width:none}
+  .pdp-sticky-actions{flex:1;max-width:100%; gap:.4rem; width:100%}
+  .pdp-sticky-btn{max-width:none; padding:.5rem .5rem; font-size:.78rem; height:40px !important; letter-spacing:-0.02em}
+  .pdp-qty { height: 40px !important; }
+  .pdp-qty-btn { width: 32px; height: 40px !important; }
+  .pdp-qty-val { width: 34px; height: 40px !important; font-size: .85rem; }
+}
+@media(max-width:380px){
+  .pdp-sticky-bar{padding:.4rem .5rem;}
+  .pdp-sticky-btn{font-size:.72rem; padding:.5rem .3rem;}
+  .pdp-qty-btn { width: 28px; }
+  .pdp-qty-val { width: 30px; }
 }
 @media(max-width:600px){
   .pdp-title{font-size:1.8rem}
