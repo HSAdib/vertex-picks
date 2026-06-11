@@ -86,7 +86,19 @@ export default function ProductInfo({ product, qty, setQty, displayRating }) {
       <div className="pdp-buy-row" id="pdp-buy-row">
         <div className="pdp-qty">
           <button className="pdp-qty-btn" onClick={() => setQty(Math.max(1, qty - 1))}>−</button>
-          <div className="pdp-qty-val" id="pdp-qty-val">{qty}</div>
+          <div className="pdp-qty-val" id="pdp-qty-val">
+            <input
+              type="number"
+              value={qty}
+              min="1"
+              onChange={(e) => {
+                const val = e.target.value;
+                setQty(val === '' ? '' : Math.max(1, parseInt(val) || 1));
+              }}
+              onBlur={() => { if (qty === '' || qty < 1) setQty(1); }}
+              style={{ width: '100%', height: '100%', textAlign: 'center', border: 'none', background: 'transparent', outline: 'none', fontWeight: 700, fontSize: 'inherit', color: 'inherit', margin: 0, padding: 0 }}
+            />
+          </div>
           <button className="pdp-qty-btn" onClick={() => setQty(qty + 1)}>+</button>
         </div>
         <button

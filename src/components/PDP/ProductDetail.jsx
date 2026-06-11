@@ -308,7 +308,19 @@ export default function ProductDetail() {
           <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
             <div className="pdp-qty" style={{ height: '44px', margin: 0, borderRadius: '14px', background: '#fff' }}>
               <button className="pdp-qty-btn" onClick={() => setQty(Math.max(1, qty - 1))} style={{ height: '44px', background: '#F7F7F7' }}>−</button>
-              <div className="pdp-qty-val" style={{ height: '44px', background: '#fff' }}>{qty}</div>
+              <div className="pdp-qty-val" style={{ height: '44px', background: '#fff' }}>
+                <input
+                  type="number"
+                  value={qty}
+                  min="1"
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setQty(val === '' ? '' : Math.max(1, parseInt(val) || 1));
+                  }}
+                  onBlur={() => { if (qty === '' || qty < 1) setQty(1); }}
+                  style={{ width: '100%', height: '100%', textAlign: 'center', border: 'none', background: 'transparent', outline: 'none', fontWeight: 700, fontSize: 'inherit', color: 'inherit', margin: 0, padding: 0 }}
+                />
+              </div>
               <button className="pdp-qty-btn" onClick={() => setQty(qty + 1)} style={{ height: '44px', background: '#F7F7F7' }}>+</button>
             </div>
           </div>

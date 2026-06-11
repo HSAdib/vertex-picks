@@ -13,6 +13,19 @@ export async function fetchCurrentLocation(setAddress, setLocating, setCoordinat
     return;
   }
 
+  // 1. PERMISSION PRE-CHECK
+  if (navigator.permissions && navigator.permissions.query) {
+    try {
+      const perm = await navigator.permissions.query({ name: 'geolocation' });
+      if (perm.state === 'denied') {
+        toast.error('Location permission is blocked. Please enable it in your browser settings or type your address manually.');
+        return;
+      }
+    } catch (e) {
+      // Ignore if browser doesn't support query correctly
+    }
+  }
+
   setLocating(true);
   const loadingToast = toast.loading("Finding your location...");
 
@@ -26,6 +39,14 @@ export async function fetchCurrentLocation(setAddress, setLocating, setCoordinat
     });
 
     const { latitude, longitude } = position.coords;
+
+    // 3. BANGLADESH VALIDATION
+    if (latitude < 20.5 || latitude > 26.7 || longitude < 88.0 || longitude > 92.7) {
+      toast.error('Location detected outside Bangladesh. Please type your address manually.', { id: loadingToast });
+      setLocating(false);
+      return;
+    }
+
     if (setCoordinates) {
       setCoordinates({ lat: latitude, lng: longitude });
     }
@@ -38,21 +59,22 @@ export async function fetchCurrentLocation(setAddress, setLocating, setCoordinat
     if (!response.ok) throw new Error("Geocoding failed");
 
     const data = await response.json();
-    
     let formattedAddress = "";
 
     if (data.address) {
-      const { road, neighbourhood, suburb, village, town, city, state_district, state, postcode, country } = data.address;
+      const { road, neighbourhood, town, city, state_district, state, country } = data.address;
       
-      const area = [road, neighbourhood, suburb, village].filter(Boolean).join(', ');
-      const district = [city, town, state_district].filter(Boolean).join(', ');
-      
-      if (area) formattedAddress += `Area: ${area}\n`;
-      if (district) formattedAddress += `District: ${district}\n`;
-      if (state) formattedAddress += `Division: ${state}\n`;
-      
-      const other = [postcode, country].filter(Boolean).join(', ');
-      if (other) formattedAddress += `Other: ${other}`;
+      // 4. CLEANER ADDRESS FORMAT
+      const parts = [
+        road,
+        neighbourhood,
+        city || town,
+        state_district,
+        state,
+        country
+      ];
+      // Use Set to remove potential duplicate names (e.g. city and district might be identical)
+      formattedAddress = Array.from(new Set(parts)).filter(Boolean).join(', ');
     } else {
       formattedAddress = data.display_name || '';
     }
@@ -64,6 +86,23 @@ export async function fetchCurrentLocation(setAddress, setLocating, setCoordinat
       toast.error("Couldn't determine address. Please type manually.", { id: loadingToast });
     }
   } catch (error) {
+    // 2. IP-BASED FALLBACK
+    try {
+      const ipRes = await fetch('https://ip-api.com/json/?fields=status,city,regionName,district,country,countryCode');
+      const ipData = await ipRes.json();
+      
+      if (ipData.status === 'success' && ipData.countryCode === 'BD') {
+        const fallbackParts = [ipData.city, ipData.district, ipData.regionName, ipData.country];
+        const fallbackAddress = Array.from(new Set(fallbackParts)).filter(Boolean).join(', ');
+        
+        setAddress(fallbackAddress);
+        toast.success('📍 Approximate location used — please verify your address.', { id: loadingToast });
+        return;
+      }
+    } catch (ipErr) {
+      // Fall through to the original manual entry error
+    }
+
     if (error.code === 1) {
       toast.error("Location access denied. Please type your address manually.", { id: loadingToast });
     } else if (error.code === 2) {

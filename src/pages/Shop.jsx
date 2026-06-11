@@ -551,12 +551,29 @@ export default function Shop() {
 
                       {/* Quantity stepper */}
                       <div
-                        style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '0.75rem', paddingTop: '0.75rem', borderTop: '1px solid var(--gray2)' }}
+                        style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem', marginTop: '0.75rem', paddingTop: '0.75rem', borderTop: '1px solid var(--gray2)' }}
                         onClick={e => { e.preventDefault(); e.stopPropagation(); }}
                       >
                         <div style={{ display: 'flex', alignItems: 'center', border: '1.5px solid var(--gray2)', borderRadius: 8, background: 'var(--gray1)', overflow: 'hidden' }}>
                           <button style={{ padding: '4px 10px', fontWeight: 700, fontSize: '.85rem', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--gray4)' }} onClick={e => { e.stopPropagation(); updateQty(mango.id, -1); }}>−</button>
-                          <span style={{ padding: '4px 10px', fontWeight: 700, fontSize: '.8rem', minWidth: 24, textAlign: 'center' }}>{quantities[mango.id] || 1}</span>
+                          <span style={{ padding: '0', fontWeight: 700, fontSize: '.8rem', minWidth: 24, textAlign: 'center', display: 'flex', alignItems: 'center' }}>
+                            <input
+                              type="number"
+                              value={quantities[mango.id] === undefined ? 1 : quantities[mango.id]}
+                              min="1"
+                              onClick={e => { e.preventDefault(); e.stopPropagation(); }}
+                              onChange={e => {
+                                const val = e.target.value;
+                                setQuantities(prev => ({ ...prev, [mango.id]: val === '' ? '' : Math.max(1, parseInt(val) || 1) }));
+                              }}
+                              onBlur={() => {
+                                if (quantities[mango.id] === '' || quantities[mango.id] < 1) {
+                                  setQuantities(prev => ({ ...prev, [mango.id]: 1 }));
+                                }
+                              }}
+                              style={{ width: '40px', textAlign: 'center', border: 'none', background: 'transparent', outline: 'none', fontWeight: 'inherit', fontSize: 'inherit', color: 'inherit', padding: '4px 0' }}
+                            />
+                          </span>
                           <button style={{ padding: '4px 10px', fontWeight: 700, fontSize: '.85rem', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--gray4)' }} onClick={e => { e.stopPropagation(); updateQty(mango.id, 1); }}>+</button>
                         </div>
                         <button
