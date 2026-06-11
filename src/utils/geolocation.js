@@ -7,7 +7,7 @@ import { toast } from 'react-hot-toast';
  * @param {function} setLocating - state setter for loading spinner
  * @param {function} [setCoordinates] - optional state setter for {lat, lng} object
  */
-export async function fetchCurrentLocation(setAddress, setLocating, setCoordinates) {
+export async function fetchCurrentLocation(setAddress, setLocating, setCoordinates, setPostcode) {
   if (!navigator.geolocation) {
     toast.error("Geolocation is not supported by your browser.");
     return;
@@ -62,7 +62,7 @@ export async function fetchCurrentLocation(setAddress, setLocating, setCoordinat
     let formattedAddress = "";
 
     if (data.address) {
-      const { road, neighbourhood, town, city, state_district, state, country } = data.address;
+      const { road, neighbourhood, town, city, state_district, state, postcode, country } = data.address;
       
       // 4. CLEANER ADDRESS FORMAT
       const parts = [
@@ -71,10 +71,15 @@ export async function fetchCurrentLocation(setAddress, setLocating, setCoordinat
         city || town,
         state_district,
         state,
+        postcode,
         country
       ];
       // Use Set to remove potential duplicate names (e.g. city and district might be identical)
       formattedAddress = Array.from(new Set(parts)).filter(Boolean).join(', ');
+
+      if (setPostcode && postcode) {
+        setPostcode(`Postal Code: ${postcode}`);
+      }
     } else {
       formattedAddress = data.display_name || '';
     }

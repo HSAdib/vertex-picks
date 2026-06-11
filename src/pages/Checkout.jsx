@@ -36,6 +36,7 @@ export default function Checkout() {
   const [storeConfig, setStoreConfig] = useState({ baseDeliveryFee: 110, perKgFee: 21, freeDeliveryMin: 1500, enableFreeDelivery: true });
 
   const [deliveryHouseNumber, setDeliveryHouseNumber] = useState('');
+  const [deliveryPostcode, setDeliveryPostcode] = useState('Postal Code: ');
   const [showMapModal, setShowMapModal] = useState(false);
   const [pinnedCoords, setPinnedCoords] = useState({ lat: 23.6850, lng: 90.3563 });
   const mapRef = useRef(null);
@@ -110,9 +111,15 @@ export default function Checkout() {
       
       let formattedAddress = "";
       if (data.address) {
-        const { road, neighbourhood, town, city, state_district, state, country } = data.address;
-        const parts = [road, neighbourhood, city || town, state_district, state, country];
+        const { road, neighbourhood, town, city, state_district, state, postcode, country } = data.address;
+        console.log('Nominatim postcode raw value:', postcode, '| Full address object:', JSON.stringify(data.address));
+        const parts = [road, neighbourhood, city || town, state_district, state, postcode, country];
         formattedAddress = Array.from(new Set(parts)).filter(Boolean).join(', ');
+        if (postcode) {
+          setDeliveryPostcode('Postal Code: ' + postcode);
+        } else {
+          setDeliveryPostcode('');
+        }
       } else {
         formattedAddress = data.display_name || '';
       }
@@ -159,10 +166,12 @@ export default function Checkout() {
               setDeliveryAddress(defaultAddr.address);
               setDeliveryPhone(defaultAddr.phone);
               setDeliveryCoords(defaultAddr.coords || null);
+              setDeliveryPostcode(defaultAddr.postcode || '');
             } else if (data.address) {
               setDeliveryAddress(data.address);
               setDeliveryPhone(data.phone || '');
               setDeliveryCoords(null);
+              setDeliveryPostcode(data.postcode || '');
             }
           } else {
             setCustomerName(currentUser.displayName || '');
@@ -175,6 +184,7 @@ export default function Checkout() {
             setDeliveryAddress(defaultAddr.address);
             setDeliveryPhone(defaultAddr.phone);
             setDeliveryCoords(defaultAddr.coords);
+            setDeliveryPostcode(defaultAddr.postcode || '');
             setSelectedAddressId(defaultAddr.id);
           }
         }
@@ -202,12 +212,14 @@ export default function Checkout() {
       setDeliveryAddress('');
       setDeliveryPhone('');
       setDeliveryCoords(null);
+      setDeliveryPostcode('');
     } else {
       const addr = savedAddresses.find(a => a.id === addrId);
       if (addr) {
         setDeliveryAddress(addr.address);
         setDeliveryPhone(addr.phone);
         setDeliveryCoords(addr.coords || null);
+        setDeliveryPostcode(addr.postcode || '');
       }
     }
   };
@@ -310,6 +322,7 @@ export default function Checkout() {
         deliveryAddress: finalAddress,
         deliveryPhone: deliveryPhone,
         deliveryCoords: deliveryCoords,
+        deliveryPostcode: deliveryPostcode,
         items: activeItems,
         subtotal: subtotal,
         totalWeight: totalWeight,
@@ -338,6 +351,7 @@ export default function Checkout() {
           address: finalAddress,
           phone: deliveryPhone,
           coords: deliveryCoords || null,
+          postcode: deliveryPostcode,
           isDefault: savedAddresses.length === 0
         };
 
@@ -606,7 +620,7 @@ export default function Checkout() {
                         </button>
                         <button
                           type="button"
-                          onClick={() => fetchCurrentLocation(setDeliveryAddress, setLocating, setDeliveryCoords)}
+                          onClick={() => fetchCurrentLocation(setDeliveryAddress, setLocating, setDeliveryCoords, setDeliveryPostcode)}
                           disabled={locating}
                           style={{ color: '#E8540A', border: 'none', background: 'none', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 700, outline: 'none', padding: 0, fontFamily: "'Sora', sans-serif" }}
                         >
@@ -631,6 +645,18 @@ export default function Checkout() {
                       value={deliveryHouseNumber} 
                       onChange={e => setDeliveryHouseNumber(e.target.value)} 
                       placeholder="E.g. House 12, Road 4, Apt 3B" 
+                      style={{ background: '#FFFFFF', border: '1.5px solid #EEEEEE', borderRadius: '8px', padding: '0.65rem 1rem', fontFamily: "'Sora', sans-serif", fontSize: '0.875rem', color: '#1A1A1A', width: '100%', outline: 'none' }}
+                      onFocus={e => e.target.style.borderColor = '#E8540A'}
+                      onBlur={e => e.target.style.borderColor = '#EEEEEE'}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ fontFamily: "'Sora', sans-serif", fontSize: '0.72rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#888888', marginBottom: '0.4rem', display: 'block' }}>Postal Code</label>
+                    <input 
+                      type="text" 
+                      value={deliveryPostcode} 
+                      onChange={e => setDeliveryPostcode(e.target.value)} 
+                      placeholder="Auto-filled or enter manually" 
                       style={{ background: '#FFFFFF', border: '1.5px solid #EEEEEE', borderRadius: '8px', padding: '0.65rem 1rem', fontFamily: "'Sora', sans-serif", fontSize: '0.875rem', color: '#1A1A1A', width: '100%', outline: 'none' }}
                       onFocus={e => e.target.style.borderColor = '#E8540A'}
                       onBlur={e => e.target.style.borderColor = '#EEEEEE'}
