@@ -297,13 +297,7 @@ export default function Home() {
                     <span className="badge badge-orange">Sale</span>
                   </div>
                 )}
-                <button 
-                  className="pc-wishlist" 
-                  onClick={(e) => { e.stopPropagation(); toggleWishlist(p); }}
-                  style={{ color: isInWishlist(p.id) ? 'var(--primary)' : 'inherit' }}
-                >
-                  {isInWishlist(p.id) ? '♥' : '♡'}
-                </button>
+
                 <div className="pc-img" style={{ background: 'linear-gradient(135deg,#FFF3C4,#FFE082)', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   {(p.images?.[0] || p.image)
                     ? <img src={p.images?.[0] || p.image} alt={p.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
@@ -321,7 +315,21 @@ export default function Home() {
                       ৳{(p.discountPrice || p.price).toLocaleString()} <span className="unit">/ {p.fixedWeight || 1}kg box</span>
                       {p.discountPrice && <span className="old">৳{p.price}</span>}
                     </div>
-                    <button className="pc-add" onClick={(e) => { e.stopPropagation(); navigate(`/product/${p.id}`); }}>+</button>
+                    <button
+                      style={{ 
+                        background: 'var(--gray1)', border: 'none', cursor: 'pointer',
+                        fontSize: '1.2rem', color: isInWishlist(p.id) ? 'var(--primary)' : 'var(--gray4)',
+                        width: '32px', height: '32px', borderRadius: '50%',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        transition: 'all 0.2s', marginTop: '-4px'
+                      }}
+                      onClick={e => { e.preventDefault(); e.stopPropagation(); toggleWishlist(p); }}
+                      title={isInWishlist(p.id) ? "Remove from Wishlist" : "Add to Wishlist"}
+                      onMouseEnter={e => e.currentTarget.style.color = 'var(--primary)'}
+                      onMouseLeave={e => e.currentTarget.style.color = isInWishlist(p.id) ? 'var(--primary)' : 'var(--gray4)'}
+                    >
+                      {isInWishlist(p.id) ? '♥' : '♡'}
+                    </button>
                   </div>
                 </div>
               </div>

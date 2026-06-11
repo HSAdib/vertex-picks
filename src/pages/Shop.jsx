@@ -487,14 +487,7 @@ export default function Shop() {
                       </div>
                     )}
 
-                    {/* Wishlist */}
-                    <button
-                      className="pc-wishlist"
-                      style={{ color: isLiked ? 'var(--primary)' : 'inherit' }}
-                      onClick={e => { e.preventDefault(); e.stopPropagation(); toggleWishlist(mango); }}
-                    >
-                      {isLiked ? '♥' : '♡'}
-                    </button>
+
 
                     {/* Image */}
                     <div className="pc-img" style={{ background: 'var(--gray1)' }}>
@@ -527,10 +520,19 @@ export default function Shop() {
                           {oldPrice && <span className="old">৳{Number(oldPrice).toLocaleString()}</span>}
                         </div>
                         <button
-                          className={`pc-add${isAdded ? ' added' : ''}`}
-                          onClick={e => { e.preventDefault(); e.stopPropagation(); handleAddToCart(mango); }}
+                          style={{ 
+                            background: 'var(--gray1)', border: 'none', cursor: 'pointer',
+                            fontSize: '1.2rem', color: isLiked ? 'var(--primary)' : 'var(--gray4)',
+                            width: '32px', height: '32px', borderRadius: '50%',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            transition: 'all 0.2s', marginTop: '-4px'
+                          }}
+                          onClick={e => { e.preventDefault(); e.stopPropagation(); toggleWishlist(mango); }}
+                          title={isLiked ? "Remove from Wishlist" : "Add to Wishlist"}
+                          onMouseEnter={e => e.currentTarget.style.color = 'var(--primary)'}
+                          onMouseLeave={e => e.currentTarget.style.color = isLiked ? 'var(--primary)' : 'var(--gray4)'}
                         >
-                          {isAdded ? '✓' : '+'}
+                          {isLiked ? '♥' : '♡'}
                         </button>
                       </div>
 
