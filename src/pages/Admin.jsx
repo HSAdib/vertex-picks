@@ -276,6 +276,7 @@ Thank you for choosing Vertex Picks.`;
   const [newMarqueeText, setNewMarqueeText] = useState('');
   const [editingMarqueeIndex, setEditingMarqueeIndex] = useState(null);
   const [editingMarqueeText, setEditingMarqueeText] = useState('');
+  const [topBarText, setTopBarText] = useState('🚚 Free delivery on orders above ৳1,500 | Season 2025 Open!');
 
   // Hero Copy States
   const [heroBadge1, setHeroBadge1] = useState('🥭 Season 2026');
@@ -424,7 +425,6 @@ Thank you for choosing Vertex Picks.`;
   const [prodSku, setProdSku] = useState('');
   const [prodMinThreshold, setProdMinThreshold] = useState(10);
   const [prodSeason, setProdSeason] = useState([]);
-  const [prodGrade, setProdGrade] = useState('Premium');
   const [prodImages, setProdImages] = useState(['']);
   const [prodDescription, setProdDescription] = useState('');
   const [prodFeatured, setProdFeatured] = useState(false);
@@ -561,29 +561,30 @@ Thank you for choosing Vertex Picks.`;
 
         // Fetch customizer text settings if they exist
         if (cData.marqueeItems && Array.isArray(cData.marqueeItems)) setMarqueeItems(cData.marqueeItems);
-        if (cData.heroBadge1) setHeroBadge1(cData.heroBadge1);
-        if (cData.heroBadge2) setHeroBadge2(cData.heroBadge2);
-        if (cData.heroBadge3) setHeroBadge3(cData.heroBadge3);
-        if (cData.heroTitleLine1) setHeroTitleLine1(cData.heroTitleLine1);
-        if (cData.heroTitleLine2) setHeroTitleLine2(cData.heroTitleLine2);
-        if (cData.heroTitleLine3) setHeroTitleLine3(cData.heroTitleLine3);
-        if (cData.heroSubtitle) setHeroSubtitle(cData.heroSubtitle);
-        if (cData.heroTrust1) setHeroTrust1(cData.heroTrust1);
-        if (cData.heroTrust2) setHeroTrust2(cData.heroTrust2);
-        if (cData.heroTrust3) setHeroTrust3(cData.heroTrust3);
-        if (cData.promiseTitle) setPromiseTitle(cData.promiseTitle);
-        if (cData.promiseFeature1Title) setPromiseFeature1Title(cData.promiseFeature1Title);
-        if (cData.promiseFeature1Text) setPromiseFeature1Text(cData.promiseFeature1Text);
-        if (cData.promiseFeature1Icon) setPromiseFeature1Icon(cData.promiseFeature1Icon);
-        if (cData.promiseFeature2Title) setPromiseFeature2Title(cData.promiseFeature2Title);
-        if (cData.promiseFeature2Text) setPromiseFeature2Text(cData.promiseFeature2Text);
-        if (cData.promiseFeature2Icon) setPromiseFeature2Icon(cData.promiseFeature2Icon);
-        if (cData.promiseFeature3Title) setPromiseFeature3Title(cData.promiseFeature3Title);
-        if (cData.promiseFeature3Text) setPromiseFeature3Text(cData.promiseFeature3Text);
-        if (cData.promiseFeature3Icon) setPromiseFeature3Icon(cData.promiseFeature3Icon);
-        if (cData.promiseFeature4Title) setPromiseFeature4Title(cData.promiseFeature4Title);
-        if (cData.promiseFeature4Text) setPromiseFeature4Text(cData.promiseFeature4Text);
-        if (cData.promiseFeature4Icon) setPromiseFeature4Icon(cData.promiseFeature4Icon);
+        if (cData.topBarText !== undefined) setTopBarText(cData.topBarText);
+        if (cData.heroBadge1 !== undefined) setHeroBadge1(cData.heroBadge1);
+        if (cData.heroBadge2 !== undefined) setHeroBadge2(cData.heroBadge2);
+        if (cData.heroBadge3 !== undefined) setHeroBadge3(cData.heroBadge3);
+        if (cData.heroTitleLine1 !== undefined) setHeroTitleLine1(cData.heroTitleLine1);
+        if (cData.heroTitleLine2 !== undefined) setHeroTitleLine2(cData.heroTitleLine2);
+        if (cData.heroTitleLine3 !== undefined) setHeroTitleLine3(cData.heroTitleLine3);
+        if (cData.heroSubtitle !== undefined) setHeroSubtitle(cData.heroSubtitle);
+        if (cData.heroTrust1 !== undefined) setHeroTrust1(cData.heroTrust1);
+        if (cData.heroTrust2 !== undefined) setHeroTrust2(cData.heroTrust2);
+        if (cData.heroTrust3 !== undefined) setHeroTrust3(cData.heroTrust3);
+        if (cData.promiseTitle !== undefined) setPromiseTitle(cData.promiseTitle);
+        if (cData.promiseFeature1Title !== undefined) setPromiseFeature1Title(cData.promiseFeature1Title);
+        if (cData.promiseFeature1Text !== undefined) setPromiseFeature1Text(cData.promiseFeature1Text);
+        if (cData.promiseFeature1Icon !== undefined) setPromiseFeature1Icon(cData.promiseFeature1Icon);
+        if (cData.promiseFeature2Title !== undefined) setPromiseFeature2Title(cData.promiseFeature2Title);
+        if (cData.promiseFeature2Text !== undefined) setPromiseFeature2Text(cData.promiseFeature2Text);
+        if (cData.promiseFeature2Icon !== undefined) setPromiseFeature2Icon(cData.promiseFeature2Icon);
+        if (cData.promiseFeature3Title !== undefined) setPromiseFeature3Title(cData.promiseFeature3Title);
+        if (cData.promiseFeature3Text !== undefined) setPromiseFeature3Text(cData.promiseFeature3Text);
+        if (cData.promiseFeature3Icon !== undefined) setPromiseFeature3Icon(cData.promiseFeature3Icon);
+        if (cData.promiseFeature4Title !== undefined) setPromiseFeature4Title(cData.promiseFeature4Title);
+        if (cData.promiseFeature4Text !== undefined) setPromiseFeature4Text(cData.promiseFeature4Text);
+        if (cData.promiseFeature4Icon !== undefined) setPromiseFeature4Icon(cData.promiseFeature4Icon);
       }
 
       setLoading(false);
@@ -706,7 +707,6 @@ Thank you for choosing Vertex Picks.`;
         sku: prodSku || `VP-${prodCategories.length > 0 ? prodCategories[0].slice(0,3).toUpperCase() : 'MGO'}-${pId.slice(-3).toUpperCase()}`,
         minThreshold: Number(prodMinThreshold),
         season: prodSeason,
-        grade: prodGrade,
         images: finalImages,
         image: finalImages[0] || '',
         description: prodDescription || 'Fresh premium bagged mango from Rajshahi orchards.',
@@ -748,7 +748,6 @@ Thank you for choosing Vertex Picks.`;
     setProdSku(p.sku || '');
     setProdMinThreshold(p.minThreshold || 10);
     setProdSeason(Array.isArray(p.season) ? p.season : [p.season].filter(Boolean));
-    setProdGrade(p.grade || 'Premium');
     const loadedImages = Array.isArray(p.images) && p.images.length > 0
       ? p.images
       : (p.image ? [p.image] : ['']);
@@ -807,7 +806,6 @@ Thank you for choosing Vertex Picks.`;
     setProdSku('');
     setProdMinThreshold(10);
     setProdSeason([]);
-    setProdGrade('Premium');
     setProdImages(['']);
     setProdDescription('');
     setProdFeatured(false);
@@ -966,6 +964,7 @@ Thank you for choosing Vertex Picks.`;
     if (e) e.preventDefault();
     try {
       await setDoc(doc(db, 'mangoes', 'STORE_SETTINGS'), {
+        topBarText,
         marqueeItems,
         heroBadge1,
         heroBadge2,
@@ -1482,15 +1481,6 @@ Thank you for choosing Vertex Picks.`;
                     />
                   </div>
 
-                  <div>
-                    <label className="form-label">Orchard Grade</label>
-                    <input 
-                      type="text" 
-                      value={prodGrade} 
-                      onChange={e => setProdGrade(e.target.value)} 
-                      className="form-input font-bold text-xs" 
-                    />
-                  </div>
                   <div className="col-span-2">
                     <label className="form-label mb-2">Product Images (URLs)</label>
                     <div style={{ background: '#F7F7F7', border: '1.5px solid #EEEEEE', borderRadius: '8px', padding: '0.75rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
@@ -4227,6 +4217,25 @@ Thank you for choosing Vertex Picks.`;
               {/* LEFT COLUMN: EDIT CONTROLS */}
               <div style={{ flex: '1 1 500px', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
                 
+                {/* 0. TOP BAR CARD */}
+                <div className="admin-card" style={{ padding: '1.75rem' }}>
+                  <div className="admin-card-head" style={{ padding: '0 0 1rem 0', borderBottom: '1.5px solid var(--gray2)' }}>
+                    <div>
+                      <div className="ach-title" style={{ fontSize: '1rem', display: 'flex', alignItems: 'center', gap: '.5rem' }}>📢 Global Top Notification Bar</div>
+                      <div className="ach-sub">The static text bar at the very top of the website.</div>
+                    </div>
+                  </div>
+                  
+                  <div style={{ marginTop: '1.25rem' }}>
+                    <input 
+                      type="text" 
+                      className="form-input !rounded-[12px] font-bold" 
+                      value={topBarText} 
+                      onChange={e => setTopBarText(e.target.value)}
+                    />
+                  </div>
+                </div>
+
                 {/* 1. MARQUEE BADGES CARD */}
                 <div className="admin-card" style={{ padding: '1.75rem' }}>
                   <div className="admin-card-head" style={{ padding: '0 0 1rem 0', borderBottom: '1.5px solid var(--gray2)' }}>
@@ -4645,6 +4654,23 @@ Thank you for choosing Vertex Picks.`;
                     fontSize: '12px'
                   }} className="scrollbar-thin">
                     
+                    {/* Miniature Top Bar */}
+                    <div style={{ 
+                      background: 'var(--dark)', 
+                      color: 'var(--gray2)', 
+                      padding: '.35rem 1.25rem', 
+                      fontSize: '.5rem', 
+                      display: 'flex',
+                      justifyContent: 'space-between'
+                    }}>
+                      <span>{topBarText}</span>
+                      <div style={{ display: 'flex', gap: '.6rem' }}>
+                        <span>Track Order</span>
+                        <span>Help</span>
+                        <span>বাংলা</span>
+                      </div>
+                    </div>
+
                     {/* Micro Navigation */}
                     <div style={{ 
                       padding: '.8rem 1.25rem', 

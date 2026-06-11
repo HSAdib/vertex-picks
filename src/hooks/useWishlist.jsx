@@ -16,17 +16,15 @@ export function useWishlist() {
   }, [wishlist]);
 
   const toggleWishlist = (mango) => {
-    setWishlist(prev => {
-      let updated;
-      if (prev.includes(mango.id)) {
-        updated = prev.filter(id => id !== mango.id);
-        toast.success(`Removed ${mango.name || 'item'} from Wishlist!`, { icon: '💔' });
-      } else {
-        updated = [...prev, mango.id];
-        toast.success(`Added ${mango.name || 'item'} to Wishlist!`, { icon: '❤️' });
-      }
-      return updated;
-    });
+    const isAlreadyLiked = wishlist.includes(mango.id);
+    
+    if (isAlreadyLiked) {
+      toast.success(`Removed ${mango.name || 'item'} from Wishlist!`, { icon: '💔' });
+      setWishlist(prev => prev.filter(id => id !== mango.id));
+    } else {
+      toast.success(`Added ${mango.name || 'item'} to Wishlist!`, { icon: '❤️' });
+      setWishlist(prev => [...prev, mango.id]);
+    }
   };
 
   const isInWishlist = (productId) => wishlist.includes(productId);

@@ -12,6 +12,7 @@ export default function Navbar() {
   const [categories, setCategories] = useState([]);
   const [searchVal, setSearchVal] = useState('');
   const [isScrolled, setIsScrolled] = useState(false);
+  const [topBarText, setTopBarText] = useState('🚚 Free delivery on orders above ৳1,500 | Season 2025 Open!');
   
   const { cart } = useCart();
   const { user, isAdmin } = useAuth();
@@ -35,7 +36,7 @@ export default function Navbar() {
   }, []);
 
   useEffect(() => {
-    const fetchCategories = async () => {
+    const fetchData = async () => {
       try {
         const docSnap = await getDoc(doc(db, 'mangoes', 'CATEGORIES'));
         if (docSnap.exists() && docSnap.data().list) {
@@ -43,11 +44,16 @@ export default function Navbar() {
         } else {
           setCategories([]);
         }
+
+        const settingsSnap = await getDoc(doc(db, 'mangoes', 'STORE_SETTINGS'));
+        if (settingsSnap.exists() && settingsSnap.data().topBarText !== undefined) {
+          setTopBarText(settingsSnap.data().topBarText);
+        }
       } catch (err) {
-        console.error("Error loading categories", err);
+        console.error("Error loading navbar data", err);
       }
     };
-    fetchCategories();
+    fetchData();
   }, []);
 
   const totalItems = cart.reduce((total, item) => total + item.quantity, 0);
@@ -62,7 +68,7 @@ export default function Navbar() {
     <div className="absolute top-0 left-0 w-full z-50 print:hidden">
       {/* TOPBAR */}
       <div className="topbar">
-        <span>🚚 Free delivery on orders above ৳1,500 | Season 2025 Open!</span>
+        <span>{topBarText}</span>
         <div className="topbar-links">
           <Link to="/profile">Track Order</Link>
           <a href="https://wa.me/8801581221084?text=Hello!%20I%20need%20help%20with%20my%20Vertex%20Picks%20order." target="_blank" rel="noreferrer">Help</a>

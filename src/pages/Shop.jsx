@@ -6,6 +6,7 @@ import { useCart } from '../context/CartContext';
 import { useWishlist } from '../hooks/useWishlist';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
+import { Heart } from 'lucide-react';
 
 export default function Shop() {
   const [mangoes, setMangoes] = useState([]);
@@ -507,7 +508,6 @@ export default function Shop() {
                       <h4 className="pc-name" style={{ overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 1, WebkitBoxOrient: 'vertical' }}>{mango.name}</h4>
                       <div className="pc-sub">
                         <span>⚖️ {mango.fixedWeight || 1}kg Box</span>
-                        {mango.grade && <span> · {mango.grade}</span>}
                         {mango.season && <span> · {mango.season} Season</span>}
                       </div>
                       <div className="pc-rating">
@@ -532,7 +532,7 @@ export default function Shop() {
                           onMouseEnter={e => e.currentTarget.style.color = 'var(--primary)'}
                           onMouseLeave={e => e.currentTarget.style.color = isLiked ? 'var(--primary)' : 'var(--gray4)'}
                         >
-                          {isLiked ? '♥' : '♡'}
+                          <Heart size={18} fill={isLiked ? 'currentColor' : 'none'} />
                         </button>
                       </div>
 

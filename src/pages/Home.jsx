@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { collection, getDocs, addDoc, doc, getDoc, query, where, orderBy, limit } from 'firebase/firestore';
-import { Share2, Camera, Globe, MessageCircle } from 'lucide-react';
+import { Share2, Camera, Globe, MessageCircle, Heart } from 'lucide-react';
 import { db } from '../firebaseConfig';
 import { toast } from 'react-hot-toast';
 import { useWishlist } from '../hooks/useWishlist';
@@ -81,29 +81,29 @@ export default function Home() {
           setUiSettings(prev => ({
             ...prev,
             marqueeItems: data.marqueeItems || prev.marqueeItems,
-            heroBadge1: data.heroBadge1 || prev.heroBadge1,
-            heroBadge2: data.heroBadge2 || prev.heroBadge2,
-            heroBadge3: data.heroBadge3 || prev.heroBadge3,
-            heroTitleLine1: data.heroTitleLine1 || prev.heroTitleLine1,
-            heroTitleLine2: data.heroTitleLine2 || prev.heroTitleLine2,
-            heroTitleLine3: data.heroTitleLine3 || prev.heroTitleLine3,
-            heroSubtitle: data.heroSubtitle || prev.heroSubtitle,
-            heroTrust1: data.heroTrust1 || prev.heroTrust1,
-            heroTrust2: data.heroTrust2 || prev.heroTrust2,
-            heroTrust3: data.heroTrust3 || prev.heroTrust3,
-            promiseTitle: data.promiseTitle || prev.promiseTitle,
-            promiseFeature1Title: data.promiseFeature1Title || prev.promiseFeature1Title,
-            promiseFeature1Text: data.promiseFeature1Text || prev.promiseFeature1Text,
-            promiseFeature1Icon: data.promiseFeature1Icon || prev.promiseFeature1Icon,
-            promiseFeature2Title: data.promiseFeature2Title || prev.promiseFeature2Title,
-            promiseFeature2Text: data.promiseFeature2Text || prev.promiseFeature2Text,
-            promiseFeature2Icon: data.promiseFeature2Icon || prev.promiseFeature2Icon,
-            promiseFeature3Title: data.promiseFeature3Title || prev.promiseFeature3Title,
-            promiseFeature3Text: data.promiseFeature3Text || prev.promiseFeature3Text,
-            promiseFeature3Icon: data.promiseFeature3Icon || prev.promiseFeature3Icon,
-            promiseFeature4Title: data.promiseFeature4Title || prev.promiseFeature4Title,
-            promiseFeature4Text: data.promiseFeature4Text || prev.promiseFeature4Text,
-            promiseFeature4Icon: data.promiseFeature4Icon || prev.promiseFeature4Icon,
+            heroBadge1: data.heroBadge1 !== undefined ? data.heroBadge1 : prev.heroBadge1,
+            heroBadge2: data.heroBadge2 !== undefined ? data.heroBadge2 : prev.heroBadge2,
+            heroBadge3: data.heroBadge3 !== undefined ? data.heroBadge3 : prev.heroBadge3,
+            heroTitleLine1: data.heroTitleLine1 !== undefined ? data.heroTitleLine1 : prev.heroTitleLine1,
+            heroTitleLine2: data.heroTitleLine2 !== undefined ? data.heroTitleLine2 : prev.heroTitleLine2,
+            heroTitleLine3: data.heroTitleLine3 !== undefined ? data.heroTitleLine3 : prev.heroTitleLine3,
+            heroSubtitle: data.heroSubtitle !== undefined ? data.heroSubtitle : prev.heroSubtitle,
+            heroTrust1: data.heroTrust1 !== undefined ? data.heroTrust1 : prev.heroTrust1,
+            heroTrust2: data.heroTrust2 !== undefined ? data.heroTrust2 : prev.heroTrust2,
+            heroTrust3: data.heroTrust3 !== undefined ? data.heroTrust3 : prev.heroTrust3,
+            promiseTitle: data.promiseTitle !== undefined ? data.promiseTitle : prev.promiseTitle,
+            promiseFeature1Title: data.promiseFeature1Title !== undefined ? data.promiseFeature1Title : prev.promiseFeature1Title,
+            promiseFeature1Text: data.promiseFeature1Text !== undefined ? data.promiseFeature1Text : prev.promiseFeature1Text,
+            promiseFeature1Icon: data.promiseFeature1Icon !== undefined ? data.promiseFeature1Icon : prev.promiseFeature1Icon,
+            promiseFeature2Title: data.promiseFeature2Title !== undefined ? data.promiseFeature2Title : prev.promiseFeature2Title,
+            promiseFeature2Text: data.promiseFeature2Text !== undefined ? data.promiseFeature2Text : prev.promiseFeature2Text,
+            promiseFeature2Icon: data.promiseFeature2Icon !== undefined ? data.promiseFeature2Icon : prev.promiseFeature2Icon,
+            promiseFeature3Title: data.promiseFeature3Title !== undefined ? data.promiseFeature3Title : prev.promiseFeature3Title,
+            promiseFeature3Text: data.promiseFeature3Text !== undefined ? data.promiseFeature3Text : prev.promiseFeature3Text,
+            promiseFeature3Icon: data.promiseFeature3Icon !== undefined ? data.promiseFeature3Icon : prev.promiseFeature3Icon,
+            promiseFeature4Title: data.promiseFeature4Title !== undefined ? data.promiseFeature4Title : prev.promiseFeature4Title,
+            promiseFeature4Text: data.promiseFeature4Text !== undefined ? data.promiseFeature4Text : prev.promiseFeature4Text,
+            promiseFeature4Icon: data.promiseFeature4Icon !== undefined ? data.promiseFeature4Icon : prev.promiseFeature4Icon
           }));
         }
       } catch (err) {
@@ -328,7 +328,7 @@ export default function Home() {
                       onMouseEnter={e => e.currentTarget.style.color = 'var(--primary)'}
                       onMouseLeave={e => e.currentTarget.style.color = isInWishlist(p.id) ? 'var(--primary)' : 'var(--gray4)'}
                     >
-                      {isInWishlist(p.id) ? '♥' : '♡'}
+                      <Heart size={18} fill={isInWishlist(p.id) ? 'currentColor' : 'none'} />
                     </button>
                   </div>
                 </div>
