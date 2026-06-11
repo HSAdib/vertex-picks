@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { signOut } from 'firebase/auth';
-import { collection, getDocs, doc, getDoc, setDoc, deleteDoc, updateDoc } from 'firebase/firestore';
+import { collection, getDocs, doc, getDoc, setDoc, deleteDoc, updateDoc, addDoc } from 'firebase/firestore';
 import { auth, db } from '../firebaseConfig';
 import { useAuth } from '../context/AuthContext';
 import { Link, Navigate } from 'react-router-dom';
@@ -53,8 +54,16 @@ export default function Admin() {
   const [promos, setPromos] = useState([]);
   const [leads, setLeads] = useState([]);
   const [activeDropdown, setActiveDropdown] = useState(null);
+  const [dropdownPosition, setDropdownPosition] = useState({ top: 0, right: 0 });
   const [selectedOrders, setSelectedOrders] = useState(new Set());
   const [batchUpdating, setBatchUpdating] = useState(false);
+  const [expandedOrder, setExpandedOrder] = useState(null);
+  const [editAddressModal, setEditAddressModal] = useState({ isOpen: false, orderId: null, address: '' });
+  const [editFinancialsModal, setEditFinancialsModal] = useState({ isOpen: false, orderId: null, total: '', deliveryFee: '' });
+  const [trackingModal, setTrackingModal] = useState({ isOpen: false, orderId: null, value: '' });
+  const [confirmModal, setConfirmModal] = useState({ isOpen: false, title: '', message: '', action: null });
+  const [promptModal, setPromptModal] = useState({ isOpen: false, title: '', placeholder: '', value: '', action: null });
+  const [showTrash, setShowTrash] = useState(false);
 
   const toggleSelectOrder = (id) => {
     setSelectedOrders(prev => {
@@ -77,6 +86,123 @@ export default function Admin() {
       toast.error('Failed to update orders.');
     }
     setBatchUpdating(false);
+  };
+
+  const handleUpdateStatus = async (id, newStatus) => {
+    try {
+      await updateDoc(doc(db, 'orders', id), { status: newStatus });
+      setOrders(orders.map(o => o.id === id ? { ...o, status: newStatus } : o));
+      toast.success(`Status updated to ${newStatus}`);
+    } catch (err) {
+      toast.error('Failed to update status.');
+    }
+  };
+
+  const handleUpdateAddress = async () => {
+    if (!editAddressModal.address.trim()) return;
+    try {
+      await updateDoc(doc(db, 'orders', editAddressModal.orderId), { deliveryAddress: editAddressModal.address });
+      setOrders(orders.map(o => o.id === editAddressModal.orderId ? { ...o, deliveryAddress: editAddressModal.address } : o));
+      toast.success('Delivery address updated!');
+      setEditAddressModal({ isOpen: false, orderId: null, address: '' });
+    } catch (err) {
+      toast.error('Failed to update address.');
+    }
+  };
+
+  const handleUpdateFinancials = async () => {
+    if (editFinancialsModal.total === '' || editFinancialsModal.deliveryFee === '') return;
+    try {
+      await updateDoc(doc(db, 'orders', editFinancialsModal.orderId), {
+        total: Number(editFinancialsModal.total),
+        deliveryFee: Number(editFinancialsModal.deliveryFee)
+      });
+      setOrders(orders.map(o => o.id === editFinancialsModal.orderId ? { ...o, total: Number(editFinancialsModal.total), deliveryFee: Number(editFinancialsModal.deliveryFee) } : o));
+      toast.success('Financials updated!');
+      setEditFinancialsModal({ isOpen: false, orderId: null, total: '', deliveryFee: '' });
+    } catch (err) {
+      toast.error('Failed to update financials.');
+    }
+  };
+
+  const handleSaveTracking = async () => {
+    if (!trackingModal.value.trim()) return;
+    try {
+      await updateDoc(doc(db, 'orders', trackingModal.orderId), { trackingLink: trackingModal.value });
+      setOrders(orders.map(o => o.id === trackingModal.orderId ? { ...o, trackingLink: trackingModal.value } : o));
+      toast.success('Tracking link saved!');
+      setTrackingModal({ isOpen: false, orderId: null, value: '' });
+    } catch (err) {
+      toast.error('Failed to save tracking link.');
+    }
+  };
+
+  const executeSoftDelete = async (id) => {
+    await updateDoc(doc(db, 'orders', id), { deleted: true, deletedAt: new Date() });
+    setOrders(orders.map(o => o.id === id ? { ...o, deleted: true, deletedAt: new Date() } : o));
+    toast.success('Order moved to Trash');
+  };
+
+  const handleDeleteOrder = (id) => {
+    setConfirmModal({
+      isOpen: true,
+      title: 'Move to Trash',
+      message: 'This order will be moved to the trash bin. You can restore it later or permanently delete it.',
+      action: () => executeSoftDelete(id)
+    });
+  };
+
+  const handleRestoreOrder = async (id) => {
+    await updateDoc(doc(db, 'orders', id), { deleted: false, deletedAt: null });
+    setOrders(orders.map(o => o.id === id ? { ...o, deleted: false, deletedAt: null } : o));
+    toast.success('Order restored!');
+  };
+
+  const executePermanentDelete = async (id) => {
+    await deleteDoc(doc(db, 'orders', id));
+    setOrders(orders.filter(o => o.id !== id));
+    toast.success('Order permanently deleted');
+  };
+
+  const handlePermanentDelete = (id) => {
+    setConfirmModal({
+      isOpen: true,
+      title: 'Permanently Delete',
+      message: 'This will PERMANENTLY erase this order from the database. This cannot be undone!',
+      action: () => executePermanentDelete(id)
+    });
+  };
+
+  const handlePrintSingleOrder = (orderId) => {
+    const prev = new Set(selectedOrders);
+    setSelectedOrders(new Set([orderId]));
+    setTimeout(() => {
+      window.print();
+      setSelectedOrders(prev);
+    }, 150);
+  };
+
+  const handleAddTracking = (id) => {
+    setPromptModal({
+      isOpen: true,
+      title: "Add Tracking Link",
+      placeholder: "e.g. Pathao/Steadfast URL",
+      value: "",
+      action: (url) => {
+        if (url) {
+          updateDoc(doc(db, 'orders', id), { trackingLink: url });
+          setOrders(orders.map(o => o.id === id ? { ...o, trackingLink: url } : o));
+        }
+      }
+    });
+  };
+
+  const createWhatsAppLink = (phone, total, address) => {
+    if (!phone) return '#';
+    let cleanPhone = phone.replace(/\D/g, '');
+    if (cleanPhone.startsWith('0')) cleanPhone = '88' + cleanPhone;
+    const message = `হ্যালো, Vertex Picks থেকে বলছি! আপনার ${total} টাকার অর্ডারটি কনফার্ম করার জন্য মেসেজ দিচ্ছি। আপনার ডেলিভারি ঠিকানা: ${address}। অর্ডারটি কি কনফার্ম করব?`;
+    return `https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`;
   };
 
   const getCustomWhatsAppLink = (order) => {
@@ -1859,6 +1985,84 @@ Thank you for choosing Vertex Picks.`;
         </div>
       )}
 
+      {/* EDIT ADDRESS MODAL */}
+      {editAddressModal.isOpen && (
+        <div className="fixed inset-0 bg-slate-900/75 z-[300] flex items-center justify-center p-4 backdrop-blur-md">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full overflow-hidden">
+            <div style={{ background: 'linear-gradient(135deg, var(--primary), var(--primary-dark, #c1450a))', padding: '1.25rem 1.5rem', color: '#fff', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <h3 style={{ fontWeight: 900, fontSize: '1rem', textTransform: 'uppercase', letterSpacing: '.05em' }}>📍 Edit Delivery Address</h3>
+              <button onClick={() => setEditAddressModal({ isOpen: false, orderId: null, address: '' })} style={{ background: 'rgba(255,255,255,.15)', border: 'none', borderRadius: 8, color: '#fff', width: 32, height: 32, cursor: 'pointer', fontSize: '1rem', fontWeight: 900 }}>✕</button>
+            </div>
+            <div style={{ padding: '1.5rem' }}>
+              <textarea
+                value={editAddressModal.address}
+                onChange={(e) => setEditAddressModal({ ...editAddressModal, address: e.target.value })}
+                className="form-input"
+                style={{ minHeight: 120, resize: 'vertical', whiteSpace: 'pre-line' }}
+                placeholder="Enter new delivery address..."
+              />
+              <div style={{ display: 'flex', gap: '.75rem', marginTop: '1rem' }}>
+                <button onClick={() => setEditAddressModal({ isOpen: false, orderId: null, address: '' })} className="btn-secondary" style={{ flex: 1, padding: '.75rem', textTransform: 'uppercase', fontSize: '.78rem', fontWeight: 800 }}>Cancel</button>
+                <button onClick={handleUpdateAddress} className="btn-primary" style={{ flex: 1, padding: '.75rem', textTransform: 'uppercase', fontSize: '.78rem', fontWeight: 800 }}>Save Address</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* EDIT FINANCIALS MODAL */}
+      {editFinancialsModal.isOpen && (
+        <div className="fixed inset-0 bg-slate-900/75 z-[300] flex items-center justify-center p-4 backdrop-blur-md">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-sm w-full overflow-hidden">
+            <div style={{ background: 'linear-gradient(135deg, #16A34A, #15803D)', padding: '1.25rem 1.5rem', color: '#fff', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <h3 style={{ fontWeight: 900, fontSize: '1rem', textTransform: 'uppercase', letterSpacing: '.05em' }}>💰 Edit Financials</h3>
+              <button onClick={() => setEditFinancialsModal({ isOpen: false, orderId: null, total: '', deliveryFee: '' })} style={{ background: 'rgba(255,255,255,.15)', border: 'none', borderRadius: 8, color: '#fff', width: 32, height: 32, cursor: 'pointer', fontSize: '1rem', fontWeight: 900 }}>✕</button>
+            </div>
+            <div style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              <div>
+                <label className="form-label">Delivery Fee (৳)</label>
+                <input type="number" value={editFinancialsModal.deliveryFee} onChange={(e) => setEditFinancialsModal({ ...editFinancialsModal, deliveryFee: e.target.value })} className="form-input" />
+              </div>
+              <div>
+                <label className="form-label">Grand Total (৳)</label>
+                <input type="number" value={editFinancialsModal.total} onChange={(e) => setEditFinancialsModal({ ...editFinancialsModal, total: e.target.value })} className="form-input" />
+              </div>
+              <div style={{ display: 'flex', gap: '.75rem', marginTop: '.5rem' }}>
+                <button onClick={() => setEditFinancialsModal({ isOpen: false, orderId: null, total: '', deliveryFee: '' })} className="btn-secondary" style={{ flex: 1, padding: '.75rem', textTransform: 'uppercase', fontSize: '.78rem', fontWeight: 800 }}>Cancel</button>
+                <button onClick={handleUpdateFinancials} className="btn-primary" style={{ flex: 1, padding: '.75rem', textTransform: 'uppercase', fontSize: '.78rem', fontWeight: 800 }}>Update</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ADD/EDIT TRACKING LINK MODAL */}
+      {trackingModal.isOpen && (
+        <div className="fixed inset-0 bg-slate-900/75 z-[300] flex items-center justify-center p-4 backdrop-blur-md">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-sm w-full overflow-hidden">
+            <div style={{ background: 'linear-gradient(135deg, #2563EB, #1D4ED8)', padding: '1.25rem 1.5rem', color: '#fff', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <h3 style={{ fontWeight: 900, fontSize: '1rem', textTransform: 'uppercase', letterSpacing: '.05em' }}>📦 Tracking Link</h3>
+              <button onClick={() => setTrackingModal({ isOpen: false, orderId: null, value: '' })} style={{ background: 'rgba(255,255,255,.15)', border: 'none', borderRadius: 8, color: '#fff', width: 32, height: 32, cursor: 'pointer', fontSize: '1rem', fontWeight: 900 }}>✕</button>
+            </div>
+            <div style={{ padding: '1.5rem' }}>
+              <label className="form-label">Pathao / Steadfast URL</label>
+              <input
+                type="text"
+                value={trackingModal.value}
+                onChange={(e) => setTrackingModal({ ...trackingModal, value: e.target.value })}
+                className="form-input"
+                placeholder="e.g. https://pathao.com/track/..."
+                autoFocus
+              />
+              <div style={{ display: 'flex', gap: '.75rem', marginTop: '1rem' }}>
+                <button onClick={() => setTrackingModal({ isOpen: false, orderId: null, value: '' })} className="btn-secondary" style={{ flex: 1, padding: '.75rem', textTransform: 'uppercase', fontSize: '.78rem', fontWeight: 800 }}>Cancel</button>
+                <button onClick={handleSaveTracking} className="btn-primary" style={{ flex: 1, padding: '.75rem', textTransform: 'uppercase', fontSize: '.78rem', fontWeight: 800 }}>Save Link</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* MOBILE OVERLAY */}
       {isSidebarOpen && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.45)', zIndex: 290 }} onClick={() => setIsSidebarOpen(false)} />
@@ -2566,288 +2770,864 @@ Thank you for choosing Vertex Picks.`;
         {/* TAB 5: SALES ORDERS TAB */}
         {activeAdminTab === 'orders' && (
           <div className="admin-tab active" id="atab-orders">
-            <div className="admin-header"><div className="admin-title">🛒 Customer Sales Orders</div></div>
+            <style>{`
+              @media print {
+                @page { margin: 0; }
+                body { background: white; }
+                .print-hide { display: none !important; }
+              }
+              .order-card {
+                background: #fff;
+                border: 1.5px solid #EEEEEE;
+                border-radius: 14px;
+                overflow: hidden;
+                transition: box-shadow .2s, border-color .2s;
+                box-shadow: 0 1px 4px rgba(0,0,0,.04);
+              }
+              .order-card:hover {
+                box-shadow: 0 4px 16px rgba(0,0,0,.08);
+              }
+              .order-card.selected {
+                border-color: #E8540A;
+                box-shadow: 0 0 0 3px rgba(232,84,10,.12);
+              }
+              .order-card.cancelled {
+                border-color: #FECACA;
+              }
+              .order-card.manual {
+                background: #F0F7FF;
+              }
+              .status-pill {
+                display: inline-flex;
+                align-items: center;
+                gap: .3rem;
+                padding: .2rem .7rem;
+                border-radius: 100px;
+                font-size: .68rem;
+                font-weight: 800;
+                text-transform: uppercase;
+                letter-spacing: .06em;
+                font-family: var(--ff);
+              }
+              .status-pill.pending   { background: #FFF3E0; color: #D97706; }
+              .status-pill.confirmed { background: #EFF6FF; color: #2563EB; }
+              .status-pill.shipped   { background: #F5F3FF; color: #7C3AED; }
+              .status-pill.delivered { background: #F0FDF4; color: #16A34A; }
+              .status-pill.done      { background: #F0FDF4; color: #16A34A; }
+              .status-pill.cancelled { background: #FEF2F2; color: #DC2626; }
+              .order-action-pill {
+                display: inline-flex;
+                align-items: center;
+                gap: .35rem;
+                padding: .45rem 1rem;
+                border-radius: 100px;
+                font-size: .72rem;
+                font-weight: 800;
+                text-transform: uppercase;
+                letter-spacing: .05em;
+                cursor: pointer;
+                border: 1.5px solid #EEEEEE;
+                background: #F7F7F7;
+                color: #555;
+                transition: all .18s;
+                font-family: var(--ff);
+              }
+              .order-action-pill:hover {
+                background: #121212;
+                color: #fff;
+                border-color: #121212;
+              }
+              .order-action-pill.primary {
+                background: #E8540A;
+                color: #fff;
+                border-color: #E8540A;
+              }
+              .order-action-pill.primary:hover {
+                background: #121212;
+                border-color: #121212;
+              }
+              .order-action-pill.green {
+                background: #F0FDF4;
+                color: #16A34A;
+                border-color: #BBF7D0;
+              }
+              .order-action-pill.green:hover {
+                background: #16A34A;
+                color: #fff;
+                border-color: #16A34A;
+              }
+              .order-action-pill.red {
+                background: #FEF2F2;
+                color: #DC2626;
+                border-color: #FECACA;
+              }
+              .order-action-pill.red:hover {
+                background: #DC2626;
+                color: #fff;
+                border-color: #DC2626;
+              }
+              .order-action-pill.wa {
+                background: #25D366;
+                color: #fff;
+                border-color: #25D366;
+              }
+              .order-action-pill.wa:hover {
+                background: #128C7E;
+                border-color: #128C7E;
+              }
+              .order-section-label {
+                font-family: var(--ff);
+                font-size: .65rem;
+                font-weight: 800;
+                text-transform: uppercase;
+                letter-spacing: .1em;
+                color: #BBBBBB;
+                margin-bottom: .5rem;
+              }
+              .order-modal-backdrop {
+                position: fixed; inset: 0;
+                background: rgba(18,18,18,.7);
+                z-index: 400;
+                display: flex; align-items: center; justify-content: center;
+                padding: 1rem;
+                backdrop-filter: blur(4px);
+              }
+              .order-modal {
+                background: #fff;
+                border-radius: 14px;
+                overflow: hidden;
+                box-shadow: 0 24px 64px rgba(0,0,0,.18);
+                width: 100%;
+              }
+              .order-modal-header {
+                padding: 1.25rem 1.5rem;
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                border-bottom: 1.5px solid #EEEEEE;
+              }
+              .order-modal-title {
+                font-family: var(--ff-display);
+                font-weight: 900;
+                font-size: 1.05rem;
+                color: #121212;
+                letter-spacing: -.01em;
+              }
+              .order-modal-close {
+                width: 32px; height: 32px;
+                border-radius: 100px;
+                border: 1.5px solid #EEEEEE;
+                background: #F7F7F7;
+                color: #888;
+                cursor: pointer;
+                font-weight: 800;
+                font-size: .9rem;
+                display: flex; align-items: center; justify-content: center;
+                transition: all .18s;
+              }
+              .order-modal-close:hover {
+                background: #121212;
+                color: #fff;
+                border-color: #121212;
+              }
+              .order-modal-body { padding: 1.5rem; }
+              .order-modal-footer {
+                padding: 1rem 1.5rem;
+                background: #F7F7F7;
+                border-top: 1.5px solid #EEEEEE;
+                display: flex;
+                gap: .75rem;
+              }
+              .order-input {
+                width: 100%;
+                padding: .75rem 1rem;
+                border: 1.5px solid #EEEEEE;
+                border-radius: 10px;
+                font-family: var(--ff);
+                font-size: .85rem;
+                font-weight: 600;
+                color: #121212;
+                background: #F7F7F7;
+                outline: none;
+                transition: border-color .18s, background .18s;
+              }
+              .order-input:focus {
+                border-color: #E8540A;
+                background: #fff;
+              }
+              .order-input-label {
+                display: block;
+                font-family: var(--ff);
+                font-size: .65rem;
+                font-weight: 800;
+                text-transform: uppercase;
+                letter-spacing: .1em;
+                color: #BBBBBB;
+                margin-bottom: .45rem;
+              }
+              .order-receipt-row {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                font-family: var(--ff);
+                font-size: .8rem;
+                font-weight: 600;
+                padding: .35rem 0;
+              }
+              .order-expand-panel {
+                background: #F7F7F7;
+                border-top: 1.5px solid #EEEEEE;
+                padding: 1.25rem 1.5rem;
+              }
+            `}</style>
 
-            {/* Status Column Tabs */}
-            <div style={{ display: 'flex', gap: '.5rem', flexWrap: 'wrap', marginBottom: '1.25rem' }}>
-              {[
-                { label: 'All Orders',  value: 'All Status',  icon: '📋', color: '#6B7280' },
-                { label: 'Pending',     value: 'Pending',     icon: '⏳', color: '#D97706' },
-                { label: 'Confirmed',   value: 'Confirmed',   icon: '⚙️', color: '#2563EB' },
-                { label: 'Shipped',     value: 'Shipped',     icon: '🚚', color: '#7C3AED' },
-                { label: 'Delivered',   value: 'Delivered',   icon: '✅', color: '#16A34A' },
-                { label: 'Cancelled',   value: 'Cancelled',   icon: '✕',  color: '#DC2626' },
-              ].map(tab => {
-                const count = tab.value === 'All Status'
-                  ? orders.length
-                  : orders.filter(o => o.status === tab.value).length;
-                const isActive = orderStatusFilter === tab.value;
-                return (
-                  <button
-                    key={tab.value}
-                    onClick={() => { setOrderStatusFilter(tab.value); setOrdersPage(1); }}
-                    style={{
-                      display: 'flex', alignItems: 'center', gap: '.5rem',
-                      padding: '.55rem 1.1rem', borderRadius: 100,
-                      fontSize: '.8rem', fontWeight: 700, cursor: 'pointer',
-                      transition: 'all .2s',
-                      border: isActive ? `2px solid ${tab.color}` : '2px solid var(--gray2)',
-                      background: isActive ? tab.color : '#fff',
-                      color: isActive ? '#fff' : 'var(--gray4)',
-                      boxShadow: isActive ? `0 4px 12px ${tab.color}33` : 'none',
-                    }}
-                  >
-                    <span style={{ fontSize: '.85rem' }}>{tab.icon}</span>
-                    {tab.label}
-                    <span style={{
-                      fontSize: '.68rem', fontWeight: 800, padding: '.1rem .45rem',
-                      borderRadius: 100,
-                      background: isActive ? 'rgba(255,255,255,0.25)' : 'var(--gray2)',
-                      color: isActive ? '#fff' : 'var(--gray4)',
-                      minWidth: 20, textAlign: 'center',
-                    }}>{count}</span>
-                  </button>
-                );
-              })}
-            </div>
+            <div className="print-hide space-y-5">
 
-            <div className="admin-card">
-              {selectedOrders.size > 0 && (
-                <div className="flex flex-wrap items-center justify-between p-4 mb-4 gap-4" style={{background:'var(--primary-pale)',border:'1.5px solid rgba(232,84,10,0.2)',borderRadius:14}}>
-                  <div className="flex items-center gap-3">
-                    <span style={{fontSize:'.72rem',fontWeight:900,textTransform:'uppercase',letterSpacing:'.1em',color:'var(--primary)'}}>Bulk Actions:</span>
-                    <span style={{background:'var(--primary)',color:'#fff',fontSize:'.72rem',fontWeight:900,padding:'.25rem .65rem',borderRadius:100}}>
-                      {selectedOrders.size} Selected
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-2">
+              {/* ── HEADER ─────────────────────────────────────────── */}
+              <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem', background: '#fff', border: '1.5px solid #EEEEEE', borderRadius: 14, padding: '1.25rem 1.5rem', boxShadow: '0 1px 4px rgba(0,0,0,.04)' }}>
+                <div>
+                  <h2 style={{ fontFamily: 'var(--ff-display)', fontWeight: 900, fontSize: '1.2rem', color: '#121212', margin: 0, letterSpacing: '-.02em' }}>
+                    {showTrash ? '🗑 Trash Bin' : '🛒 Order Management'}
+                  </h2>
+                  <p style={{ fontFamily: 'var(--ff)', fontSize: '.78rem', color: '#888', fontWeight: 600, margin: '.2rem 0 0' }}>
+                    {showTrash ? 'Restore or permanently delete trashed orders.' : `${orders.filter(o => !o.deleted).length} active orders`}
+                  </p>
+                </div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '.6rem', alignItems: 'center' }}>
+                  {showTrash ? (
                     <button
-                      onClick={() => window.print()}
-                      className="order-action-btn"
+                      onClick={() => { setShowTrash(false); setSelectedOrders(new Set()); setExpandedOrder(null); }}
+                      style={{ display:'inline-flex',alignItems:'center',gap:'.4rem',padding:'.55rem 1.2rem',borderRadius:100,border:'1.5px solid #EEEEEE',background:'#121212',color:'#fff',fontFamily:'var(--ff)',fontSize:'.75rem',fontWeight:800,textTransform:'uppercase',letterSpacing:'.05em',cursor:'pointer' }}
                     >
-                      🖨️ Print Multiple Receipts
+                      ← Back to Orders
                     </button>
-                    <button onClick={() => handleBatchStatus('Done')} disabled={batchUpdating} className="order-action-btn">Mark Done</button>
-                    <button onClick={() => handleBatchStatus('Shipped')} disabled={batchUpdating} className="order-action-btn">Mark Shipped</button>
-                    <button onClick={() => handleBatchStatus('Delivered')} disabled={batchUpdating} className="order-action-btn">Mark Delivered</button>
-                    <button onClick={() => handleBatchStatus('Cancelled')} disabled={batchUpdating} className="order-action-btn" style={{background:'var(--red-pale)',color:'var(--red)',borderColor:'rgba(220,38,38,0.2)'}}>Cancel Selected</button>
-                  </div>
-                </div>
-              )}
-              <div className="admin-action-bar">
-                <div className="aab-left">
-                  <div className="aab-search">
-                    <span className="aab-search-icon">🔍</span>
-                    <input
-                      type="text"
-                      placeholder="Search by order ID or customer…"
-                      value={orderSearch}
-                      onChange={e => { setOrderSearch(e.target.value); setOrdersPage(1); }}
-                    />
-                  </div>
-                  <span style={{ fontSize: '.8rem', color: 'var(--gray4)', fontWeight: 600, padding: '.3rem .75rem', background: 'var(--gray1)', borderRadius: 100, border: '1px solid var(--gray2)' }}>
-                    {filteredOrders.length} result{filteredOrders.length !== 1 ? 's' : ''}
-                  </span>
-                </div>
-                <div className="aab-right">
-                  <button className="add-btn" onClick={() => {
-                    const data = filteredOrders.map(o => {
-                      const date = o.createdAt?.toDate ? o.createdAt.toDate().toLocaleDateString() : (o.createdAt?.seconds ? new Date(o.createdAt.seconds * 1000).toLocaleDateString() : new Date(o.createdAt).toLocaleDateString());
-                      const custName = (o.customerName || o.customerEmail || 'Guest');
-                      return [o.id, custName, o.total, o.status, date];
-                    });
-                    exportToCSV('orders_list.csv', data, ['Order ID', 'Customer Name', 'Total Amount', 'Status', 'Date']);
-                    toast.success('Orders exported to CSV!');
-                  }}>📥 Export</button>
+                  ) : (
+                    <>
+                      <button
+                        onClick={() => window.print()}
+                        style={{ display:'inline-flex',alignItems:'center',gap:'.4rem',padding:'.55rem 1.2rem',borderRadius:100,border:'1.5px solid #EEEEEE',background:'#F7F7F7',color:'#555',fontFamily:'var(--ff)',fontSize:'.75rem',fontWeight:800,textTransform:'uppercase',letterSpacing:'.05em',cursor:'pointer',transition:'all .18s' }}
+                        onMouseOver={e=>{ e.currentTarget.style.background='#121212'; e.currentTarget.style.color='#fff'; }}
+                        onMouseOut={e=>{ e.currentTarget.style.background='#F7F7F7'; e.currentTarget.style.color='#555'; }}
+                      >
+                        🖨️ Print All
+                      </button>
+                      <button
+                        onClick={() => {
+                          const activeOrders = orders.filter(o => !o.deleted);
+                          if (!activeOrders.length) return;
+                          const headers = ['Order ID','Customer','Phone','Address','Items','Subtotal','Delivery Fee','Total','Status','Date'];
+                          const rows = activeOrders.map(o => [
+                            o.id, o.deliveryName||o.customerName||o.customerEmail||'Unknown',
+                            o.deliveryPhone||o.customerPhone||'N/A',
+                            `"${(o.deliveryAddress||'N/A').replace(/"/g,'""')}"`,
+                            `"${(o.items||[]).map(i=>`${i.quantity||1}x ${i.name||'Item'}`).join(', ')}"`,
+                            o.subtotal||0, o.deliveryFee||0, o.total||0,
+                            o.status||'Pending',
+                            o.createdAt?.toDate ? o.createdAt.toDate().toLocaleDateString() : 'N/A'
+                          ]);
+                          const csv = [headers.join(','),...rows.map(r=>r.join(','))].join('\n');
+                          const blob = new Blob([csv],{type:'text/csv;charset=utf-8;'});
+                          const url = URL.createObjectURL(blob);
+                          const a = document.createElement('a');
+                          a.href=url; a.download=`orders_${new Date().toISOString().slice(0,10)}.csv`; a.click();
+                          URL.revokeObjectURL(url);
+                          toast.success('CSV exported!');
+                        }}
+                        style={{ display:'inline-flex',alignItems:'center',gap:'.4rem',padding:'.55rem 1.2rem',borderRadius:100,border:'1.5px solid #BBF7D0',background:'#F0FDF4',color:'#16A34A',fontFamily:'var(--ff)',fontSize:'.75rem',fontWeight:800,textTransform:'uppercase',letterSpacing:'.05em',cursor:'pointer',transition:'all .18s' }}
+                        onMouseOver={e=>{ e.currentTarget.style.background='#16A34A'; e.currentTarget.style.color='#fff'; }}
+                        onMouseOut={e=>{ e.currentTarget.style.background='#F0FDF4'; e.currentTarget.style.color='#16A34A'; }}
+                      >
+                        📥 Export CSV
+                      </button>
+                      <button
+                        onClick={() => { setShowTrash(true); setSelectedOrders(new Set()); setExpandedOrder(null); }}
+                        style={{ position:'relative',display:'inline-flex',alignItems:'center',gap:'.4rem',padding:'.55rem 1.2rem',borderRadius:100,border:'1.5px solid #EEEEEE',background:'#F7F7F7',color:'#888',fontFamily:'var(--ff)',fontSize:'.75rem',fontWeight:800,textTransform:'uppercase',letterSpacing:'.05em',cursor:'pointer',transition:'all .18s' }}
+                        onMouseOver={e=>{ e.currentTarget.style.background='#FEF2F2'; e.currentTarget.style.color='#DC2626'; e.currentTarget.style.borderColor='#FECACA'; }}
+                        onMouseOut={e=>{ e.currentTarget.style.background='#F7F7F7'; e.currentTarget.style.color='#888'; e.currentTarget.style.borderColor='#EEEEEE'; }}
+                        title="Open Trash Bin"
+                      >
+                        🗑 Trash
+                        {orders.filter(o => o.deleted).length > 0 && (
+                          <span style={{ position:'absolute',top:-6,right:-6,background:'#DC2626',color:'#fff',fontSize:'.6rem',fontWeight:900,width:18,height:18,borderRadius:100,display:'flex',alignItems:'center',justifyContent:'center',boxShadow:'0 2px 6px rgba(220,38,38,.4)' }}>
+                            {orders.filter(o => o.deleted).length}
+                          </span>
+                        )}
+                      </button>
+                    </>
+                  )}
                 </div>
               </div>
 
-              <div style={{ overflow: 'visible', overflowX: 'visible' }}>
-                {filteredOrders.length === 0 ? (
-                  <div style={{ padding: '3rem', textAlign: 'center' }}>
-                    <div style={{ fontSize: '2.5rem', marginBottom: '.75rem' }}>📭</div>
-                    <p style={{ fontSize: '.85rem', fontWeight: 600, color: 'var(--gray4)' }}>
-                      No {orderStatusFilter !== 'All Status' ? orderStatusFilter.toLowerCase() : ''} orders found
+              {/* ── STATUS FILTER PILLS ──────────────────────────────── */}
+              <div style={{ display: 'flex', gap: '.45rem', flexWrap: 'wrap' }}>
+                {[
+                  { label: 'All',       value: 'All Status', icon: '📋', color: '#6B7280', pale: '#F3F4F6' },
+                  { label: 'Pending',   value: 'Pending',    icon: '⏳', color: '#D97706', pale: '#FFF3E0' },
+                  { label: 'Confirmed', value: 'Confirmed',  icon: '⚙️', color: '#2563EB', pale: '#EFF6FF' },
+                  { label: 'Shipped',   value: 'Shipped',    icon: '🚚', color: '#7C3AED', pale: '#F5F3FF' },
+                  { label: 'Delivered', value: 'Delivered',  icon: '✅', color: '#16A34A', pale: '#F0FDF4' },
+                  { label: 'Cancelled', value: 'Cancelled',  icon: '✕',  color: '#DC2626', pale: '#FEF2F2' },
+                ].map(tab => {
+                  const pool = orders.filter(o => showTrash ? o.deleted : !o.deleted);
+                  const count = tab.value === 'All Status' ? pool.length : pool.filter(o => o.status === tab.value).length;
+                  const isActive = orderStatusFilter === tab.value;
+                  return (
+                    <button
+                      key={tab.value}
+                      onClick={() => { setOrderStatusFilter(tab.value); setOrdersPage(1); }}
+                      style={{
+                        display: 'inline-flex', alignItems: 'center', gap: '.4rem',
+                        padding: '.45rem 1rem', borderRadius: 100,
+                        fontFamily: 'var(--ff)', fontSize: '.75rem', fontWeight: 800,
+                        cursor: 'pointer', transition: 'all .18s',
+                        border: isActive ? `1.5px solid ${tab.color}` : '1.5px solid #EEEEEE',
+                        background: isActive ? tab.color : '#fff',
+                        color: isActive ? '#fff' : '#888',
+                        boxShadow: isActive ? `0 4px 12px ${tab.color}30` : 'none',
+                      }}
+                    >
+                      <span style={{ fontSize: '.8rem' }}>{tab.icon}</span>
+                      {tab.label}
+                      <span style={{
+                        fontSize: '.62rem', fontWeight: 900, padding: '.1rem .4rem', borderRadius: 100,
+                        background: isActive ? 'rgba(255,255,255,.25)' : '#F7F7F7',
+                        color: isActive ? '#fff' : '#BBBBBB',
+                        minWidth: 18, textAlign: 'center',
+                      }}>{count}</span>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* ── SEARCH + BULK ACTIONS ────────────────────────────── */}
+              <div style={{ background: '#fff', border: '1.5px solid #EEEEEE', borderRadius: 14, overflow: 'hidden', boxShadow: '0 1px 4px rgba(0,0,0,.04)' }}>
+                {selectedOrders.size > 0 && (
+                  <div style={{ padding: '.85rem 1.25rem', background: 'rgba(232,84,10,.06)', borderBottom: '1.5px solid rgba(232,84,10,.15)', display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: '.75rem' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '.6rem' }}>
+                      <span style={{ fontFamily: 'var(--ff)', fontSize: '.68rem', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '.1em', color: '#E8540A' }}>Bulk Actions</span>
+                      <span style={{ background: '#E8540A', color: '#fff', fontFamily: 'var(--ff)', fontSize: '.68rem', fontWeight: 900, padding: '.15rem .6rem', borderRadius: 100 }}>{selectedOrders.size} selected</span>
+                    </div>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '.4rem' }}>
+                      {['Done','Shipped','Delivered','Cancelled'].map(s => (
+                        <button key={s} onClick={() => handleBatchStatus(s)} disabled={batchUpdating} className="order-action-pill" style={s==='Cancelled'?{background:'#FEF2F2',color:'#DC2626',borderColor:'#FECACA'}:{}}>{s==='Cancelled'?'✕ ':''}{s}</button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                <div style={{ padding: '.85rem 1.25rem', display: 'flex', alignItems: 'center', gap: '.75rem' }}>
+                  <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '.6rem', background: '#F7F7F7', border: '1.5px solid #EEEEEE', borderRadius: 100, padding: '.5rem 1rem', transition: 'border-color .18s' }}>
+                    <span style={{ fontSize: '.9rem' }}>🔍</span>
+                    <input
+                      type="text"
+                      placeholder="Search by order ID, name, or phone…"
+                      value={orderSearch}
+                      onChange={e => { setOrderSearch(e.target.value); setOrdersPage(1); }}
+                      style={{ border: 'none', background: 'transparent', outline: 'none', fontFamily: 'var(--ff)', fontSize: '.82rem', fontWeight: 600, color: '#121212', width: '100%' }}
+                    />
+                    {orderSearch && (
+                      <button onClick={() => setOrderSearch('')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#BBBBBB', fontSize: '.9rem', fontWeight: 900 }}>✕</button>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* ── FLOATING BATCH BAR ───────────────────────────────── */}
+              <AnimatePresence>
+                {selectedOrders.size > 0 && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 50 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: 50 }}
+                    style={{ position:'fixed',bottom:32,left:'50%',transform:'translateX(-50%)',zIndex:50,background:'rgba(18,18,18,.92)',backdropFilter:'blur(16px)',color:'#fff',borderRadius:100,padding:'.6rem 1.25rem',boxShadow:'0 8px 32px rgba(0,0,0,.28)',display:'flex',alignItems:'center',gap:'1rem',border:'1px solid rgba(255,255,255,.1)',maxWidth:'95vw',overflowX:'auto' }}
+                  >
+                    <span style={{ fontFamily:'var(--ff)',fontWeight:900,fontSize:'.72rem',textTransform:'uppercase',letterSpacing:'.1em',background:'#E8540A',padding:'.2rem .7rem',borderRadius:100,shrink:0 }}>{selectedOrders.size}</span>
+                    {['Done','Shipped','Delivered'].map(s => (
+                      <button key={s} onClick={() => handleBatchStatus(s)} disabled={batchUpdating} style={{ fontFamily:'var(--ff)',fontWeight:800,fontSize:'.72rem',textTransform:'uppercase',letterSpacing:'.05em',color:'rgba(255,255,255,.7)',background:'transparent',border:'none',cursor:'pointer',padding:'.35rem .7rem',borderRadius:100,transition:'all .15s',flexShrink:0 }}
+                        onMouseOver={e=>{ e.currentTarget.style.background='rgba(255,255,255,.15)'; e.currentTarget.style.color='#fff'; }}
+                        onMouseOut={e=>{ e.currentTarget.style.background='transparent'; e.currentTarget.style.color='rgba(255,255,255,.7)'; }}
+                      >{s}</button>
+                    ))}
+                    <div style={{ width:1,height:20,background:'rgba(255,255,255,.15)',flexShrink:0 }}></div>
+                    <button
+                      onClick={async () => {
+                        if (!window.confirm(`Move ${selectedOrders.size} order(s) to trash?`)) return;
+                        setBatchUpdating(true);
+                        await Promise.all([...selectedOrders].map(id => updateDoc(doc(db,'orders',id),{deleted:true})));
+                        setOrders(orders.map(o => selectedOrders.has(o.id) ? {...o,deleted:true} : o));
+                        toast.success(`${selectedOrders.size} order(s) moved to trash.`);
+                        setSelectedOrders(new Set());
+                        setBatchUpdating(false);
+                      }}
+                      disabled={batchUpdating}
+                      style={{ fontFamily:'var(--ff)',fontWeight:800,fontSize:'.72rem',textTransform:'uppercase',letterSpacing:'.05em',color:'#FCA5A5',background:'transparent',border:'none',cursor:'pointer',padding:'.35rem .7rem',borderRadius:100,transition:'all .15s',flexShrink:0 }}
+                    >🗑 Trash</button>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
+              {/* ── ORDER CARDS ──────────────────────────────────────── */}
+              {(() => {
+                const displayOrders = orders
+                  .filter(o => showTrash ? o.deleted : !o.deleted)
+                  .filter(o => {
+                    if (orderSearch.trim()) {
+                      const q = orderSearch.toLowerCase();
+                      if (!o.id.toLowerCase().includes(q) &&
+                          !(o.deliveryName||o.customerName||'').toLowerCase().includes(q) &&
+                          !(o.customerEmail||'').toLowerCase().includes(q) &&
+                          !(o.deliveryPhone||'').includes(q)) return false;
+                    }
+                    if (orderStatusFilter !== 'All Status' && o.status !== orderStatusFilter) return false;
+                    return true;
+                  });
+
+                if (displayOrders.length === 0) return (
+                  <div style={{ textAlign:'center',padding:'4rem 1rem',background:'#fff',border:'1.5px dashed #EEEEEE',borderRadius:14 }}>
+                    <div style={{ fontSize:'2.5rem',marginBottom:'.75rem' }}>📭</div>
+                    <p style={{ fontFamily:'var(--ff)',fontSize:'.85rem',fontWeight:700,color:'#BBBBBB' }}>
+                      {showTrash ? 'Trash is empty.' : `No ${orderStatusFilter !== 'All Status' ? orderStatusFilter.toLowerCase()+' ' : ''}orders found.`}
                     </p>
                   </div>
-                ) : (() => {
-                  const totalPages = Math.ceil(filteredOrders.length / ORDERS_PER_PAGE);
-                  const pageOrders = filteredOrders.slice((ordersPage - 1) * ORDERS_PER_PAGE, ordersPage * ORDERS_PER_PAGE);
-                  return (
-                    <>
-                      <table className="admin-table">
-                        <thead>
-                          <tr>
-                            <th>
-                              <input 
-                                type="checkbox" 
-                                className="at-check" 
-                                checked={selectedOrders.size === pageOrders.length && pageOrders.length > 0}
-                                onChange={() => {
-                                  if (selectedOrders.size === pageOrders.length) setSelectedOrders(new Set());
-                                  else setSelectedOrders(new Set(pageOrders.map(o => o.id)));
-                                }}
-                              />
-                            </th>
-                            <th>Order ID</th>
-                            <th>Customer</th>
-                            <th>Items Booked</th>
-                            <th>Amount</th>
-                            <th>Date</th>
-                            <th>Status</th>
-                            <th>Actions</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {pageOrders.map(o => {
-                            const orderDate = new Date(o.createdAt?.seconds ? o.createdAt.seconds * 1000 : o.createdAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
-                            let statusClass = 'status-processing';
-                            if (o.status === 'Delivered') statusClass = 'status-delivered';
-                            else if (o.status === 'Shipped' || o.status === 'Confirmed') statusClass = 'status-transit';
-                            else if (o.status === 'Cancelled') statusClass = 'status-cancelled';
-                            return (
-                              <tr key={o.id} className="relative group hover:bg-gray-50 transition-colors">
-                                <td>
-                                  <input 
-                                    type="checkbox" 
-                                    className="at-check" 
-                                    checked={selectedOrders.has(o.id)}
-                                    onChange={() => toggleSelectOrder(o.id)}
-                                  />
-                                </td>
-                                <td><span className="order-id font-mono text-sm font-semibold">#{o.id.slice(-6).toUpperCase()}</span></td>
-                                <td>
-                                  <div style={{ fontWeight: 700, fontSize: '.85rem', color: 'var(--dark)' }}>{o.deliveryName || 'Guest User'}</div>
-                                  <div style={{ fontSize: '.75rem', color: 'var(--gray4)' }}>{o.deliveryPhone}</div>
-                                </td>
-                                <td style={{ fontSize: '.8rem', maxWidth: 200, color: 'var(--gray5)' }}>{o.items?.map(i => `${i.name} × ${i.quantity}`).join(', ')}</td>
-                                <td style={{ fontFamily: 'var(--ff-display)', fontWeight: 800, fontSize: '.95rem', color: 'var(--primary)' }}>৳{o.total}</td>
-                                <td>
-                                  <span className={`order-status ${statusClass}`}>
-                                    {o.status === 'Cancelled' ? '✕ Cancelled' :
-                                     o.status === 'Delivered' ? '✅ Delivered' :
-                                     o.status === 'Shipped' ? '🚚 Shipped' :
-                                     o.status === 'Confirmed' ? '⚙️ Confirmed' : '⏳ Pending'}
-                                  </span>
-                                </td>
-                                <td className="relative overflow-visible">
-                                  <div className="flex items-center justify-end gap-2">
-                                    <button onClick={() => { setSelectedOrder(o); setShowOrderDetailModal(true); }} className="p-1.5 hover:bg-gray-100 rounded-lg text-gray-500 transition-colors" title="View details">👁️</button>
-                                    <button onClick={() => openStatusUpdate(o)} className="p-1.5 hover:bg-gray-100 rounded-lg text-gray-500 transition-colors" title="Edit Status">✏️</button>
-                                    <button
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        setActiveDropdown(activeDropdown === o.id ? null : o.id);
-                                      }}
-                                      className={`p-1.5 rounded-lg transition-colors ${activeDropdown === o.id ? 'bg-primary/10 text-primary' : 'hover:bg-gray-100 text-gray-500'}`}
-                                      title="More Actions"
-                                    >
-                                      ⋮
-                                    </button>
-                                  </div>
+                );
 
-                                  {activeDropdown === o.id && (
-                                    <>
-                                      <div 
-                                        className="fixed inset-0 z-[9998]"
-                                        onClick={(e) => { e.stopPropagation(); setActiveDropdown(null); }}
-                                      />
-                                      <div className="absolute right-0 top-full mt-2 w-48 bg-white rounded-xl shadow-2xl border border-gray-200 z-[9999] overflow-hidden py-1 text-left">
-                                        <button
-                                          onClick={(e) => { e.stopPropagation(); window.print(); setActiveDropdown(null); }}
-                                          className="w-full text-left px-4 py-2.5 text-[0.85rem] font-medium text-gray-700 hover:bg-gray-50 hover:text-primary transition-colors flex items-center gap-2"
-                                        >
-                                          🖨️ Print Receipt
-                                        </button>
-                                        
-                                        <button
-                                          onClick={(e) => {
-                                            e.stopPropagation();
-                                            setSelectedOrder(o);
-                                            setShowOrderDetailModal(true); // Assuming Address edits can happen via the modal
-                                            setActiveDropdown(null);
-                                          }}
-                                          className="w-full text-left px-4 py-2.5 text-[0.85rem] font-medium text-gray-700 hover:bg-gray-50 hover:text-primary transition-colors flex items-center gap-2"
-                                        >
-                                          📍 Edit Address
-                                        </button>
+                const statusMeta = {
+                  Pending:   { cls: 'pending',   icon: '⏳' },
+                  Confirmed: { cls: 'confirmed', icon: '⚙️' },
+                  Shipped:   { cls: 'shipped',   icon: '🚚' },
+                  Delivered: { cls: 'delivered', icon: '✅' },
+                  Done:      { cls: 'done',      icon: '✔' },
+                  Cancelled: { cls: 'cancelled', icon: '✕' },
+                };
 
-                                        <button
-                                          onClick={(e) => {
-                                            e.stopPropagation();
-                                            openStatusUpdate(o); // Tracking typically added during status updates
-                                            setActiveDropdown(null);
-                                          }}
-                                          className="w-full text-left px-4 py-2.5 text-[0.85rem] font-medium text-gray-700 hover:bg-gray-50 hover:text-primary transition-colors flex items-center gap-2"
-                                        >
-                                          📦 Add Tracking
-                                        </button>
-                                        
-                                        {o.deliveryPhone && (
-                                          <a
-                                            href={getCustomWhatsAppLink(o)}
-                                            target="_blank"
-                                            rel="noreferrer"
-                                            onClick={(e) => { e.stopPropagation(); setActiveDropdown(null); }}
-                                            className="w-full text-left px-4 py-2.5 text-[0.85rem] font-medium text-green-600 hover:bg-green-50 transition-colors flex items-center gap-2"
+                return (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '.75rem' }}>
+                    {/* Select all row */}
+                    <div style={{ display:'flex',alignItems:'center',gap:'.6rem',padding:'0 .25rem' }}>
+                      <input
+                        type="checkbox"
+                        checked={selectedOrders.size === displayOrders.length && displayOrders.length > 0}
+                        onChange={() => {
+                          if (selectedOrders.size === displayOrders.length) setSelectedOrders(new Set());
+                          else setSelectedOrders(new Set(displayOrders.map(o => o.id)));
+                        }}
+                        style={{ width:16,height:16,accentColor:'#E8540A',cursor:'pointer' }}
+                      />
+                      <span style={{ fontFamily:'var(--ff)',fontSize:'.68rem',fontWeight:800,textTransform:'uppercase',letterSpacing:'.1em',color:'#BBBBBB' }}>
+                        Select All ({displayOrders.length})
+                      </span>
+                    </div>
+
+                    {displayOrders.map(order => {
+                      const sm = statusMeta[order.status] || { cls: 'pending', icon: '⏳' };
+                      const isExpanded = expandedOrder === order.id;
+                      const isSelected = selectedOrders.has(order.id);
+                      const orderDate = order.createdAt?.toDate
+                        ? order.createdAt.toDate().toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})
+                        : new Date(order.createdAt?.seconds ? order.createdAt.seconds*1000 : order.createdAt).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'});
+
+                      return (
+                        <div key={order.id} className={`order-card${isSelected?' selected':''}${order.status==='Cancelled'?' cancelled':''}${order.isManual?' manual':''}`}>
+
+                          {/* Cancelled banner */}
+                          {order.status === 'Cancelled' && (
+                            <div style={{ background:'#DC2626',color:'#fff',fontFamily:'var(--ff)',fontWeight:800,fontSize:'.68rem',textTransform:'uppercase',letterSpacing:'.08em',padding:'.4rem 1.25rem' }}>
+                              ✕ Order Cancelled {order.cancelReason ? `• ${order.cancelReason}` : ''}
+                            </div>
+                          )}
+
+                          {/* Main row */}
+                          <div style={{ padding:'1.1rem 1.25rem',display:'flex',alignItems:'flex-start',gap:'1rem',flexWrap:'wrap' }}>
+                            <input
+                              type="checkbox"
+                              checked={isSelected}
+                              onChange={e => { e.stopPropagation(); toggleSelectOrder(order.id); }}
+                              onClick={e => e.stopPropagation()}
+                              style={{ width:16,height:16,accentColor:'#E8540A',cursor:'pointer',flexShrink:0,marginTop:4 }}
+                            />
+
+                            <div style={{ flex:1,cursor:'pointer',minWidth:0 }} onClick={() => setExpandedOrder(isExpanded ? null : order.id)}>
+                              <div style={{ display:'flex',alignItems:'center',gap:'.5rem',flexWrap:'wrap',marginBottom:'.35rem' }}>
+                                <span style={{ fontFamily:'monospace',fontWeight:800,fontSize:'.7rem',color:'#BBBBBB',letterSpacing:'.05em' }}>#{order.id?.slice(-6).toUpperCase()}</span>
+                                <span style={{ fontFamily:'var(--ff)',fontSize:'.7rem',color:'#BBBBBB',fontWeight:600 }}>{orderDate}</span>
+                                <span className={`status-pill ${sm.cls}`}>{sm.icon} {order.status}</span>
+                                {order.isManual && <span style={{ background:'#EFF6FF',color:'#2563EB',fontFamily:'var(--ff)',fontSize:'.62rem',fontWeight:900,padding:'.15rem .55rem',borderRadius:100,textTransform:'uppercase',letterSpacing:'.06em' }}>Offline Sale</span>}
+                                {order.trackingLink && <span style={{ background:'#F5F3FF',color:'#7C3AED',fontFamily:'var(--ff)',fontSize:'.62rem',fontWeight:900,padding:'.15rem .55rem',borderRadius:100,textTransform:'uppercase',letterSpacing:'.06em' }}>📦 Tracked</span>}
+                              </div>
+
+                              <h3 style={{ fontFamily:'var(--ff-display)',fontWeight:900,fontSize:'1.05rem',color:'#121212',margin:'0 0 .3rem',letterSpacing:'-.01em',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis' }}>
+                                {order.deliveryName || order.customerName || order.customerEmail || 'Unknown Customer'}
+                              </h3>
+
+                              <div style={{ display:'flex',alignItems:'center',gap:'.5rem',flexWrap:'wrap' }}>
+                                <span style={{ fontFamily:'var(--ff-display)',fontWeight:800,fontSize:'.95rem',color:'#E8540A' }}>
+                                  ৳{order.total || 0}
+                                </span>
+                                {order.deliveryPhone && (
+                                  <span style={{ fontFamily:'var(--ff)',fontSize:'.75rem',color:'#888',fontWeight:600 }}>{order.deliveryPhone}</span>
+                                )}
+                                <span style={{ fontFamily:'var(--ff)',fontSize:'.72rem',color:'#BBBBBB' }}>•</span>
+                                <span style={{ fontFamily:'var(--ff)',fontSize:'.75rem',color:'#888',fontWeight:600 }}>
+                                  Status:
+                                </span>
+                                <select
+                                  value={order.status || 'Pending'}
+                                  onChange={e => handleUpdateStatus(order.id, e.target.value)}
+                                  onClick={e => e.stopPropagation()}
+                                  style={{
+                                    fontFamily:'var(--ff)',fontWeight:800,fontSize:'.75rem',
+                                    background:'transparent',border:'none',outline:'none',cursor:'pointer',
+                                    color: (order.status==='Done'||order.status==='Delivered') ? '#16A34A' : order.status==='Cancelled' ? '#DC2626' : '#E8540A',
+                                    borderBottom: '1.5px solid transparent',
+                                    transition: 'border-color .18s',
+                                    padding: '0 .15rem',
+                                  }}
+                                  onMouseOver={e=>e.target.style.borderBottomColor='#EEEEEE'}
+                                  onMouseOut={e=>e.target.style.borderBottomColor='transparent'}
+                                >
+                                  <option value="Pending">Pending</option>
+                                  <option value="Confirmed">Confirmed</option>
+                                  <option value="Shipped">Shipped</option>
+                                  <option value="Delivered">Delivered</option>
+                                  <option value="Done">Done</option>
+                                  <option value="Cancelled">Cancelled</option>
+                                </select>
+                              </div>
+                            </div>
+
+                            <div style={{ display:'flex',alignItems:'center',gap:'.6rem',flexShrink:0 }}>
+                              {!showTrash && (
+                                <button
+                                  onClick={e => { e.stopPropagation(); handleDeleteOrder(order.id); }}
+                                  style={{ background:'none',border:'none',cursor:'pointer',color:'#FECACA',transition:'color .18s',padding:'.35rem',borderRadius:8 }}
+                                  onMouseOver={e=>e.currentTarget.style.color='#DC2626'}
+                                  onMouseOut={e=>e.currentTarget.style.color='#FECACA'}
+                                  title="Move to Trash"
+                                >
+                                  <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                                </button>
+                              )}
+                              {showTrash && (
+                                <button
+                                  onClick={e => { e.stopPropagation(); handleRestoreOrder(order.id); }}
+                                  style={{ background:'none',border:'none',cursor:'pointer',color:'#BBF7D0',transition:'color .18s',padding:'.35rem',borderRadius:8 }}
+                                  onMouseOver={e=>e.currentTarget.style.color='#16A34A'}
+                                  onMouseOut={e=>e.currentTarget.style.color='#BBF7D0'}
+                                  title="Restore"
+                                >
+                                  <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 10h10a5 5 0 015 5v2M3 10l4-4m-4 4l4 4"/></svg>
+                                </button>
+                              )}
+                              <button
+                                onClick={() => setExpandedOrder(isExpanded ? null : order.id)}
+                                style={{ display:'inline-flex',alignItems:'center',gap:'.3rem',padding:'.4rem .85rem',borderRadius:100,border:'1.5px solid #EEEEEE',background:'#F7F7F7',color:'#888',fontFamily:'var(--ff)',fontSize:'.68rem',fontWeight:800,textTransform:'uppercase',letterSpacing:'.07em',cursor:'pointer',transition:'all .18s' }}
+                                onMouseOver={e=>{ e.currentTarget.style.background='#121212'; e.currentTarget.style.color='#fff'; e.currentTarget.style.borderColor='#121212'; }}
+                                onMouseOut={e=>{ e.currentTarget.style.background='#F7F7F7'; e.currentTarget.style.color='#888'; e.currentTarget.style.borderColor='#EEEEEE'; }}
+                              >
+                                {isExpanded ? '▲ Close' : '▼ Details'}
+                              </button>
+                            </div>
+                          </div>
+
+                          {/* Expanded panel */}
+                          <AnimatePresence>
+                            {isExpanded && (
+                              <motion.div
+                                initial={{ height: 0, opacity: 0 }}
+                                animate={{ height: 'auto', opacity: 1 }}
+                                exit={{ height: 0, opacity: 0 }}
+                                style={{ overflow: 'hidden' }}
+                              >
+                                <div className="order-expand-panel">
+                                  <div style={{ display:'grid',gridTemplateColumns:'1fr 1fr',gap:'1.5rem',marginBottom:'1.25rem' }} className="md:grid-cols-2 grid-cols-1">
+
+                                    {/* Delivery Info */}
+                                    <div>
+                                      <div className="order-section-label">📍 Delivery Info</div>
+                                      <div style={{ background:'#fff',border:'1.5px solid #EEEEEE',borderRadius:10,padding:'1rem',display:'flex',flexDirection:'column',gap:'.5rem' }}>
+                                        <div style={{ display:'flex',justifyContent:'space-between',alignItems:'center' }}>
+                                          <span style={{ fontFamily:'var(--ff)',fontSize:'.75rem',color:'#888',fontWeight:700 }}>Phone</span>
+                                          <span style={{ fontFamily:'var(--ff)',fontWeight:800,fontSize:'.82rem',color:'#2563EB' }}>{order.deliveryPhone || 'N/A'}</span>
+                                        </div>
+                                        <div style={{ height:1,background:'#EEEEEE' }}></div>
+                                        <div style={{ display:'flex',justifyContent:'space-between',alignItems:'flex-start',gap:'.5rem' }}>
+                                          <span style={{ fontFamily:'var(--ff)',fontSize:'.75rem',color:'#888',fontWeight:700,flexShrink:0 }}>Address</span>
+                                          <div style={{ display:'flex',alignItems:'flex-start',gap:'.35rem' }}>
+                                            <span style={{ fontFamily:'var(--ff)',fontWeight:700,fontSize:'.8rem',color:'#121212',textAlign:'right',whiteSpace:'pre-line',lineHeight:1.5 }}>{order.deliveryAddress || 'N/A'}</span>
+                                            <button
+                                              onClick={() => setEditAddressModal({ isOpen: true, orderId: order.id, address: order.deliveryAddress || '' })}
+                                              style={{ background:'none',border:'none',cursor:'pointer',color:'#BBBBBB',padding:'.15rem',borderRadius:6,flexShrink:0,transition:'color .18s' }}
+                                              onMouseOver={e=>e.currentTarget.style.color='#E8540A'}
+                                              onMouseOut={e=>e.currentTarget.style.color='#BBBBBB'}
+                                              title="Edit Address"
+                                            >
+                                              <svg width="13" height="13" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/></svg>
+                                            </button>
+                                          </div>
+                                        </div>
+                                        {order.deliveryCoords && (
+                                          <a href={`https://www.google.com/maps?q=${order.deliveryCoords.lat},${order.deliveryCoords.lng}`} target="_blank" rel="noreferrer"
+                                            style={{ display:'inline-flex',alignItems:'center',gap:'.3rem',background:'rgba(232,84,10,.08)',color:'#E8540A',border:'1.5px solid rgba(232,84,10,.2)',borderRadius:100,padding:'.25rem .7rem',fontFamily:'var(--ff)',fontSize:'.65rem',fontWeight:800,textTransform:'uppercase',letterSpacing:'.06em',textDecoration:'none',transition:'all .18s' }}
                                           >
-                                            💬 WhatsApp Msg
+                                            📍 View on Map
+                                          </a>
+                                        )}
+                                        {order.trackingLink && (
+                                          <a href={order.trackingLink.startsWith('http')?order.trackingLink:`https://${order.trackingLink}`} target="_blank" rel="noreferrer"
+                                            style={{ display:'inline-flex',alignItems:'center',gap:'.3rem',background:'rgba(124,58,237,.08)',color:'#7C3AED',border:'1.5px solid rgba(124,58,237,.2)',borderRadius:100,padding:'.25rem .7rem',fontFamily:'var(--ff)',fontSize:'.65rem',fontWeight:800,textTransform:'uppercase',letterSpacing:'.06em',textDecoration:'none' }}
+                                          >
+                                            🔗 View Tracking
                                           </a>
                                         )}
                                       </div>
-                                    </>
-                                  )}
-                                </td>
-                              </tr>
-                            );
-                          })}
-                        </tbody>
-                      </table>
+                                    </div>
 
-                      {/* PAGINATION */}
-                      {totalPages > 1 && (
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '1rem 1.5rem', borderTop: '1px solid var(--gray2)', background: 'var(--gray1)' }}>
-                          <span style={{ fontSize: '.78rem', color: 'var(--gray4)', fontWeight: 600 }}>
-                            Showing {(ordersPage - 1) * ORDERS_PER_PAGE + 1}–{Math.min(ordersPage * ORDERS_PER_PAGE, filteredOrders.length)} of {filteredOrders.length} orders
-                          </span>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '.35rem' }}>
-                            <button
-                              disabled={ordersPage === 1}
-                              onClick={() => setOrdersPage(p => p - 1)}
-                              style={{ padding: '.4rem .85rem', borderRadius: 100, border: '1.5px solid var(--gray2)', background: '#fff', cursor: ordersPage === 1 ? 'not-allowed' : 'pointer', fontSize: '.8rem', fontWeight: 700, color: ordersPage === 1 ? 'var(--gray3)' : 'var(--dark)', transition: 'all .15s' }}
-                            >← Prev</button>
+                                    {/* Items + Receipt */}
+                                    <div>
+                                      <div className="order-section-label">🛍 Items & Receipt</div>
+                                      <div style={{ background:'#fff',border:'1.5px solid #EEEEEE',borderRadius:10,padding:'1rem' }}>
+                                        <ul style={{ listStyle:'none',padding:0,margin:'0 0 .75rem' }}>
+                                          {order.items?.map((item, idx) => (
+                                            <li key={idx} style={{ display:'flex',justifyContent:'space-between',alignItems:'center',fontFamily:'var(--ff)',fontWeight:700,fontSize:'.8rem',color:'#121212',padding:'.3rem 0',borderBottom:'1px dashed #EEEEEE' }}>
+                                              <span>{item.quantity||1}× {item.name||'Item'} {item.weight?`(${item.weight}kg)`:''}</span>
+                                              <span style={{ fontWeight:800,color:'#E8540A' }}>৳{((item.discountPrice||item.price||0)*(item.quantity||1))}</span>
+                                            </li>
+                                          ))}
+                                        </ul>
+                                        <div style={{ borderTop:'1.5px solid #EEEEEE',paddingTop:'.6rem' }}>
+                                          <div className="order-receipt-row" style={{ color:'#888' }}>
+                                            <span>Subtotal</span>
+                                            <span>৳{order.subtotal||Math.max(0,(order.total||0)-(order.deliveryFee||0)+(order.discount||0))}</span>
+                                          </div>
+                                          <div className="order-receipt-row" style={{ color:'#2563EB' }}>
+                                            <span>Delivery Fee {order.totalWeight?`(${order.totalWeight}kg)`:''}</span>
+                                            <span>৳{order.deliveryFee||0}</span>
+                                          </div>
+                                          {(order.discount>0||(order.promoUsed&&order.promoUsed!=='None')) && (
+                                            <div className="order-receipt-row" style={{ color:'#E8540A' }}>
+                                              <span>Discount {order.promoUsed&&order.promoUsed!=='None'?`(${order.promoUsed})`:''}</span>
+                                              <span>-৳{order.discount||0}</span>
+                                            </div>
+                                          )}
+                                          <div style={{ display:'flex',justifyContent:'space-between',alignItems:'center',fontFamily:'var(--ff-display)',fontWeight:900,fontSize:'.95rem',color:'#121212',paddingTop:'.5rem',borderTop:'2px dashed #EEEEEE',marginTop:'.35rem' }}>
+                                            <span style={{ display:'flex',alignItems:'center',gap:'.35rem' }}>
+                                              Total
+                                              <button
+                                                onClick={() => setEditFinancialsModal({ isOpen:true,orderId:order.id,total:order.total||0,deliveryFee:order.deliveryFee||0 })}
+                                                style={{ background:'none',border:'none',cursor:'pointer',color:'#BBBBBB',padding:'.1rem',transition:'color .18s' }}
+                                                onMouseOver={e=>e.currentTarget.style.color='#E8540A'}
+                                                onMouseOut={e=>e.currentTarget.style.color='#BBBBBB'}
+                                              >
+                                                <svg width="13" height="13" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/></svg>
+                                              </button>
+                                            </span>
+                                            <span style={{ color:'#E8540A' }}>৳{order.total||0}</span>
+                                          </div>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  </div>
 
-                            {Array.from({ length: totalPages }, (_, i) => i + 1)
-                              .filter(p => p === 1 || p === totalPages || Math.abs(p - ordersPage) <= 1)
-                              .reduce((acc, p, idx, arr) => {
-                                if (idx > 0 && p - arr[idx - 1] > 1) acc.push('…');
-                                acc.push(p);
-                                return acc;
-                              }, [])
-                              .map((p, i) =>
-                                p === '…'
-                                  ? <span key={`ellipsis-${i}`} style={{ padding: '0 .25rem', color: 'var(--gray4)', fontSize: '.8rem' }}>…</span>
-                                  : <button
-                                      key={p}
-                                      onClick={() => setOrdersPage(p)}
-                                      style={{ width: 32, height: 32, borderRadius: 100, border: '1.5px solid', borderColor: ordersPage === p ? 'var(--primary)' : 'var(--gray2)', background: ordersPage === p ? 'var(--primary)' : '#fff', color: ordersPage === p ? '#fff' : 'var(--dark)', fontSize: '.8rem', fontWeight: 700, cursor: 'pointer', transition: 'all .15s', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                                    >{p}</button>
-                              )
-                            }
-
-                            <button
-                              disabled={ordersPage === totalPages}
-                              onClick={() => setOrdersPage(p => p + 1)}
-                              style={{ padding: '.4rem .85rem', borderRadius: 100, border: '1.5px solid var(--gray2)', background: '#fff', cursor: ordersPage === totalPages ? 'not-allowed' : 'pointer', fontSize: '.8rem', fontWeight: 700, color: ordersPage === totalPages ? 'var(--gray3)' : 'var(--dark)', transition: 'all .15s' }}
-                            >Next →</button>
-                          </div>
+                                  {/* Action buttons */}
+                                  <div style={{ display:'flex',flexWrap:'wrap',gap:'.5rem',paddingTop:'.85rem',borderTop:'1.5px solid #EEEEEE' }}>
+                                    {order.deliveryPhone && order.status !== 'Cancelled' && (
+                                      <a href={createWhatsAppLink(order.deliveryPhone,order.total,order.deliveryAddress)} target="_blank" rel="noreferrer" className="order-action-pill wa">
+                                        <svg width="13" height="13" fill="currentColor" viewBox="0 0 24 24"><path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981zm11.387-5.464c-.074-.124-.272-.198-.57-.347-.297-.149-1.758-.868-2.031-.967-.272-.099-.47-.149-.669.149-.198.297-.768.967-.941 1.165-.173.198-.347.223-.644.074-.297-.149-1.255-.462-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.521.151-.172.2-.296.3-.495.099-.198.05-.372-.025-.521-.075-.148-.669-1.611-.916-2.206-.242-.579-.487-.501-.669-.51l-.57-.01c-.198 0-.52.074-.792.347-.272.297-1.04 1.016-1.04 2.479 0 1.463 1.065 2.876 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.299 1.263.478 1.694.611.712.22 1.36.189 1.872.114.576-.084 1.758-.719 2.006-1.413.248-.695.248-1.29.173-1.414z"/></svg>
+                                        WA Confirm
+                                      </a>
+                                    )}
+                                    {order.status !== 'Done' && order.status !== 'Cancelled' && (
+                                      <button onClick={() => handleUpdateStatus(order.id,'Done')} className="order-action-pill primary">✔ Mark Done</button>
+                                    )}
+                                    <button onClick={() => handlePrintSingleOrder(order.id)} className="order-action-pill">🖨️ Print Receipt</button>
+                                    {order.status !== 'Cancelled' && (
+                                      <button onClick={() => handleAddTracking(order.id)} className="order-action-pill" style={order.trackingLink?{background:'#EFF6FF',color:'#2563EB',borderColor:'#BFDBFE'}:{}}>
+                                        {order.trackingLink ? '📦 Edit Tracking' : '📦 Add Tracking'}
+                                      </button>
+                                    )}
+                                    {order.trackingLink && (
+                                      <a href={order.trackingLink.startsWith('http')?order.trackingLink:`https://${order.trackingLink}`} target="_blank" rel="noreferrer"
+                                        style={{ fontFamily:'var(--ff)',fontSize:'.72rem',fontWeight:800,color:'#7C3AED',textDecoration:'underline',alignSelf:'center' }}
+                                      >View Link</a>
+                                    )}
+                                    {showTrash ? (
+                                      <>
+                                        <button onClick={() => handleRestoreOrder(order.id)} className="order-action-pill green" style={{ marginLeft:'auto' }}>↩ Restore</button>
+                                        <button onClick={() => handlePermanentDelete(order.id)} className="order-action-pill red">🗑 Delete Forever</button>
+                                      </>
+                                    ) : (
+                                      <button onClick={() => handleDeleteOrder(order.id)} className="order-action-pill red" style={{ marginLeft:'auto' }}>Move to Trash</button>
+                                    )}
+                                  </div>
+                                </div>
+                              </motion.div>
+                            )}
+                          </AnimatePresence>
                         </div>
-                      )}
-                    </>
-                  );
-                })()}
-              </div>
+                      );
+                    })}
+                  </div>
+                );
+              })()}
+
+              {/* ── MODALS ───────────────────────────────────────────── */}
+
+              {/* Confirm Modal */}
+              {confirmModal.isOpen && (
+                <div className="order-modal-backdrop">
+                  <div className="order-modal" style={{ maxWidth: 380 }}>
+                    <div className="order-modal-header">
+                      <h3 className="order-modal-title">{confirmModal.title}</h3>
+                      <button className="order-modal-close" onClick={() => setConfirmModal({...confirmModal,isOpen:false})}>✕</button>
+                    </div>
+                    <div className="order-modal-body">
+                      <p style={{ fontFamily:'var(--ff)',fontSize:'.82rem',fontWeight:600,color:'#888',lineHeight:1.65,margin:0 }}>{confirmModal.message}</p>
+                    </div>
+                    <div className="order-modal-footer">
+                      <button className="order-action-pill" style={{ flex:1,justifyContent:'center' }} onClick={() => setConfirmModal({...confirmModal,isOpen:false})}>Cancel</button>
+                      <button className="order-action-pill red" style={{ flex:1,justifyContent:'center' }} onClick={() => { confirmModal.action(); setConfirmModal({...confirmModal,isOpen:false}); }}>Confirm</button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Prompt Modal (Add Tracking) */}
+              <AnimatePresence>
+                {promptModal.isOpen && (
+                  <div className="order-modal-backdrop">
+                    <motion.div className="order-modal" style={{ maxWidth: 380 }} initial={{opacity:0,scale:.96}} animate={{opacity:1,scale:1}} exit={{opacity:0,scale:.96}}>
+                      <div className="order-modal-header">
+                        <h3 className="order-modal-title">{promptModal.title}</h3>
+                        <button className="order-modal-close" onClick={() => setPromptModal({...promptModal,isOpen:false})}>✕</button>
+                      </div>
+                      <div className="order-modal-body">
+                        <input
+                          type="text"
+                          placeholder={promptModal.placeholder}
+                          value={promptModal.value}
+                          onChange={e => setPromptModal({...promptModal,value:e.target.value})}
+                          className="order-input"
+                          autoFocus
+                        />
+                      </div>
+                      <div className="order-modal-footer">
+                        <button className="order-action-pill" style={{ flex:1,justifyContent:'center' }} onClick={() => setPromptModal({...promptModal,isOpen:false})}>Cancel</button>
+                        <button className="order-action-pill primary" style={{ flex:1,justifyContent:'center' }} onClick={() => { promptModal.action(promptModal.value); setPromptModal({...promptModal,isOpen:false}); }}>Save</button>
+                      </div>
+                    </motion.div>
+                  </div>
+                )}
+              </AnimatePresence>
+
+              {/* Edit Address Modal */}
+              <AnimatePresence>
+                {editAddressModal.isOpen && (
+                  <div className="order-modal-backdrop">
+                    <motion.div className="order-modal" style={{ maxWidth: 480 }} initial={{opacity:0,scale:.96}} animate={{opacity:1,scale:1}} exit={{opacity:0,scale:.96}}>
+                      <div className="order-modal-header">
+                        <h3 className="order-modal-title">📍 Edit Delivery Address</h3>
+                        <button className="order-modal-close" onClick={() => setEditAddressModal({isOpen:false,orderId:null,address:''})}>✕</button>
+                      </div>
+                      <div className="order-modal-body">
+                        <label className="order-input-label">Delivery Address</label>
+                        <textarea
+                          value={editAddressModal.address}
+                          onChange={e => setEditAddressModal({...editAddressModal,address:e.target.value})}
+                          className="order-input"
+                          style={{ minHeight:120,resize:'vertical' }}
+                          placeholder="Enter full delivery address..."
+                        />
+                      </div>
+                      <div className="order-modal-footer">
+                        <button className="order-action-pill" style={{ flex:1,justifyContent:'center' }} onClick={() => setEditAddressModal({isOpen:false,orderId:null,address:''})}>Cancel</button>
+                        <button className="order-action-pill primary" style={{ flex:1,justifyContent:'center' }} onClick={handleUpdateAddress}>Save Address</button>
+                      </div>
+                    </motion.div>
+                  </div>
+                )}
+              </AnimatePresence>
+
+              {/* Edit Financials Modal */}
+              <AnimatePresence>
+                {editFinancialsModal.isOpen && (
+                  <div className="order-modal-backdrop">
+                    <motion.div className="order-modal" style={{ maxWidth: 360 }} initial={{opacity:0,scale:.96}} animate={{opacity:1,scale:1}} exit={{opacity:0,scale:.96}}>
+                      <div className="order-modal-header">
+                        <h3 className="order-modal-title">💰 Edit Financials</h3>
+                        <button className="order-modal-close" onClick={() => setEditFinancialsModal({isOpen:false,orderId:null,total:'',deliveryFee:''})}>✕</button>
+                      </div>
+                      <div className="order-modal-body" style={{ display:'flex',flexDirection:'column',gap:'.85rem' }}>
+                        <div>
+                          <label className="order-input-label">Delivery Fee (৳)</label>
+                          <input type="number" value={editFinancialsModal.deliveryFee} onChange={e=>setEditFinancialsModal({...editFinancialsModal,deliveryFee:e.target.value})} className="order-input" />
+                        </div>
+                        <div>
+                          <label className="order-input-label">Grand Total (৳)</label>
+                          <input type="number" value={editFinancialsModal.total} onChange={e=>setEditFinancialsModal({...editFinancialsModal,total:e.target.value})} className="order-input" />
+                        </div>
+                      </div>
+                      <div className="order-modal-footer">
+                        <button className="order-action-pill" style={{ flex:1,justifyContent:'center' }} onClick={() => setEditFinancialsModal({isOpen:false,orderId:null,total:'',deliveryFee:''})}>Cancel</button>
+                        <button className="order-action-pill green" style={{ flex:1,justifyContent:'center' }} onClick={handleUpdateFinancials}>Update</button>
+                      </div>
+                    </motion.div>
+                  </div>
+                )}
+              </AnimatePresence>
+
+            </div>{/* END print-hide */}
+
+            {/* ── PRINTABLE PACKING SLIPS ─────────────────────────── */}
+            <div style={{ display:'none' }} className="print:block print:absolute print:top-0 print:left-0 print:w-full print:bg-white print:z-[9999] print:p-8">
+              <style>{`@media print { .print\\:block { display: block !important; } .print\\:hidden, .print-hide { display: none !important; } }`}</style>
+              {(() => {
+                const allOrders = orders.filter(o => !o.deleted);
+                const printOrders = selectedOrders.size > 0 ? allOrders.filter(o => selectedOrders.has(o.id)) : allOrders;
+                return printOrders.map(order => (
+                  <div key={`print-${order.id}`} style={{ padding:32,border:'4px solid #000',borderRadius:16,marginBottom:48,pageBreakInside:'avoid',breakInside:'avoid' }}>
+                    <div style={{ display:'flex',justifyContent:'space-between',alignItems:'flex-start',borderBottom:'8px solid #000',paddingBottom:16,marginBottom:24 }}>
+                      <div>
+                        <div style={{ fontSize:36,fontWeight:900,textTransform:'uppercase',letterSpacing:'-0.02em',fontFamily:'Georgia,serif' }}>VERTEX PICKS</div>
+                        <div style={{ fontSize:14,fontWeight:700,color:'#888',textTransform:'uppercase',letterSpacing:'.2em' }}>Premium Delivery</div>
+                      </div>
+                      <div style={{ textAlign:'right' }}>
+                        <div style={{ fontSize:28,fontWeight:900,textTransform:'uppercase' }}>Order #{order.id?.slice(-6)}</div>
+                        <div style={{ fontSize:13,fontWeight:600,color:'#666' }}>
+                          {order.createdAt?.toDate ? order.createdAt.toDate().toLocaleDateString() : new Date(order.createdAt?.seconds?order.createdAt.seconds*1000:order.createdAt).toLocaleDateString()}
+                        </div>
+                      </div>
+                    </div>
+                    <div style={{ display:'grid',gridTemplateColumns:'1fr 1fr',gap:32,marginBottom:32 }}>
+                      <div>
+                        <div style={{ fontSize:11,fontWeight:900,textTransform:'uppercase',letterSpacing:'.15em',color:'#888',borderBottom:'2px solid #eee',paddingBottom:6,marginBottom:12 }}>Ship To</div>
+                        <div style={{ fontSize:22,fontWeight:900,marginBottom:4 }}>{order.deliveryName||order.customerName||order.customerEmail||'Valued Customer'}</div>
+                        <div style={{ fontSize:18,fontWeight:800,letterSpacing:'.05em',marginBottom:8 }}>{order.deliveryPhone||'N/A'}</div>
+                        <div style={{ fontSize:15,fontWeight:600,lineHeight:1.5,whiteSpace:'pre-line' }}>{order.deliveryAddress||'N/A'}</div>
+                      </div>
+                      <div>
+                        <div style={{ fontSize:11,fontWeight:900,textTransform:'uppercase',letterSpacing:'.15em',color:'#888',borderBottom:'2px solid #eee',paddingBottom:6,marginBottom:12 }}>Order Details</div>
+                        <div style={{ fontSize:15,fontWeight:600,marginBottom:6 }}>Weight: <strong style={{ fontSize:20 }}>{order.totalWeight||'N/A'} kg</strong></div>
+                        <div style={{ fontSize:15,fontWeight:600 }}>Status: <strong style={{ textTransform:'uppercase' }}>{order.status||'Pending'}</strong></div>
+                        {order.isManual&&<div style={{ fontSize:16,fontWeight:900,border:'2px solid #000',display:'inline-block',padding:'4px 12px',marginTop:10,textTransform:'uppercase',letterSpacing:'.1em' }}>Offline Sale</div>}
+                      </div>
+                    </div>
+                    <div>
+                      <div style={{ fontSize:11,fontWeight:900,textTransform:'uppercase',letterSpacing:'.15em',color:'#888',borderBottom:'2px solid #eee',paddingBottom:6,marginBottom:16 }}>Items Included</div>
+                      {order.items?.map((item,idx)=>(
+                        <div key={idx} style={{ display:'flex',justifyContent:'space-between',fontSize:18,fontWeight:600,borderBottom:'1px dashed #ddd',paddingBottom:12,marginBottom:12 }}>
+                          <span>{item.quantity||1}× {item.name||'Item'} {item.weight?`(${item.weight}kg)`:''}</span>
+                          <span>৳{((item.discountPrice||item.price||0)*(item.quantity||1))}</span>
+                        </div>
+                      ))}
+                    </div>
+                    <div style={{ display:'flex',justifyContent:'space-between',alignItems:'center',borderTop:'8px solid #000',paddingTop:16,marginTop:8 }}>
+                      <span style={{ fontSize:18,fontWeight:900,textTransform:'uppercase',letterSpacing:'.05em' }}>Amount To Collect</span>
+                      <span style={{ fontSize:48,fontWeight:900,letterSpacing:'-.02em' }}>৳{order.total||0}</span>
+                    </div>
+                  </div>
+                ));
+              })()}
             </div>
+
           </div>
         )}
 
