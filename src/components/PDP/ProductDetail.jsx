@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { doc, getDoc, collection, getDocs, updateDoc, arrayUnion } from 'firebase/firestore';
+import { doc, getDoc, collection, getDocs, updateDoc, arrayUnion, query, where } from 'firebase/firestore';
 import { db, auth } from '../../firebaseConfig';
 
 import { useCart } from '../../context/CartContext';
@@ -14,14 +14,17 @@ import ProductTabs from './ProductTabs';
 export default function ProductDetail() {
   const { id } = useParams();
   const { addToCart } = useCart();
-  
-  
+  const navigate = useNavigate();
 
   const [loading, setLoading] = useState(true);
   const [qty, setQty] = useState(1);
   const [productData, setProductData] = useState(null);
   const [relatedProducts, setRelatedProducts] = useState([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [hasPurchased, setHasPurchased] = useState(false);
+  const [purchaseCheckDone, setPurchaseCheckDone] = useState(false);
+  const [hasAlreadyReviewed, setHasAlreadyReviewed] = useState(false);
+  const [showSticky, setShowSticky] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -43,35 +46,92 @@ export default function ProductDetail() {
           setRelatedProducts(related);
         }
         setLoading(false);
-      } catch (error) {
-        console.error("Error fetching product details:", error);
+      } catch (err) {
+        console.error(err);
         setLoading(false);
       }
     };
+
     fetchData();
   }, [id]);
 
+  useEffect(() => {
+    // Observer to show/hide sticky bar
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        // If the buy row is out of view AND it's above the viewport (scrolled past it)
+        if (!entry.isIntersecting && entry.boundingClientRect.y < 0) {
+          setShowSticky(true);
+        } else {
+          setShowSticky(false);
+        }
+      },
+      { threshold: 0 }
+    );
+
+    const buyRow = document.getElementById('pdp-buy-row');
+    if (buyRow) observer.observe(buyRow);
+
+    return () => observer.disconnect();
+  }, [loading]);
+
+  // Check if user has a delivered order containing this product
+  useEffect(() => {
+    const checkPurchase = async () => {
+      const currentUser = auth.currentUser;
+      if (!currentUser || !id) { setPurchaseCheckDone(true); return; }
+      try {
+        const q = query(collection(db, 'orders'), where('customerEmail', '==', currentUser.email));
+        const snap = await getDocs(q);
+        const deliveredOrders = snap.docs
+          .map(d => ({ id: d.id, ...d.data() }))
+          .filter(o => o.status === 'Delivered');
+        const purchased = deliveredOrders.some(o =>
+          (o.items || []).some(item => item.id === id)
+        );
+        setHasPurchased(purchased);
+
+        // Also check if already reviewed this product
+        if (purchased && productData) {
+          const alreadyReviewed = (productData.reviewsList || []).some(
+            r => r.userEmail === currentUser.email
+          );
+          setHasAlreadyReviewed(alreadyReviewed);
+        }
+      } catch (err) {
+        console.error('Purchase check failed:', err);
+      }
+      setPurchaseCheckDone(true);
+    };
+    if (!loading) checkPurchase();
+  }, [id, loading, productData]);
+
   const handleReviewSubmit = async (reviewData) => {
     if (!auth.currentUser) return toast.error("Please log in to leave a review.");
+    if (!hasPurchased) return toast.error("You can only review products you've purchased and received.");
+    if (hasAlreadyReviewed) return toast.error("You've already reviewed this product.");
     setIsSubmitting(true);
 
     const newReview = {
       id: Date.now().toString(),
-      name: auth.currentUser.displayName || auth.currentUser.email.split('@')[0], 
+      name: auth.currentUser.displayName || auth.currentUser.email.split('@')[0],
+      userEmail: auth.currentUser.email,
       rating: Number(reviewData.rating),
       title: reviewData.title || '',
       body: reviewData.text || '',
       date: new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }),
-      isVerified: true
+      isVerified: true,
+      status: 'pending', // Admin must approve before it goes public
+      helpful: 0,
     };
 
     try {
       const docRef = doc(db, 'mangoes', productData.id);
-      await updateDoc(docRef, { reviews: arrayUnion(newReview) });
-      setProductData(prev => ({ ...prev, reviews: [newReview, ...(prev.reviews || [])] }));
-      toast.success("Review posted successfully!");
-    } catch (error) { 
-      console.error("Failed to post review", error); 
+      await updateDoc(docRef, { reviewsList: arrayUnion(newReview) });
+      setHasAlreadyReviewed(true);
+      toast.success("✅ Review submitted! It will appear after admin approval.", { duration: 5000 });
+    } catch (error) {
+      console.error("Failed to post review", error);
       toast.error("Failed to submit review");
     }
     setIsSubmitting(false);
@@ -98,11 +158,13 @@ export default function ProductDetail() {
     );
   }
 
-  const reviewsList = productData.reviews || [];
+  const reviewsList = productData.reviewsList || [];
+  // Public side only shows approved reviews
+  const approvedReviews = reviewsList.filter(r => r.status === 'approved' || !r.status);
   let displayRating = 5;
-  if (reviewsList.length > 0) {
-    const totalStars = reviewsList.reduce((sum, rev) => sum + Number(rev.rating), 0);
-    displayRating = Number((totalStars / reviewsList.length).toFixed(1));
+  if (approvedReviews.length > 0) {
+    const totalStars = approvedReviews.reduce((sum, rev) => sum + Number(rev.rating), 0);
+    displayRating = Number((totalStars / approvedReviews.length).toFixed(1));
   } else if (productData.stats && productData.stats.rating) {
     displayRating = Number(productData.stats.rating);
   }
@@ -122,15 +184,11 @@ export default function ProductDetail() {
     unit: productData.unit || 'box',
     weight: `${productData.fixedWeight || 1} Kg`,
     rating: Math.round(displayRating),
-    reviews: reviewsList.length > 0 ? reviewsList.length : (productData.stats?.reviewCount || 0),
+    reviews: approvedReviews.length > 0 ? approvedReviews.length : (productData.stats?.reviewCount || 0),
     farmerName: 'Abdul Karim',
     farmerSub: 'Rajshahi Orchards · 15+ years growing premium mangoes',
-    reviewsList: reviewsList,
+    reviewsList: approvedReviews,
     images: productData.images || [],
-    packs: [
-      { name: '1 Box', price: productData.discountPrice || productData.price },
-      { name: '2 Boxes', price: Math.round((productData.discountPrice || productData.price) * 1.9) }
-    ],
     related: relatedProducts.map(p => ({
       id: p.id,
       name: p.name,
@@ -142,6 +200,11 @@ export default function ProductDetail() {
   const handleAddToCart = () => {
     addToCart(mappedProduct.id, qty);
     toast.success(`Added ${qty} ${mappedProduct.name} to cart!`);
+  };
+
+  const handleBuyNow = () => {
+    addToCart(mappedProduct.id, qty);
+    navigate('/checkout');
   };
 
   return (
@@ -162,7 +225,10 @@ export default function ProductDetail() {
       <ProductTabs 
         product={mappedProduct} 
         onReviewSubmit={handleReviewSubmit} 
-        isSubmitting={isSubmitting} 
+        isSubmitting={isSubmitting}
+        hasPurchased={hasPurchased}
+        purchaseCheckDone={purchaseCheckDone}
+        hasAlreadyReviewed={hasAlreadyReviewed}
       />
 
       {mappedProduct.related.length > 0 && (
@@ -183,7 +249,7 @@ export default function ProductDetail() {
         </div>
       )}
 
-      <div className="pdp-sticky-bar" style={{ display: 'flex' /* overridden by media query in real env */ }}>
+      <div className={`pdp-sticky-bar ${showSticky ? 'show' : ''}`}>
         <div className="pdp-sticky-product">
           <div className="pdp-sticky-emoji" id="pdp-sticky-emoji">{mappedProduct.emoji}</div>
           <div>
@@ -191,7 +257,13 @@ export default function ProductDetail() {
             <div className="pdp-sticky-price" id="pdp-sticky-price">৳{mappedProduct.price}</div>
           </div>
         </div>
-        <button className="pdp-sticky-btn" onClick={handleAddToCart}>Add to Cart</button>
+        
+        <div className="pdp-sticky-actions">
+          <button className="pdp-sticky-btn" onClick={handleAddToCart}>Add to Cart</button>
+          <button className="pdp-sticky-btn buy-now" onClick={handleBuyNow}>⚡ Buy Now</button>
+        </div>
+        
+        <div className="pdp-sticky-spacer"></div>
       </div>
     </div>
   );

@@ -1,23 +1,11 @@
 import React, { useState } from 'react';
 import { useCart } from '../../context/CartContext';
 import { useNavigate } from 'react-router-dom';
-import { collection, getDocs } from 'firebase/firestore';
-import { db } from '../../firebaseConfig';
-import { toast } from 'react-hot-toast';
 
 export default function ProductInfo({ product, qty, setQty }) {
   const { addToCart } = useCart();
   const navigate = useNavigate();
-  const [activePackIndex, setActivePackIndex] = useState(0);
   const [isAdded, setIsAdded] = useState(false);
-
-  const packs = product.packs || [
-    { name: '1 Dozen', price: product.price },
-    { name: '½ Dozen', price: Math.round(product.price * 0.55) },
-    { name: '2 Kg', price: Math.round(product.price * 0.38) }
-  ];
-
-  const selectedPrice = packs[activePackIndex].price;
 
   // B2 fix: actually add the product to cart
   const handleAddToCart = () => {
@@ -70,13 +58,13 @@ export default function ProductInfo({ product, qty, setQty }) {
       <div className="pdp-price-block">
         <div>
           <div className="pdp-price-main" id="pdp-price-main">
-            ৳{packs[activePackIndex].price.toLocaleString()}
+            ৳{product.price.toLocaleString()}
           </div>
           <span className="pdp-price-unit" id="pdp-price-unit">per {product.unit}</span>
           {product.oldPrice && (
             <div id="pdp-save-badge">
               <span className="pdp-price-save">
-                🎉 You save <span id="pdp-save-amount">৳{product.oldPrice - packs[activePackIndex].price}</span>
+                🎉 You save <span id="pdp-save-amount">৳{product.oldPrice - product.price}</span>
               </span>
             </div>
           )}
@@ -93,22 +81,9 @@ export default function ProductInfo({ product, qty, setQty }) {
         </div>
       </div>
 
-      <div className="pdp-section-label">Choose Pack Size</div>
-      <div className="pdp-pack-options" id="pdp-pack-options">
-        {packs.map((pack, index) => (
-          <div
-            key={index}
-            className={`pdp-pack-opt ${activePackIndex === index ? 'active' : ''}`}
-            onClick={() => setActivePackIndex(index)}
-          >
-            <div className="pdp-pack-opt-name">{pack.name}</div>
-            <div className="pdp-pack-opt-price">৳{pack.price.toLocaleString()}</div>
-          </div>
-        ))}
-      </div>
 
       <div className="pdp-section-label">Quantity</div>
-      <div className="pdp-buy-row">
+      <div className="pdp-buy-row" id="pdp-buy-row">
         <div className="pdp-qty">
           <button className="pdp-qty-btn" onClick={() => setQty(Math.max(1, qty - 1))}>−</button>
           <div className="pdp-qty-val" id="pdp-qty-val">{qty}</div>

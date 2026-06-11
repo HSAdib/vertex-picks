@@ -1,7 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { signOut } from 'firebase/auth';
-import { collection, getDocs, doc, getDoc, setDoc, deleteDoc, updateDoc, addDoc } from 'firebase/firestore';
+import { collection, getDocs, doc, getDoc, setDoc, deleteDoc, updateDoc, addDoc, onSnapshot } from 'firebase/firestore';
 import { auth, db } from '../firebaseConfig';
 import { useAuth } from '../context/AuthContext';
 import { Link, Navigate } from 'react-router-dom';
@@ -46,6 +46,29 @@ export default function Admin() {
   const [activeAdminTab, setActiveAdminTab] = useState('dashboard');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [loading, setLoading] = useState(true);
+
+  // Real-time notification state
+  const [newOrderAlert, setNewOrderAlert] = useState({ show: false, orders: [], count: 0 });
+  const [unreadOrderCount, setUnreadOrderCount] = useState(0);
+  const pageLoadTime = useRef(Date.now());
+  const ordersListenerRef = useRef(null);
+
+  const playNotificationChime = () => {
+    try {
+      const ctx = new (window.AudioContext || window.webkitAudioContext)();
+      const oscillator = ctx.createOscillator();
+      const gainNode = ctx.createGain();
+      oscillator.connect(gainNode);
+      gainNode.connect(ctx.destination);
+      oscillator.type = 'sine';
+      oscillator.frequency.setValueAtTime(880, ctx.currentTime);
+      oscillator.frequency.exponentialRampToValueAtTime(440, ctx.currentTime + 0.3);
+      gainNode.gain.setValueAtTime(0.3, ctx.currentTime);
+      gainNode.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.5);
+      oscillator.start(ctx.currentTime);
+      oscillator.stop(ctx.currentTime + 0.5);
+    } catch (e) { /* Audio not available */ }
+  };
 
   // Firestore Data Collections
   const [mangoes, setMangoes] = useState([]);
@@ -483,7 +506,7 @@ Thank you for choosing Vertex Picks.`;
       productsList.sort((a, b) => (a.order || 0) - (b.order || 0));
       setMangoes(productsList);
 
-      // 2. Fetch orders
+      // 2. Fetch orders (initial load only via getDocs — real-time handled by onSnapshot below)
       const ordersSnap = await getDocs(collection(db, 'orders'));
       const ordersList = ordersSnap.docs.map(d => ({ id: d.id, ...d.data() }));
       ordersList.sort((a, b) => {
@@ -492,6 +515,8 @@ Thank you for choosing Vertex Picks.`;
         return timeB - timeA;
       });
       setOrders(ordersList);
+      // Mark page load time so we only alert on FUTURE orders
+      pageLoadTime.current = Date.now();
 
       // 3. Fetch users
       const usersSnap = await getDocs(collection(db, 'users'));
@@ -570,6 +595,46 @@ Thank you for choosing Vertex Picks.`;
 
   // Initial data load on mount
   useEffect(() => { fetchData(); }, []);
+
+  // Real-time orders listener — fires on new order creation after page load
+  useEffect(() => {
+    // Wait until initial fetch is done before subscribing
+    if (loading) return;
+    const unsubscribe = onSnapshot(collection(db, 'orders'), (snapshot) => {
+      snapshot.docChanges().forEach((change) => {
+        if (change.type === 'added') {
+          const order = { id: change.doc.id, ...change.doc.data() };
+          const orderTime = order.createdAt?.toMillis
+            ? order.createdAt.toMillis()
+            : order.createdAt?.seconds
+              ? order.createdAt.seconds * 1000
+              : typeof order.createdAt === 'string'
+                ? new Date(order.createdAt).getTime()
+                : Date.now();
+          // Only alert for orders created AFTER this admin page loaded
+          if (orderTime > pageLoadTime.current) {
+            setOrders(prev => {
+              if (prev.find(o => o.id === order.id)) return prev;
+              return [order, ...prev];
+            });
+            setNewOrderAlert(prev => ({
+              show: true,
+              orders: [order, ...prev.orders].slice(0, 5),
+              count: prev.count + 1
+            }));
+            setUnreadOrderCount(prev => prev + 1);
+            playNotificationChime();
+            toast.success(
+              `📦 New order! ৳${order.total || 0} from ${order.customerName || order.deliveryName || 'customer'}`,
+              { duration: 6000, icon: '📦' }
+            );
+          }
+        }
+      });
+    });
+    ordersListenerRef.current = unsubscribe;
+    return () => unsubscribe();
+  }, [loading]);
 
   // Seed the 4 default products into Firestore if DB has no products
   useEffect(() => {
@@ -982,6 +1047,27 @@ Thank you for choosing Vertex Picks.`;
     return cleanPhone;
   };
 
+  // Approve a review in Admin
+  const handleApproveReview = async (productId, reviewId) => {
+    try {
+      const prodRef = doc(db, 'mangoes', productId);
+      const prodSnap = await getDoc(prodRef);
+      if (!prodSnap.exists()) return;
+      const updated = (prodSnap.data().reviewsList || []).map(r =>
+        r.id === reviewId ? { ...r, status: 'approved' } : r
+      );
+      await updateDoc(prodRef, { reviewsList: updated });
+      // Update local mangoes state so UI reflects immediately
+      setMangoes(prev => prev.map(m =>
+        m.id === productId ? { ...m, reviewsList: updated } : m
+      ));
+      toast.success('✅ Review approved and published!');
+    } catch (err) {
+      console.error('Failed to approve review:', err);
+      toast.error('Failed to approve review.');
+    }
+  };
+
   // Review soft-delete with 5s undo
   const handleDeleteReview = (productId, reviewId, reviewObj) => {
     // Mark as trashed instantly in UI
@@ -1014,8 +1100,8 @@ Thank you for choosing Vertex Picks.`;
         const prodRef = doc(db, 'mangoes', productId);
         const prodSnap = await getDoc(prodRef);
         if (prodSnap.exists()) {
-          const updated = (prodSnap.data().reviews || []).filter(r => r.id !== reviewId);
-          await updateDoc(prodRef, { reviews: updated });
+        const updated = (prodSnap.data().reviewsList || []).filter(r => r.id !== reviewId);
+        await updateDoc(prodRef, { reviewsList: updated });
         }
         setTrashedReviews(prev => { const n = { ...prev }; delete n[reviewId]; return n; });
         delete undoTimersRef.current[reviewId];
@@ -1232,8 +1318,9 @@ Thank you for choosing Vertex Picks.`;
   // Flatten reviews across all catalog products dynamically
   const allProductReviews = [];
   mangoes.forEach(prod => {
-    if (prod.reviews && Array.isArray(prod.reviews)) {
-      prod.reviews.forEach(rev => {
+    const reviewArr = prod.reviewsList || prod.reviews || [];
+    if (Array.isArray(reviewArr)) {
+      reviewArr.forEach(rev => {
         allProductReviews.push({
           ...rev,
           productId: prod.id,
@@ -1242,6 +1329,7 @@ Thank you for choosing Vertex Picks.`;
       });
     }
   });
+  const pendingReviewsCount = allProductReviews.filter(r => r.status === 'pending').length;
 
   return (
     <div style={{ paddingTop: 'var(--nav-height)' }}>
@@ -2077,8 +2165,8 @@ Thank you for choosing Vertex Picks.`;
 
         <div className="admin-nav-section">
           <span className="admin-nav-label">Main</span>
-          {[{ id: 'dashboard', icon: '📊', label: 'Dashboard' }, { id: 'categories', icon: '📁', label: 'Categories' }, { id: 'filters', icon: '🎛️', label: 'Filters' }, { id: 'products', icon: '🥭', label: 'Products' }, { id: 'orders', icon: '📦', label: 'Orders', badge: orders.length }, { id: 'customers', icon: '👥', label: 'Customers' }].map(item => (
-            <button key={item.id} className={`admin-nav-item${activeAdminTab === item.id ? ' active' : ''}`} onClick={() => { setActiveAdminTab(item.id); setIsSidebarOpen(false); }}>
+          {[{ id: 'dashboard', icon: '📊', label: 'Dashboard' }, { id: 'categories', icon: '📁', label: 'Categories' }, { id: 'filters', icon: '🎛️', label: 'Filters' }, { id: 'products', icon: '🥭', label: 'Products' }, { id: 'orders', icon: '📦', label: 'Orders', badge: unreadOrderCount > 0 ? unreadOrderCount : orders.length }, { id: 'customers', icon: '👥', label: 'Customers' }].map(item => (
+            <button key={item.id} className={`admin-nav-item${activeAdminTab === item.id ? ' active' : ''}`} onClick={() => { setActiveAdminTab(item.id); setIsSidebarOpen(false); if (item.id === 'orders') { setUnreadOrderCount(0); setNewOrderAlert(prev => ({ ...prev, show: false })); } }}>
               <span className="ani-icon">{item.icon}</span>
               {item.label}
               {item.badge > 0 && <span className="ani-badge">{item.badge}</span>}
@@ -2088,7 +2176,7 @@ Thank you for choosing Vertex Picks.`;
 
         <div className="admin-nav-section">
           <span className="admin-nav-label">Manage</span>
-          {[{ id: 'coupons', icon: '🎟️', label: 'Coupons' }, { id: 'reviews', icon: '⭐', label: 'Reviews', badge: allProductReviews.length }, { id: 'leads', icon: '📧', label: 'Leads', badge: leads.length }, { id: 'analytics', icon: '📈', label: 'Analytics' }, { id: 'customizer', icon: '🎨', label: 'UI Customizer' }].map(item => (
+          {[{ id: 'coupons', icon: '🎟️', label: 'Coupons' }, { id: 'reviews', icon: '⭐', label: 'Reviews', badge: pendingReviewsCount }, { id: 'leads', icon: '📧', label: 'Leads', badge: leads.length }, { id: 'analytics', icon: '📈', label: 'Analytics' }, { id: 'customizer', icon: '🎨', label: 'UI Customizer' }].map(item => (
             <button key={item.id} className={`admin-nav-item${activeAdminTab === item.id ? ' active' : ''}`} onClick={() => { setActiveAdminTab(item.id); setIsSidebarOpen(false); }}>
               <span className="ani-icon">{item.icon}</span>
               {item.label}
@@ -2128,6 +2216,61 @@ Thank you for choosing Vertex Picks.`;
             <span style={{ fontSize: '.68rem', fontWeight: 700, padding: '.25rem .65rem', borderRadius: 100, background: 'var(--primary-pale)', color: 'var(--primary)', textTransform: 'uppercase', letterSpacing: '.06em' }}>⚡ Live</span>
           </div>
         </div>
+
+        {/* NEW ORDER NOTIFICATION BANNER */}
+        <AnimatePresence>
+          {newOrderAlert.show && (
+            <motion.div
+              initial={{ opacity: 0, y: -20, scale: 0.97 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: -20, scale: 0.97 }}
+              transition={{ type: 'spring', stiffness: 300, damping: 24 }}
+              style={{
+                marginBottom: '1.25rem',
+                background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 100%)',
+                border: '1.5px solid rgba(232,84,10,0.4)',
+                borderRadius: 16,
+                padding: '1rem 1.5rem',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: '1rem',
+                boxShadow: '0 8px 32px rgba(232,84,10,0.2)',
+                flexWrap: 'wrap'
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                <div style={{ width: 40, height: 40, borderRadius: '50%', background: 'linear-gradient(135deg,#E8540A,#FF7A35)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.2rem', flexShrink: 0, animation: 'pulse 1.5s ease-in-out infinite' }}>
+                  📦
+                </div>
+                <div>
+                  <div style={{ fontSize: '.85rem', fontWeight: 800, color: '#fff', marginBottom: '.2rem' }}>
+                    {newOrderAlert.count === 1 ? '1 New Order Received!' : `${newOrderAlert.count} New Orders Received!`}
+                  </div>
+                  <div style={{ fontSize: '.75rem', color: 'rgba(255,255,255,0.6)', fontWeight: 500 }}>
+                    {newOrderAlert.orders[0] && (
+                      <>৳{newOrderAlert.orders[0].total || 0} &middot; {newOrderAlert.orders[0].customerName || newOrderAlert.orders[0].deliveryName || 'Customer'} &middot; {newOrderAlert.orders[0].deliveryAddress?.slice(0, 35) || 'N/A'}&hellip;</>
+                    )}
+                  </div>
+                </div>
+              </div>
+              <div style={{ display: 'flex', gap: '.75rem', alignItems: 'center' }}>
+                <button
+                  onClick={() => { setActiveAdminTab('orders'); setUnreadOrderCount(0); setNewOrderAlert({ show: false, orders: [], count: 0 }); }}
+                  style={{ background: 'linear-gradient(135deg,#E8540A,#FF7A35)', color: '#fff', fontWeight: 700, fontSize: '.78rem', padding: '.45rem 1rem', borderRadius: 100, border: 'none', cursor: 'pointer', letterSpacing: '.04em' }}
+                >
+                  View Orders →
+                </button>
+                <button
+                  onClick={() => setNewOrderAlert(prev => ({ ...prev, show: false }))}
+                  style={{ background: 'rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.6)', border: 'none', borderRadius: '50%', width: 28, height: 28, cursor: 'pointer', fontSize: '.8rem', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                >
+                  ✕
+                </button>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
         
         {/* TAB 0: DASHBOARD TAB */}
         {activeAdminTab === 'dashboard' && (
@@ -3748,7 +3891,9 @@ Thank you for choosing Vertex Picks.`;
             <div className="admin-header">
               <div className="admin-title">⭐ Customer Reviews Moderation</div>
               <div style={{ fontSize: '.8rem', color: 'var(--gray4)', fontWeight: 600 }}>
-                {allProductReviews.filter(r => !trashedReviews[r.id]).length} published
+                {allProductReviews.filter(r => !trashedReviews[r.id] && r.status === 'approved').length} published
+                &nbsp;&middot;&nbsp;
+                <span style={{ color: pendingReviewsCount > 0 ? '#D97706' : 'var(--gray4)' }}>{pendingReviewsCount} pending approval</span>
                 {Object.keys(trashedReviews).length > 0 && (
                   <span style={{ marginLeft: '.75rem', color: '#DC2626' }}>· {Object.keys(trashedReviews).length} pending deletion</span>
                 )}
@@ -3788,7 +3933,9 @@ Thank you for choosing Vertex Picks.`;
                             <td>
                               {isTrashed
                                 ? <span style={{ fontSize: '.72rem', fontWeight: 700, padding: '.2rem .55rem', borderRadius: 100, background: '#FEE2E2', color: '#DC2626', border: '1px solid #FECACA' }}>🗑️ Trashed</span>
-                                : <span className="badge badge-green">✅ Published</span>
+                                : rev.status === 'pending'
+                                  ? <span style={{ fontSize: '.72rem', fontWeight: 700, padding: '.2rem .55rem', borderRadius: 100, background: '#FEF3C7', color: '#92400E', border: '1px solid #FCD34D' }}>⏳ Pending</span>
+                                  : <span className="badge badge-green">✅ Published</span>
                               }
                             </td>
                             <td>
@@ -3808,13 +3955,25 @@ Thank you for choosing Vertex Picks.`;
                                     ↩️
                                   </button>
                                 ) : (
-                                  <button
-                                    onClick={() => handleDeleteReview(rev.productId, rev.id, rev)}
-                                    className="at-action-btn danger"
-                                    title="Trash review (5s undo)"
-                                  >
-                                    🗑️
-                                  </button>
+                                  <>
+                                    {rev.status === 'pending' && !isTrashed && (
+                                      <button
+                                        onClick={() => handleApproveReview(rev.productId, rev.id)}
+                                        className="at-action-btn"
+                                        title="Approve review — publishes it publicly"
+                                        style={{ background: '#DCFCE7', borderColor: '#86EFAC', color: '#166534' }}
+                                      >
+                                        ✅
+                                      </button>
+                                    )}
+                                    <button
+                                      onClick={() => handleDeleteReview(rev.productId, rev.id, rev)}
+                                      className="at-action-btn danger"
+                                      title="Trash review (5s undo)"
+                                    >
+                                      🗑️
+                                    </button>
+                                  </>
                                 )}
                               </div>
                             </td>

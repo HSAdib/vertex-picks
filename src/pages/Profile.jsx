@@ -8,6 +8,7 @@ import { toast } from 'react-hot-toast';
 import { isValidBDPhoneNumber } from '../utils/phoneValidation';
 import { fetchCurrentLocation } from '../utils/geolocation';
 import { useWishlist } from '../hooks/useWishlist';
+import { useCart } from '../context/CartContext';
 
 const ORDER_STEPS = ['Pending', 'Confirmed', 'Shipped', 'Delivered'];
 
@@ -51,11 +52,13 @@ const cancellationReasons = [
 export default function Profile() {
   const { user, isAdmin, authLoading } = useAuth();
   const navigate = useNavigate();
+  const { addToCart } = useCart();
   const [loading, setLoading] = useState(true);
   const location = useLocation();
   const urlTab = new URLSearchParams(location.search).get('tab');
   const [activeTab, setActiveTab] = useState(urlTab || 'overview');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [reorderingId, setReorderingId] = useState(null);
 
   const [name, setName] = useState('');
   const [displayName, setDisplayName] = useState('');
@@ -205,6 +208,50 @@ export default function Profile() {
   };
 
   const handleDeleteAddress = (id) => triggerConfirm('Delete Address', 'Are you sure you want to delete this address?', () => executeDeleteAddress(id));
+
+  const handleReorder = async (order) => {
+    if (reorderingId) return;
+    setReorderingId(order.id);
+    try {
+      const items = order.items || [];
+      if (items.length === 0) { toast.error('No items found in this order.'); setReorderingId(null); return; }
+
+      let addedCount = 0;
+      let skippedCount = 0;
+
+      for (const item of items) {
+        if (!item.id) { skippedCount++; continue; }
+        try {
+          const productSnap = await getDoc(doc(db, 'mangoes', item.id));
+          if (!productSnap.exists() || productSnap.data().stock <= 0) {
+            skippedCount++;
+            continue;
+          }
+          const productData = productSnap.data();
+          addToCart(item.id, item.quantity || 1, { inStock: (productData.stock || 0) > 0 });
+          addedCount++;
+        } catch {
+          skippedCount++;
+        }
+      }
+
+      if (addedCount > 0) {
+        toast.success(
+          skippedCount > 0
+            ? `✅ ${addedCount} item(s) added to cart. ${skippedCount} item(s) are no longer available.`
+            : `✅ ${addedCount} item(s) added to cart!`,
+          { duration: 4000 }
+        );
+        setTimeout(() => navigate('/checkout'), 800);
+      } else {
+        toast.error('None of the items in this order are currently available.');
+      }
+    } catch (err) {
+      console.error('Reorder failed:', err);
+      toast.error('Failed to reorder. Please try again.');
+    }
+    setReorderingId(null);
+  };
 
   const handleCancelOrder = async () => {
     if (!cancelReason) return toast.error('Please select a reason.');
@@ -512,6 +559,16 @@ export default function Profile() {
                                   order.trackingLink
                                     ? <a href={order.trackingLink.startsWith('http') ? order.trackingLink : `https://${order.trackingLink}`} target="_blank" rel="noreferrer" className="order-action-btn" style={{ display: 'block', textAlign: 'center' }}>Track</a>
                                     : <a href={`https://wa.me/8801581221084?text=Hello!%20Order%20%23${order.id.slice(-6).toUpperCase()}`} target="_blank" rel="noreferrer" className="order-action-btn" style={{ display: 'block', textAlign: 'center', background: '#DCFCE7', color: 'var(--green)' }}>Courier</a>
+                                )}
+                                {(order.status === 'Delivered' || order.status === 'Cancelled') && (
+                                  <button
+                                    className="order-action-btn"
+                                    style={{ background: 'var(--primary-pale)', color: 'var(--primary)', fontWeight: 700, opacity: reorderingId === order.id ? 0.6 : 1 }}
+                                    onClick={() => handleReorder(order)}
+                                    disabled={reorderingId === order.id}
+                                  >
+                                    {reorderingId === order.id ? '⏳' : '🔁 Reorder'}
+                                  </button>
                                 )}
                                 <button style={{ fontSize: 10, color: 'var(--gray4)', fontWeight: 600, background: 'none', border: 'none', cursor: 'pointer' }} onClick={() => handleHideOrder(order.id)}>Remove</button>
                               </div>

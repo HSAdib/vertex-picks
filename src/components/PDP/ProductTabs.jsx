@@ -1,7 +1,10 @@
 import { useState } from 'react';
 import FAQSection from './FAQSection';
+import { useAuth } from '../../context/AuthContext';
+import { Link } from 'react-router-dom';
 
-export default function ProductTabs({ product, onReviewSubmit, isSubmitting }) {
+export default function ProductTabs({ product, onReviewSubmit, isSubmitting, hasPurchased, purchaseCheckDone, hasAlreadyReviewed }) {
+  const { user } = useAuth();
   const [activeTab, setActiveTab] = useState('details');
   const [reviewFilter, setReviewFilter] = useState('all');
   const [wrStar, setWrStar] = useState(5);
@@ -123,27 +126,53 @@ export default function ProductTabs({ product, onReviewSubmit, isSubmitting }) {
             <div className="write-review-card">
               <div className="wr-title">✍️ Write a Review</div>
               <div className="wr-sub">Share your experience with this product</div>
-              <div className="wr-stars" id="wr-stars">
-                {[1, 2, 3, 4, 5].map(star => (
-                  <span
-                    key={star}
-                    className={`wr-star ${wrStar >= star ? 'active' : ''}`}
-                    onClick={() => setWrStar(star)}
-                  >
-                    ★
-                  </span>
-                ))}
-              </div>
-              <div className="wr-grid">
-                <div className="form-group"><label className="form-label">Review Title</label><input type="text" className="form-input" placeholder="Absolutely amazing!" value={wrTitle} onChange={e => setWrTitle(e.target.value)} id="wr-title-inp" /></div>
-                <div className="form-group wr-full"><label className="form-label">Your Review</label><textarea className="form-input" rows="3" placeholder="Tell others what you thought..." value={wrBody} onChange={e => setWrBody(e.target.value)} id="wr-body" style={{resize:'vertical'}}></textarea></div>
-              </div>
-              <div className="wr-actions">
-                <button className="btn-primary" onClick={handleReviewSubmit} disabled={isSubmitting}>
-                  {isSubmitting ? 'Submitting...' : 'Submit Review'}
-                </button>
-                <span style={{fontSize:'.75rem', color:'var(--gray4)'}}>* Reviews are published after moderation</span>
-              </div>
+
+              {/* Gate: not logged in */}
+              {!user ? (
+                <div style={{ marginTop: '1rem', padding: '1.25rem', background: '#FFF7ED', borderRadius: 12, border: '1.5px solid #FED7AA', textAlign: 'center' }}>
+                  <div style={{ fontSize: '1.5rem', marginBottom: '.5rem' }}>🔒</div>
+                  <p style={{ fontSize: '.83rem', fontWeight: 600, color: '#9A3412', marginBottom: '.75rem' }}>You need to be logged in to write a review.</p>
+                  <Link to="/login" style={{ display: 'inline-block', background: 'var(--primary)', color: '#fff', fontWeight: 700, fontSize: '.8rem', padding: '.5rem 1.25rem', borderRadius: 100, textDecoration: 'none' }}>Log In</Link>
+                </div>
+              ) : !purchaseCheckDone ? (
+                <div style={{ marginTop: '1rem', padding: '1rem', textAlign: 'center', color: 'var(--gray4)', fontSize: '.82rem' }}>Checking purchase history…</div>
+              ) : hasAlreadyReviewed ? (
+                <div style={{ marginTop: '1rem', padding: '1.25rem', background: '#F0FDF4', borderRadius: 12, border: '1.5px solid #BBF7D0', textAlign: 'center' }}>
+                  <div style={{ fontSize: '1.5rem', marginBottom: '.5rem' }}>✅</div>
+                  <p style={{ fontSize: '.83rem', fontWeight: 600, color: '#166534' }}>You've already reviewed this product. Thank you!</p>
+                </div>
+              ) : !hasPurchased ? (
+                <div style={{ marginTop: '1rem', padding: '1.25rem', background: '#F8FAFC', borderRadius: 12, border: '1.5px dashed var(--gray3)', textAlign: 'center' }}>
+                  <div style={{ fontSize: '1.5rem', marginBottom: '.5rem' }}>🥭</div>
+                  <p style={{ fontSize: '.83rem', fontWeight: 700, color: 'var(--dark)', marginBottom: '.4rem' }}>Verified Purchase Required</p>
+                  <p style={{ fontSize: '.78rem', color: 'var(--gray4)', marginBottom: '.75rem', lineHeight: 1.55 }}>Only customers who have received a delivery can leave a review. This keeps reviews honest and trustworthy.</p>
+                  <Link to="/shop" style={{ display: 'inline-block', background: 'var(--primary)', color: '#fff', fontWeight: 700, fontSize: '.8rem', padding: '.5rem 1.25rem', borderRadius: 100, textDecoration: 'none' }}>Shop Now →</Link>
+                </div>
+              ) : (
+                <>
+                  <div className="wr-stars" id="wr-stars">
+                    {[1, 2, 3, 4, 5].map(star => (
+                      <span
+                        key={star}
+                        className={`wr-star ${wrStar >= star ? 'active' : ''}`}
+                        onClick={() => setWrStar(star)}
+                      >
+                        ★
+                      </span>
+                    ))}
+                  </div>
+                  <div className="wr-grid">
+                    <div className="form-group"><label className="form-label">Review Title</label><input type="text" className="form-input" placeholder="Absolutely amazing!" value={wrTitle} onChange={e => setWrTitle(e.target.value)} id="wr-title-inp" /></div>
+                    <div className="form-group wr-full"><label className="form-label">Your Review</label><textarea className="form-input" rows="3" placeholder="Tell others what you thought..." value={wrBody} onChange={e => setWrBody(e.target.value)} id="wr-body" style={{resize:'vertical'}}></textarea></div>
+                  </div>
+                  <div className="wr-actions">
+                    <button className="btn-primary" onClick={handleReviewSubmit} disabled={isSubmitting}>
+                      {isSubmitting ? 'Submitting...' : 'Submit Review'}
+                    </button>
+                    <span style={{fontSize:'.75rem', color:'var(--gray4)'}}>* Reviews are published after admin moderation</span>
+                  </div>
+                </>
+              )}
             </div>
             <div className="review-filter-row">
               <span style={{fontSize:'.8rem', fontWeight:600, color:'var(--gray4)'}}>Filter:</span>
