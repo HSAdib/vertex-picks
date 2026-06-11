@@ -1345,49 +1345,81 @@ Thank you for choosing Vertex Picks.`;
       {/* 1. PRODUCT CREATION MODAL */}
       {showProductModal && (
         <div className="fixed inset-0 bg-slate-900/75 z-[300] flex items-center justify-center p-4 backdrop-blur-md animate-in fade-in duration-300">
-          <div className="glass-modal max-w-lg w-full max-h-[85vh] overflow-hidden flex flex-col animate-in scale-in duration-300">
+          <div className="max-w-lg w-full max-h-[85vh] overflow-hidden flex flex-col animate-in scale-in duration-300" style={{ background: '#FFFFFF', borderRadius: '14px', border: '1.5px solid #EEEEEE', boxShadow: '0 20px 60px rgba(0,0,0,.15)' }}>
             {/* Modal Header */}
-            <div className="bg-gradient-to-r from-orange-600 via-orange-500 to-amber-500 p-6 text-white flex justify-between items-center shrink-0 shadow-md">
-              <div className="flex-1">
-                <h3 className="font-['Fraunces'] font-black text-lg uppercase tracking-wide text-white">{editProductId ? '✏️ Edit Product Parameters' : '✨ Create New Catalog Item'}</h3>
-                <div className="modal-tabs mt-3" style={{ background: 'rgba(255,255,255,0.2)', maxWidth: 'max-content' }}>
-                  <button 
-                    type="button"
-                    onClick={() => setActiveProdFormTab('basic')}
-                    className={`modal-tab${activeProdFormTab === 'basic' ? ' active' : ''}`}
-                    style={activeProdFormTab !== 'basic' ? { color: 'rgba(255,255,255,0.8)' } : {}}
-                  >
-                    1. Basic Details
-                  </button>
-                  <button 
-                    type="button"
-                    onClick={() => setActiveProdFormTab('rich')}
-                    className={`modal-tab${activeProdFormTab === 'rich' ? ' active' : ''}`}
-                    style={activeProdFormTab !== 'rich' ? { color: 'rgba(255,255,255,0.8)' } : {}}
-                  >
-                    2. Rich Display Details
-                  </button>
-                  <button 
-                    type="button"
-                    onClick={() => setActiveProdFormTab('filters')}
-                    className={`modal-tab${activeProdFormTab === 'filters' ? ' active' : ''}`}
-                    style={activeProdFormTab !== 'filters' ? { color: 'rgba(255,255,255,0.8)' } : {}}
-                  >
-                    3. Classification & Filters
-                  </button>
-                </div>
+            <div style={{ background: '#121212', padding: '1rem 1.4rem', borderRadius: '14px 14px 0 0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0 }}>
+              <div style={{ flex: 1 }}>
+                <h3 style={{ fontFamily: "'Fraunces', serif", fontWeight: 900, color: '#FFFFFF', fontSize: '1.1rem', margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <svg style={{ width: '20px', height: '20px', color: '#E8540A' }} fill="currentColor" viewBox="0 0 20 20">
+                    <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
+                  </svg>
+                  {editProductId ? 'Edit Product Parameters' : 'Create New Catalog Item'}
+                </h3>
               </div>
               <button 
                 onClick={() => { setShowProductModal(false); setEditProductId(null); clearProductForm(); }} 
-                className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center text-white hover:bg-white/20 transition-all font-black text-sm"
+                style={{ width: '32px', height: '32px', borderRadius: '50%', background: 'rgba(255,255,255,0.1)', color: '#FFFFFF', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
               >
                 ✕
               </button>
             </div>
 
+            {/* Tab Row */}
+            <div style={{ background: '#F7F7F7', padding: '0.75rem 1rem', display: 'flex', gap: '0.5rem', flexShrink: 0 }}>
+              <button 
+                type="button"
+                onClick={() => setActiveProdFormTab('basic')}
+                style={{ borderRadius: '100px', fontFamily: "'Sora', sans-serif", fontSize: '0.8rem', fontWeight: 700, padding: '0.5rem 1.1rem', border: activeProdFormTab === 'basic' ? '1.5px solid #E8540A' : '1.5px solid #EEEEEE', background: activeProdFormTab === 'basic' ? '#E8540A' : '#FFFFFF', color: activeProdFormTab === 'basic' ? '#FFFFFF' : '#888888', cursor: 'pointer' }}
+              >
+                1. Basic Details
+              </button>
+              <button 
+                type="button"
+                onClick={() => setActiveProdFormTab('rich')}
+                style={{ borderRadius: '100px', fontFamily: "'Sora', sans-serif", fontSize: '0.8rem', fontWeight: 700, padding: '0.5rem 1.1rem', border: activeProdFormTab === 'rich' ? '1.5px solid #E8540A' : '1.5px solid #EEEEEE', background: activeProdFormTab === 'rich' ? '#E8540A' : '#FFFFFF', color: activeProdFormTab === 'rich' ? '#FFFFFF' : '#888888', cursor: 'pointer' }}
+              >
+                2. Rich Display Details
+              </button>
+              <button 
+                type="button"
+                onClick={() => setActiveProdFormTab('filters')}
+                style={{ borderRadius: '100px', fontFamily: "'Sora', sans-serif", fontSize: '0.8rem', fontWeight: 700, padding: '0.5rem 1.1rem', border: activeProdFormTab === 'filters' ? '1.5px solid #E8540A' : '1.5px solid #EEEEEE', background: activeProdFormTab === 'filters' ? '#E8540A' : '#FFFFFF', color: activeProdFormTab === 'filters' ? '#FFFFFF' : '#888888', cursor: 'pointer' }}
+              >
+                3. Classification & Filters
+              </button>
+            </div>
+
             {/* Modal Content */}
-            <form onSubmit={handleSaveProduct} className="flex flex-col flex-grow overflow-hidden">
-              <div className="p-6 sm:p-8 space-y-4 overflow-y-auto flex-grow scrollbar-thin">
+            <form onSubmit={handleSaveProduct} className="product-edit-form flex flex-col flex-grow overflow-hidden">
+              <style>{`
+                .product-edit-form .form-label {
+                  font-family: 'Sora', sans-serif !important;
+                  font-size: 0.72rem !important;
+                  font-weight: 700 !important;
+                  text-transform: uppercase !important;
+                  letter-spacing: 0.06em !important;
+                  color: #888888 !important;
+                  margin-bottom: 0.4rem !important;
+                  display: block;
+                }
+                .product-edit-form .form-input {
+                  background: #FFFFFF !important;
+                  border: 1.5px solid #EEEEEE !important;
+                  border-radius: 8px !important;
+                  padding: 0.65rem 1rem !important;
+                  font-family: 'Sora', sans-serif !important;
+                  font-size: 0.875rem !important;
+                  color: #1A1A1A !important;
+                  width: 100% !important;
+                  box-sizing: border-box;
+                  box-shadow: none !important;
+                  outline: none !important;
+                }
+                .product-edit-form .form-input:focus {
+                  border-color: #E8540A !important;
+                }
+              `}</style>
+              <div className="overflow-y-auto flex-grow scrollbar-thin space-y-4" style={{ background: '#FFFFFF', padding: '1.2rem 1.4rem' }}>
                 {/* TAB 1: BASIC DETAILS */}
                 <div style={{ display: activeProdFormTab === 'basic' ? 'block' : 'none' }}>
                 <div className="grid grid-cols-2 gap-4">
@@ -1461,7 +1493,7 @@ Thank you for choosing Vertex Picks.`;
                   </div>
                   <div className="col-span-2">
                     <label className="form-label mb-2">Product Images (URLs)</label>
-                    <div className="p-3 space-y-2" style={{ background: 'var(--gray1)', borderRadius: 'var(--radius-sm)', border: '1.5px solid var(--gray2)' }}>
+                    <div style={{ background: '#F7F7F7', border: '1.5px solid #EEEEEE', borderRadius: '8px', padding: '0.75rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                       {prodImages.map((img, idx) => (
                         <div key={idx} className="flex gap-2">
                           <input
@@ -1487,7 +1519,7 @@ Thank you for choosing Vertex Picks.`;
                       <button
                         type="button"
                         onClick={addProdImageField}
-                        className="btn-secondary text-xs mt-1"
+                        style={{ background: '#FFFFFF', border: '1.5px solid #EEEEEE', borderRadius: '100px', fontSize: '0.8rem', fontWeight: 700, color: '#1A1A1A', padding: '0.5rem 1rem', cursor: 'pointer', marginTop: '0.25rem', alignSelf: 'flex-start' }}
                       >
                         + Add Another Image URL
                       </button>
@@ -1498,7 +1530,7 @@ Thank you for choosing Vertex Picks.`;
                     <textarea
                       value={prodDescription}
                       onChange={e => setProdDescription(e.target.value)}
-                      className="form-input font-medium text-xs h-20 resize-none !rounded-2xl"
+                      className="form-input font-medium text-xs h-20 resize-none"
                     />
                   </div>
                   <div className="flex items-center gap-4 pt-6">
@@ -1507,7 +1539,7 @@ Thank you for choosing Vertex Picks.`;
                         onClick={() => setProdFeatured(v => !v)}
                         style={{
                           width: 44, height: 24, borderRadius: 100, cursor: 'pointer',
-                          background: prodFeatured ? 'var(--primary)' : 'var(--gray2)',
+                          background: prodFeatured ? '#E8540A' : '#EEEEEE',
                           position: 'relative', transition: 'background .2s', flexShrink: 0,
                         }}
                       >
@@ -1518,7 +1550,9 @@ Thank you for choosing Vertex Picks.`;
                         }} />
                       </div>
                       <div>
-                        <div className="form-label">⭐ Featured on Home</div>
+                        <div style={{ fontFamily: "'Sora', sans-serif", fontSize: '0.82rem', fontWeight: 600, color: '#1A1A1A', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                          <span style={{ color: '#E8540A', fontSize: '1rem', lineHeight: 1 }}>★</span> Featured on Home
+                        </div>
                         <div className="text-xs" style={{ color: 'var(--gray4)' }}>Shows in the Featured Mangoes section</div>
                       </div>
                     </label>
@@ -1528,63 +1562,63 @@ Thank you for choosing Vertex Picks.`;
 
                 {/* TAB 3: CLASSIFICATION & FILTERS */}
                 <div style={{ display: activeProdFormTab === 'filters' ? 'block' : 'none' }}>
-                  <div className="admin-card p-6" style={{ borderColor: 'rgba(232,84,10,0.2)' }}>
+                  <div className="bg-white rounded-[14px] border-[1.5px] border-[var(--gray2)] p-6">
                     <h4 className="text-xs font-black uppercase text-dark mb-6">🏷️ Classification & Global Filters</h4>
                     
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
                       {/* Category */}
                       <div>
-                        <div className="text-[10px] font-bold mb-3 text-gray-500 uppercase tracking-wider">Categories</div>
-                        <div className="flex flex-col gap-2 bg-gray-50 p-4 rounded-xl border border-gray-100">
+                        <div className="text-[10px] font-bold mb-3 text-[var(--gray4)] uppercase tracking-wider">Categories</div>
+                        <div className="flex flex-col gap-2 bg-[var(--gray1)] p-4 rounded-[14px] border-[1.5px] border-[var(--gray2)]">
                           {adminCategories?.map(c => (
                             <label key={c} className="flex items-center gap-2 cursor-pointer text-xs font-medium">
                               <input type="checkbox" checked={prodCategories.includes(c)} onChange={() => setProdCategories(p => p.includes(c) ? p.filter(i => i !== c) : [...p, c])} style={{ transform: 'scale(1.1)' }} />
                               {c}
                             </label>
                           ))}
-                          {(!adminCategories || adminCategories.length === 0) && <span className="text-xs text-gray-400">No categories added</span>}
+                          {(!adminCategories || adminCategories.length === 0) && <span className="text-xs text-[var(--gray4)]">No categories added</span>}
                         </div>
                       </div>
 
                       {/* Variety */}
                       <div>
-                        <div className="text-[10px] font-bold mb-3 text-gray-500 uppercase tracking-wider">Variety</div>
-                        <div className="flex flex-col gap-2 bg-gray-50 p-4 rounded-xl border border-gray-100">
+                        <div className="text-[10px] font-bold mb-3 text-[var(--gray4)] uppercase tracking-wider">Variety</div>
+                        <div className="flex flex-col gap-2 bg-[var(--gray1)] p-4 rounded-[14px] border-[1.5px] border-[var(--gray2)]">
                           {adminFilters.variety?.map(v => (
                             <label key={v} className="flex items-center gap-2 cursor-pointer text-xs font-medium">
                               <input type="checkbox" checked={prodVariety.includes(v)} onChange={() => setProdVariety(p => p.includes(v) ? p.filter(i => i !== v) : [...p, v])} style={{ transform: 'scale(1.1)' }} />
                               {v}
                             </label>
                           ))}
-                          {(!adminFilters.variety || adminFilters.variety.length === 0) && <span className="text-xs text-gray-400">No varieties added</span>}
+                          {(!adminFilters.variety || adminFilters.variety.length === 0) && <span className="text-xs text-[var(--gray4)]">No varieties added</span>}
                         </div>
                       </div>
 
                       {/* Season */}
                       <div>
-                        <div className="text-[10px] font-bold mb-3 text-gray-500 uppercase tracking-wider">Season</div>
-                        <div className="flex flex-col gap-2 bg-gray-50 p-4 rounded-xl border border-gray-100">
+                        <div className="text-[10px] font-bold mb-3 text-[var(--gray4)] uppercase tracking-wider">Season</div>
+                        <div className="flex flex-col gap-2 bg-[var(--gray1)] p-4 rounded-[14px] border-[1.5px] border-[var(--gray2)]">
                           {adminFilters.season?.map(s => (
                             <label key={s} className="flex items-center gap-2 cursor-pointer text-xs font-medium">
                               <input type="checkbox" checked={prodSeason.includes(s)} onChange={() => setProdSeason(p => p.includes(s) ? p.filter(i => i !== s) : [...p, s])} style={{ transform: 'scale(1.1)' }} />
                               {s}
                             </label>
                           ))}
-                          {(!adminFilters.season || adminFilters.season.length === 0) && <span className="text-xs text-gray-400">No seasons added</span>}
+                          {(!adminFilters.season || adminFilters.season.length === 0) && <span className="text-xs text-[var(--gray4)]">No seasons added</span>}
                         </div>
                       </div>
 
                       {/* Weight */}
                       <div>
-                        <div className="text-[10px] font-bold mb-3 text-gray-500 uppercase tracking-wider">Weight Options</div>
-                        <div className="flex flex-col gap-2 bg-gray-50 p-4 rounded-xl border border-gray-100">
+                        <div className="text-[10px] font-bold mb-3 text-[var(--gray4)] uppercase tracking-wider">Weight Options</div>
+                        <div className="flex flex-col gap-2 bg-[var(--gray1)] p-4 rounded-[14px] border-[1.5px] border-[var(--gray2)]">
                           {adminFilters.weight?.map(w => (
                             <label key={w} className="flex items-center gap-2 cursor-pointer text-xs font-medium">
                               <input type="checkbox" checked={prodFixedWeight.includes(w)} onChange={() => setProdFixedWeight(p => p.includes(w) ? p.filter(i => i !== w) : [...p, w])} style={{ transform: 'scale(1.1)' }} />
                               {w}
                             </label>
                           ))}
-                          {(!adminFilters.weight || adminFilters.weight.length === 0) && <span className="text-xs text-gray-400">No weights added</span>}
+                          {(!adminFilters.weight || adminFilters.weight.length === 0) && <span className="text-xs text-[var(--gray4)]">No weights added</span>}
                         </div>
                       </div>
 
@@ -1597,8 +1631,7 @@ Thank you for choosing Vertex Picks.`;
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     {/* Left Column */}
                     <div className="space-y-6">
-                      <div className="admin-card p-4" style={{ borderColor: 'rgba(232,84,10,0.2)' }}
-                      >
+                      <div className="bg-white rounded-[14px] border-[1.5px] border-[var(--gray2)] p-4">
                         <h4 className="text-xs font-black uppercase text-dark mb-3">🏷️ Pricing & Badges</h4>
                         <div className="form-group">
                           <label className="form-label">Overlay Badge</label>
@@ -1611,9 +1644,9 @@ Thank you for choosing Vertex Picks.`;
                             return (
                               <div key={idx} className="mb-3">
                                 {isBasePack && (
-                                  <p className="text-xs mb-1" style={{ color: 'var(--gray4)' }}>
+                                  <div className="inline-block bg-[var(--gray2)] text-[var(--gray4)] text-[10px] font-bold px-3 py-1 rounded-full mb-2">
                                     🔒 Base pack — prices auto-synced from Tab 1
-                                  </p>
+                                  </div>
                                 )}
                                 <div className="flex gap-2">
                                   {/* Name */}
@@ -1662,7 +1695,7 @@ Thank you for choosing Vertex Picks.`;
                                   {!isBasePack && (
                                     <button type="button" onClick={() => {
                                       setProdPacks(prodPacks.filter((_, i) => i !== idx));
-                                    }} className="btn-outline px-3 text-xs" style={{ color: 'var(--red)', borderColor: 'var(--red)' }}>✕</button>
+                                    }} className="btn-outline shrink-0 px-3 text-xs" style={{ color: 'var(--red)', borderColor: 'var(--red)' }}>✕</button>
                                   )}
                                 </div>
                               </div>
@@ -1674,7 +1707,7 @@ Thank you for choosing Vertex Picks.`;
                         </div>
                       </div>
 
-                      <div className="admin-card p-4">
+                      <div className="bg-white rounded-[14px] border-[1.5px] border-[var(--gray2)] p-4">
                         <h4 className="ach-title text-xs mb-3">🚚 Delivery & Farmer Info</h4>
                         <div className="space-y-3 mb-5">
                           <div className="form-group">
@@ -1707,8 +1740,9 @@ Thank you for choosing Vertex Picks.`;
                         </div>
                       </div>
 
-                      <div className="admin-card p-4">
-                        <h4 className="ach-title text-xs mb-3">🛡️ Trust Strip (3 Items Fixed)</h4>
+                      <div className="bg-white rounded-[14px] border-[1.5px] border-[var(--gray2)] p-4">
+                        <h4 className="ach-title text-xs mb-2">🛡️ Trust Strip</h4>
+                        <div className="inline-block bg-[rgba(232,84,10,0.1)] text-[var(--primary)] text-[10px] font-bold px-3 py-1 rounded-full mb-3">3 Items Fixed</div>
                         {prodTrustStrip.map((ts, idx) => (
                           <div key={idx} className="flex gap-2 mb-2">
                             <input type="text" placeholder="Title" value={ts.title} onChange={e => {
@@ -1728,7 +1762,7 @@ Thank you for choosing Vertex Picks.`;
 
                     {/* Right Column */}
                     <div className="space-y-6">
-                      <div className="admin-card p-4">
+                      <div className="bg-white rounded-[14px] border-[1.5px] border-[var(--gray2)] p-4">
                         <h4 className="ach-title text-xs mb-3">📋 Specifications Table</h4>
                         <div className="form-row" style={{ gridTemplateColumns: '1fr 1fr' }}>
                           <div className="form-group">
@@ -1758,7 +1792,7 @@ Thank you for choosing Vertex Picks.`;
                         </div>
                       </div>
 
-                      <div className="admin-card p-4">
+                      <div className="bg-white rounded-[14px] border-[1.5px] border-[var(--gray2)] p-4">
                         <label className="form-label mb-2">Feature Highlights (Bullets)</label>
                         {prodHighlights.map((h, idx) => (
                           <div key={idx} className="flex gap-2 mb-2">
@@ -1777,7 +1811,7 @@ Thank you for choosing Vertex Picks.`;
                         </button>
                       </div>
 
-                      <div className="admin-card p-4">
+                      <div className="bg-white rounded-[14px] border-[1.5px] border-[var(--gray2)] p-4">
                         <label className="form-label mb-2">How We Grow Steps (Numbered)</label>
                         {prodSteps.map((s, idx) => (
                           <div key={idx} className="flex gap-2 mb-2">
@@ -1802,19 +1836,19 @@ Thank you for choosing Vertex Picks.`;
               </div>
 
               {/* Modal Actions Footer */}
-              <div className="p-6 bg-[var(--gray1)] border-t border-[var(--gray2)] flex justify-end gap-3 shrink-0">
+              <div style={{ background: '#FFFFFF', padding: '1rem 1.4rem', borderTop: '1px solid #EEEEEE', display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', flexShrink: 0 }}>
                 <button 
                   type="button" 
                   onClick={() => { setShowProductModal(false); setEditProductId(null); clearProductForm(); }} 
-                  className="btn-secondary uppercase text-xs font-bold py-3 px-6 rounded-full shadow-sm transition-all duration-200 active:scale-95"
+                  style={{ background: '#FFFFFF', border: '1.5px solid #EEEEEE', borderRadius: '100px', color: '#1A1A1A', fontWeight: 700, padding: '0.7rem 1.5rem', fontFamily: "'Sora', sans-serif", cursor: 'pointer' }}
                 >
-                  Cancel
+                  CANCEL
                 </button>
                 <button 
                   type="submit" 
-                  className="btn-primary shiny-btn uppercase text-xs font-bold py-3 px-6 rounded-full shadow-lg shadow-orange-500/20 transition-all duration-200 hover:-translate-y-0.5 active:translate-y-0"
+                  style={{ background: '#E8540A', color: '#FFFFFF', borderRadius: '100px', fontWeight: 700, padding: '0.7rem 1.8rem', fontFamily: "'Sora', sans-serif", boxShadow: '0 6px 24px rgba(232,84,10,0.3)', border: 'none', cursor: 'pointer' }}
                 >
-                  Save Product details
+                  SAVE PRODUCT DETAILS
                 </button>
               </div>
             </form>

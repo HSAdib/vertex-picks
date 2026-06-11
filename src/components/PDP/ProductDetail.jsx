@@ -62,8 +62,10 @@ export default function ProductDetail() {
         // If the buy row is out of view AND it's above the viewport (scrolled past it)
         if (!entry.isIntersecting && entry.boundingClientRect.y < 0) {
           setShowSticky(true);
+          document.body.classList.add('has-sticky-ribbon');
         } else {
           setShowSticky(false);
+          document.body.classList.remove('has-sticky-ribbon');
         }
       },
       { threshold: 0 }
@@ -72,7 +74,10 @@ export default function ProductDetail() {
     const buyRow = document.getElementById('pdp-buy-row');
     if (buyRow) observer.observe(buyRow);
 
-    return () => observer.disconnect();
+    return () => {
+      observer.disconnect();
+      document.body.classList.remove('has-sticky-ribbon');
+    };
   }, [loading]);
 
   // Check if user has a delivered order containing this product
@@ -258,9 +263,16 @@ export default function ProductDetail() {
           </div>
         </div>
         
-        <div className="pdp-sticky-actions">
-          <button className="pdp-sticky-btn" onClick={handleAddToCart}>Add to Cart</button>
-          <button className="pdp-sticky-btn buy-now" onClick={handleBuyNow}>⚡ Buy Now</button>
+        <div className="pdp-sticky-actions" style={{ alignItems: 'center' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+            <div className="pdp-qty" style={{ height: '44px', margin: 0, borderRadius: '14px', background: '#fff' }}>
+              <button className="pdp-qty-btn" onClick={() => setQty(Math.max(1, qty - 1))} style={{ height: '44px', background: '#F7F7F7' }}>−</button>
+              <div className="pdp-qty-val" style={{ height: '44px', background: '#fff' }}>{qty}</div>
+              <button className="pdp-qty-btn" onClick={() => setQty(qty + 1)} style={{ height: '44px', background: '#F7F7F7' }}>+</button>
+            </div>
+          </div>
+          <button className="pdp-sticky-btn" onClick={handleAddToCart} style={{ height: '44px' }}>🛒 Add to Cart</button>
+          <button className="pdp-sticky-btn buy-now" onClick={handleBuyNow} style={{ height: '44px' }}>⚡ Buy Now</button>
         </div>
         
         <div className="pdp-sticky-spacer"></div>
