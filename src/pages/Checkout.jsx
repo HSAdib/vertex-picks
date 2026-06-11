@@ -8,8 +8,9 @@ import { toast } from 'react-hot-toast';
 import { isValidBDPhoneNumber } from '../utils/phoneValidation';
 import { fetchCurrentLocation } from '../utils/geolocation';
 
+// Fix #12: use crypto.randomUUID() to eliminate Date.now() millisecond collision risk
 function generateUniqueId() {
-  return Date.now().toString();
+  return crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36).slice(2);
 }
 
 export default function Checkout() {
@@ -92,9 +93,14 @@ export default function Checkout() {
         setLoading(false);
       }
     };
-    // B8 fix: use onAuthStateChanged so auth resolves before loading profile
+    // Fix #11: onAuthStateChanged can fire twice (null → user) on mount.
+    // Use a `loaded` flag so we only call fetchCheckoutData once.
+    let loaded = false;
     const unsubscribeAuth = onAuthStateChanged(auth, (currentUser) => {
-      fetchCheckoutData(currentUser);
+      if (!loaded) {
+        loaded = true;
+        fetchCheckoutData(currentUser);
+      }
     });
     return () => unsubscribeAuth();
   }, []);

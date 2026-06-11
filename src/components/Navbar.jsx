@@ -86,9 +86,9 @@ export default function Navbar() {
         <Link 
           to="/" 
           onClick={(e) => {
+            // If already on '/', just prevent navigation — no full-page reload needed
             if (location.pathname === '/') {
               e.preventDefault();
-              window.location.reload();
             }
           }}
           className="nav-logo"

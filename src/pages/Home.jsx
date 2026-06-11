@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { collection, getDocs, addDoc, doc, getDoc, query, where, orderBy, limit } from 'firebase/firestore';
+import { collection, getDocs, addDoc, doc, getDoc, query, where, limit } from 'firebase/firestore';
 import { Share2, Camera, Globe, MessageCircle, Heart } from 'lucide-react';
 import { db } from '../firebaseConfig';
 import { toast } from 'react-hot-toast';
 import { useWishlist } from '../hooks/useWishlist';
+import { sanitizeHTML } from '../utils/sanitizeHTML';
 
 export default function Home() {
   const navigate = useNavigate();
@@ -151,15 +152,22 @@ export default function Home() {
   useEffect(() => {
     const loadReviews = async () => {
       try {
+        // Fix #10: removed dual orderBy to avoid requiring a Firestore composite
+        // index (where + two orderBy clauses). Fetch published reviews and sort
+        // client-side instead — same result, no index needed.
         const q = query(
           collection(db, 'reviews'),
           where('status', '==', 'published'),
-          orderBy('rating', 'desc'),
-          orderBy('createdAt', 'desc'),
-          limit(3)
+          limit(10)
         );
         const snap = await getDocs(q);
-        const fetchedReviews = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        const fetchedReviews = snap.docs
+          .map(doc => ({ id: doc.id, ...doc.data() }))
+          .sort((a, b) => {
+            if ((b.rating || 5) !== (a.rating || 5)) return (b.rating || 5) - (a.rating || 5);
+            return new Date(b.createdAt || 0) - new Date(a.createdAt || 0);
+          })
+          .slice(0, 3);
         setReviews(fetchedReviews);
       } catch (err) {
         console.error('Failed to load reviews:', err);
@@ -204,19 +212,19 @@ export default function Home() {
           </div>
           <h1 className="hero-h1">
             {uiSettings.heroTitleLine1.includes('<em>') ? (
-              <span dangerouslySetInnerHTML={{ __html: uiSettings.heroTitleLine1 }} />
+              <span dangerouslySetInnerHTML={{ __html: sanitizeHTML(uiSettings.heroTitleLine1) }} />
             ) : (
               uiSettings.heroTitleLine1
             )}
             <br />
             {uiSettings.heroTitleLine2.includes('<em>') ? (
-              <span dangerouslySetInnerHTML={{ __html: uiSettings.heroTitleLine2 }} />
+              <span dangerouslySetInnerHTML={{ __html: sanitizeHTML(uiSettings.heroTitleLine2) }} />
             ) : (
               uiSettings.heroTitleLine2
             )}
             <br />
             {uiSettings.heroTitleLine3.includes('<em>') ? (
-              <span dangerouslySetInnerHTML={{ __html: uiSettings.heroTitleLine3 }} />
+              <span dangerouslySetInnerHTML={{ __html: sanitizeHTML(uiSettings.heroTitleLine3) }} />
             ) : (
               uiSettings.heroTitleLine3
             )}
@@ -229,9 +237,9 @@ export default function Home() {
             <button className="btn-outline" onClick={() => document.getElementById('why-section')?.scrollIntoView({ behavior: 'smooth' })}>✦ Our Promise</button>
           </div>
           <div className="hero-trust">
-            <div className="trust-item" dangerouslySetInnerHTML={{ __html: uiSettings.heroTrust1 }} />
-            <div className="trust-item" dangerouslySetInnerHTML={{ __html: uiSettings.heroTrust2 }} />
-            <div className="trust-item" dangerouslySetInnerHTML={{ __html: uiSettings.heroTrust3 }} />
+            <div className="trust-item" dangerouslySetInnerHTML={{ __html: sanitizeHTML(uiSettings.heroTrust1) }} />
+            <div className="trust-item" dangerouslySetInnerHTML={{ __html: sanitizeHTML(uiSettings.heroTrust2) }} />
+            <div className="trust-item" dangerouslySetInnerHTML={{ __html: sanitizeHTML(uiSettings.heroTrust3) }} />
           </div>
         </div>
         <div className="hero-right">
@@ -312,7 +320,7 @@ export default function Home() {
                   </div>
                   <div className="pc-price-row">
                     <div className="pc-price">
-                      ৳{(p.discountPrice || p.price).toLocaleString()} <span className="unit">/ {p.fixedWeight || 1}kg box</span>
+                      ৳{Number(p.discountPrice || p.price || 0).toLocaleString()} <span className="unit">/ {p.fixedWeight || 1}kg box</span>
                       {p.discountPrice && <span className="old">৳{p.price}</span>}
                     </div>
                     <button
@@ -361,7 +369,7 @@ export default function Home() {
         <div className="sec-head">
           <div className="sec-title">
             {uiSettings.promiseTitle.includes('<span>') ? (
-              <span dangerouslySetInnerHTML={{ __html: uiSettings.promiseTitle }} />
+              <span dangerouslySetInnerHTML={{ __html: sanitizeHTML(uiSettings.promiseTitle) }} />
             ) : (
               uiSettings.promiseTitle
             )}

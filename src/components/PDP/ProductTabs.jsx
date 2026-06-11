@@ -3,7 +3,7 @@ import FAQSection from './FAQSection';
 import { useAuth } from '../../context/AuthContext';
 import { Link } from 'react-router-dom';
 
-export default function ProductTabs({ product, onReviewSubmit, isSubmitting, hasPurchased, purchaseCheckDone, hasAlreadyReviewed }) {
+export default function ProductTabs({ product, onReviewSubmit, onHelpfulVote, isSubmitting, hasPurchased, purchaseCheckDone, hasAlreadyReviewed }) {
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState('details');
   const [reviewFilter, setReviewFilter] = useState('all');
@@ -186,8 +186,8 @@ export default function ProductTabs({ product, onReviewSubmit, isSubmitting, has
               {filteredReviews.length === 0 ? (
                 <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--gray4)' }}>No reviews matching this filter.</div>
               ) : (
-                filteredReviews.map((ri, idx) => (
-                  <div key={idx} className="review-item">
+                filteredReviews.map((ri) => (
+                  <div key={ri.id || ri.date + ri.name} className="review-item">
                     <div className="ri-head">
                       <div className="ri-author-row">
                         <div className="ri-avatar">{ri.name.charAt(0).toUpperCase()}</div>
@@ -218,12 +218,9 @@ export default function ProductTabs({ product, onReviewSubmit, isSubmitting, has
                         Helpful? 
                         <button 
                           className="ri-helpful-btn" 
-                          onClick={(e) => {
-                            e.target.textContent = `👍 ${ri.helpful + 1}`;
-                            e.target.style.color = 'var(--primary)';
-                          }}
+                          onClick={() => onHelpfulVote && onHelpfulVote(ri)}
                         >
-                          👍 {ri.helpful}
+                          👍 {ri.helpful || 0}
                         </button>
                       </div>
                       <span className="ri-report" onClick={() => alert('Review reported. Thanks!')}>Report</span>

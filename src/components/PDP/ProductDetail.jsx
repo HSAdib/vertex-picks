@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { doc, getDoc, collection, getDocs, updateDoc, arrayUnion, query, where } from 'firebase/firestore';
+import { doc, getDoc, collection, getDocs, updateDoc, arrayUnion, arrayRemove, query, where } from 'firebase/firestore';
 import { db, auth } from '../../firebaseConfig';
 
 import { useCart } from '../../context/CartContext';
 import { toast } from 'react-hot-toast';
+
 
 import './ProductDetail.css';
 import ProductGallery from './ProductGallery';
@@ -80,7 +81,8 @@ export default function ProductDetail() {
     };
   }, [loading]);
 
-  // Check if user has a delivered order containing this product
+  // Check if user has a delivered order containing this product.
+  // Fix #6 (prev): removed `productData` from deps to prevent redundant Firestore re-runs.
   useEffect(() => {
     const checkPurchase = async () => {
       const currentUser = auth.currentUser;
@@ -95,21 +97,29 @@ export default function ProductDetail() {
           (o.items || []).some(item => item.id === id)
         );
         setHasPurchased(purchased);
-
-        // Also check if already reviewed this product
-        if (purchased && productData) {
-          const alreadyReviewed = (productData.reviewsList || []).some(
-            r => r.userEmail === currentUser.email
-          );
-          setHasAlreadyReviewed(alreadyReviewed);
-        }
       } catch (err) {
         console.error('Purchase check failed:', err);
       }
       setPurchaseCheckDone(true);
     };
     if (!loading) checkPurchase();
-  }, [id, loading, productData]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id, loading]);
+
+  // Fix #2: check "already reviewed" in its own effect so we never call
+  // setHasAlreadyReviewed() inside a setState updater (Strict Mode would
+  // invoke the updater twice, giving inconsistent results).
+  useEffect(() => {
+    if (!hasPurchased || !purchaseCheckDone || !productData) return;
+    const currentUser = auth.currentUser;
+    if (!currentUser) return;
+    // Check ALL reviews (including pending) — fix #7 (prev): prevents re-submitting
+    // a review that's awaiting admin approval.
+    const alreadyReviewed = (productData.reviewsList || []).some(
+      r => r.userEmail === currentUser.email
+    );
+    setHasAlreadyReviewed(alreadyReviewed);
+  }, [hasPurchased, purchaseCheckDone, productData]);
 
   const handleReviewSubmit = async (reviewData) => {
     if (!auth.currentUser) return toast.error("Please log in to leave a review.");
@@ -118,7 +128,9 @@ export default function ProductDetail() {
     setIsSubmitting(true);
 
     const newReview = {
-      id: Date.now().toString(),
+      // Fix #4: use crypto.randomUUID() so arrayRemove/arrayUnion matching is
+      // collision-proof and React list keys are always unique.
+      id: crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36).slice(2),
       name: auth.currentUser.displayName || auth.currentUser.email.split('@')[0],
       userEmail: auth.currentUser.email,
       rating: Number(reviewData.rating),
@@ -140,6 +152,34 @@ export default function ProductDetail() {
       toast.error("Failed to submit review");
     }
     setIsSubmitting(false);
+  };
+
+  // Fix #3: persist the helpful vote to Firestore using arrayRemove + arrayUnion
+  // so the count survives re-renders and page refreshes.
+  const handleHelpfulVote = async (review) => {
+    if (!productData) return;
+    const oldReview = (productData.reviewsList || []).find(r => r.id === review.id);
+    if (!oldReview) return;
+    const updatedReview = { ...oldReview, helpful: (oldReview.helpful || 0) + 1 };
+    try {
+      const docRef = doc(db, 'mangoes', productData.id);
+      await updateDoc(docRef, {
+        reviewsList: arrayRemove(oldReview)
+      });
+      await updateDoc(docRef, {
+        reviewsList: arrayUnion(updatedReview)
+      });
+      // Optimistically update local state so the UI reflects the change immediately
+      setProductData(prev => ({
+        ...prev,
+        reviewsList: (prev.reviewsList || []).map(r =>
+          r.id === review.id ? updatedReview : r
+        )
+      }));
+    } catch (err) {
+      console.error('Failed to save helpful vote', err);
+      toast.error('Could not save your vote. Please try again.');
+    }
   };
 
   if (loading) {
@@ -204,7 +244,7 @@ export default function ProductDetail() {
 
   const handleAddToCart = () => {
     addToCart(mappedProduct.id, qty);
-    toast.success(`Added ${qty} ${mappedProduct.name} to cart!`);
+    // NOTE: CartContext.addToCart already fires a toast (B18 fix) — no extra toast here
   };
 
   const handleBuyNow = () => {
@@ -224,12 +264,13 @@ export default function ProductDetail() {
 
       <div className="pdp-layout">
         <ProductGallery product={mappedProduct} />
-        <ProductInfo product={mappedProduct} qty={qty} setQty={setQty} />
+        <ProductInfo product={mappedProduct} qty={qty} setQty={setQty} displayRating={displayRating} />
       </div>
 
       <ProductTabs 
         product={mappedProduct} 
-        onReviewSubmit={handleReviewSubmit} 
+        onReviewSubmit={handleReviewSubmit}
+        onHelpfulVote={handleHelpfulVote}
         isSubmitting={isSubmitting}
         hasPurchased={hasPurchased}
         purchaseCheckDone={purchaseCheckDone}

@@ -7,9 +7,6 @@ export default function ProductGallery({ product }) {
   const { toggleWishlist, isInWishlist } = useWishlist();
   const [activeImageIndex, setActiveImageIndex] = useState(0);
 
-  const showToast = (msg) => {
-    toast.success(msg);
-  };
 
   const thumbs = product.images || [];
 
@@ -69,7 +66,7 @@ export default function ProductGallery({ product }) {
           className="pdp-share-btn" 
           onClick={() => {
             navigator.clipboard.writeText(window.location.href);
-            showToast('Link copied! 🔗');
+            toast.success('Link copied! 🔗');
           }}
           title="Copy Link"
         >
@@ -81,8 +78,8 @@ export default function ProductGallery({ product }) {
         <button 
           className="pdp-share-btn" 
           onClick={() => {
+            // Fix #9: don't toast here — we can't detect when/if the user completes sharing
             window.open('https://www.facebook.com/sharer/sharer.php?u=' + encodeURIComponent(window.location.href), '_blank');
-            showToast('Shared to Facebook!');
           }}
           title="Share on Facebook"
         >
@@ -93,8 +90,8 @@ export default function ProductGallery({ product }) {
         <button 
           className="pdp-share-btn" 
           onClick={() => {
+            // Fix #9: same — can't confirm WhatsApp share completion
             window.open('https://api.whatsapp.com/send?text=' + encodeURIComponent(window.location.href), '_blank');
-            showToast('Shared to WhatsApp!');
           }}
           title="Share on WhatsApp"
         >

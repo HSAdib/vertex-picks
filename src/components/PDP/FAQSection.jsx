@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
-import { collection, getDocs, query, orderBy } from 'firebase/firestore';
+import { collection, getDocs, query, orderBy, addDoc } from 'firebase/firestore';
 import { db } from '../../firebaseConfig';
+import { toast } from 'react-hot-toast';
+import { sanitizeHTML } from '../../utils/sanitizeHTML';
 
 export default function FAQSection() {
   const [openIndex, setOpenIndex] = useState(null);
@@ -34,13 +36,25 @@ export default function FAQSection() {
     setOpenIndex(openIndex === index ? null : index);
   };
 
-  const submitQuestion = () => {
-    if (askName.trim() && askQuestion.trim()) {
-      alert('Question submitted! We will reply within 2 hours.');
+  const submitQuestion = async () => {
+    if (!askName.trim() || !askQuestion.trim()) {
+      toast.error('Please fill out both your name and question.');
+      return;
+    }
+    try {
+      // Fix #7: actually save the question to Firestore instead of discarding it
+      await addDoc(collection(db, 'questions'), {
+        name: askName.trim(),
+        question: askQuestion.trim(),
+        status: 'pending',
+        createdAt: new Date().toISOString(),
+      });
+      toast.success('Question submitted! We\'ll reply within 2 hours. 🧑‍🌾');
       setAskName('');
       setAskQuestion('');
-    } else {
-      alert('Please fill out both your name and question.');
+    } catch (err) {
+      console.error('Failed to submit question:', err);
+      toast.error('Failed to send your question. Please try again.');
     }
   };
 
@@ -72,7 +86,7 @@ export default function FAQSection() {
               <div className="faq-answer">
                 <div
                   className="faq-answer-inner"
-                  dangerouslySetInnerHTML={{ __html: item.answer }}
+                  dangerouslySetInnerHTML={{ __html: sanitizeHTML(item.answer) }}
                 />
               </div>
             </div>

@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useCart } from '../../context/CartContext';
 import { useNavigate } from 'react-router-dom';
 
-export default function ProductInfo({ product, qty, setQty }) {
+export default function ProductInfo({ product, qty, setQty, displayRating }) {
   const { addToCart } = useCart();
   const navigate = useNavigate();
   const [isAdded, setIsAdded] = useState(false);
@@ -36,7 +36,7 @@ export default function ProductInfo({ product, qty, setQty }) {
           <span className="pdp-stars" id="pdp-stars">
             {'★'.repeat(product.rating) + '☆'.repeat(5 - product.rating)}
           </span>
-          <span className="pdp-rating-num" id="pdp-rating-num">{product.rating}.0</span>
+          <span className="pdp-rating-num" id="pdp-rating-num">{(displayRating ?? product.rating).toFixed(1)}</span>
           <span
             className="pdp-review-count"
             id="pdp-review-count"
@@ -58,7 +58,7 @@ export default function ProductInfo({ product, qty, setQty }) {
       <div className="pdp-price-block">
         <div>
           <div className="pdp-price-main" id="pdp-price-main">
-            ৳{product.price.toLocaleString()}
+            ৳{Number(product.price || 0).toLocaleString()}
           </div>
           <span className="pdp-price-unit" id="pdp-price-unit">per {product.unit}</span>
           {product.oldPrice && (
@@ -72,7 +72,7 @@ export default function ProductInfo({ product, qty, setQty }) {
         <div style={{ textAlign: 'right' }}>
           {product.oldPrice && (
             <div className="pdp-price-old" id="pdp-price-old">
-              ৳{product.oldPrice.toLocaleString()}
+              ৳{Number(product.oldPrice || 0).toLocaleString()}
             </div>
           )}
           <div style={{ fontSize: '.72rem', color: 'var(--gray4)', marginTop: '.3rem' }}>

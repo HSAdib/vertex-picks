@@ -12,7 +12,8 @@ import { useCart } from '../context/CartContext';
 
 const ORDER_STEPS = ['Pending', 'Confirmed', 'Shipped', 'Delivered'];
 
-function generateUniqueId() { return Date.now().toString(); }
+// Fix #12: use crypto.randomUUID() to eliminate Date.now() millisecond collision risk
+function generateUniqueId() { return crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36).slice(2); }
 
 const OrderPipeline = ({ status }) => {
   if (status === 'Cancelled') return (
@@ -56,7 +57,11 @@ export default function Profile() {
   const [loading, setLoading] = useState(true);
   const location = useLocation();
   const urlTab = new URLSearchParams(location.search).get('tab');
-  const [activeTab, setActiveTab] = useState(urlTab || 'overview');
+  const [activeTab, setActiveTab] = useState(() => {
+    // Fix #10: normalise ?tab=account → 'profile' (the sidebar uses 'profile' as the tab ID)
+    if (urlTab === 'account') return 'profile';
+    return urlTab || 'overview';
+  });
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [reorderingId, setReorderingId] = useState(null);
 
@@ -228,7 +233,10 @@ export default function Profile() {
             continue;
           }
           const productData = productSnap.data();
-          addToCart(item.id, item.quantity || 1, { inStock: (productData.stock || 0) > 0 });
+          // Fix #2: use inStock flag (consistent with the rest of the app).
+          // productData.stock may be undefined for many products, making
+          // `undefined <= 0` === false — silently allowing out-of-stock items through.
+          addToCart(item.id, item.quantity || 1, { inStock: productData.inStock !== false });
           addedCount++;
         } catch {
           skippedCount++;
@@ -255,8 +263,19 @@ export default function Profile() {
 
   const handleCancelOrder = async () => {
     if (!cancelReason) return toast.error('Please select a reason.');
+    const order = myOrders.find(o => o.id === orderToCancel);
     try {
-      await updateDoc(doc(db, 'orders', orderToCancel), { status: 'Cancelled', cancelReason, cancelledAt: new Date() });
+      // Fix #4: guest orders only exist in localStorage — calling Firestore updateDoc
+      // on them throws a permission/not-found error. Update localStorage for guests.
+      if (order?.isGuest) {
+        const localOrders = JSON.parse(localStorage.getItem('vertex_guest_orders') || '[]');
+        const updated = localOrders.map(o =>
+          o.id === orderToCancel ? { ...o, status: 'Cancelled', cancelReason, cancelledAt: new Date().toISOString() } : o
+        );
+        localStorage.setItem('vertex_guest_orders', JSON.stringify(updated));
+      } else {
+        await updateDoc(doc(db, 'orders', orderToCancel), { status: 'Cancelled', cancelReason, cancelledAt: new Date() });
+      }
       setMyOrders(myOrders.map(o => o.id === orderToCancel ? { ...o, status: 'Cancelled', cancelReason } : o));
       setCancelModalOpen(false); setOrderToCancel(null); setCancelReason('');
       toast.success('Order cancelled successfully');
@@ -264,8 +283,18 @@ export default function Profile() {
   };
 
   const executeHideOrder = async (id) => {
+    const order = myOrders.find(o => o.id === id);
     try {
-      await updateDoc(doc(db, 'orders', id), { hiddenByCustomer: true });
+      // Fix #3: guest orders only exist in localStorage — same as handleCancelOrder.
+      // Calling Firestore updateDoc on a local-only order throws a permission error.
+      if (order?.isGuest) {
+        const localOrders = JSON.parse(localStorage.getItem('vertex_guest_orders') || '[]');
+        localStorage.setItem('vertex_guest_orders',
+          JSON.stringify(localOrders.filter(o => o.id !== id))
+        );
+      } else {
+        await updateDoc(doc(db, 'orders', id), { hiddenByCustomer: true });
+      }
       setMyOrders(myOrders.filter(o => o.id !== id));
       toast.success('Order removed from history');
     } catch (err) { console.error(err); }

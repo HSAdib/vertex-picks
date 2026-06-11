@@ -65,23 +65,21 @@ export default function CategoriesTab() {
     try {
       const snap = await getDocs(collection(db, 'mangoes'));
       let count = 0;
+      // Fix #6: accumulate new categories outside of React state so we can write
+      // to Firestore once at the end — not inside a setState updater (which Strict
+      // Mode invokes twice, causing duplicate writes).
+      const newCats = new Set(categories);
       for (const d of snap.docs) {
         if (['STORE_SECTIONS', 'STORE_SETTINGS', 'NAVBAR_TABS', 'CATEGORIES'].includes(d.id)) continue;
         const data = d.data();
         const cat = data.section || data.variety || 'Uncategorized';
         await updateDoc(doc(db, 'mangoes', d.id), { category: cat });
-        
-        // Let's also add it to our active categories if it's not there
-        setCategories(prev => {
-          if (!prev.includes(cat)) {
-            const next = [...prev, cat];
-            setDoc(doc(db, 'mangoes', 'CATEGORIES'), { list: next }, { merge: true });
-            return next;
-          }
-          return prev;
-        });
+        newCats.add(cat);
         count++;
       }
+      const finalList = [...newCats];
+      await setDoc(doc(db, 'mangoes', 'CATEGORIES'), { list: finalList }, { merge: true });
+      setCategories(finalList);
       toast.success(`Migrated ${count} products successfully!`);
     } catch (err) {
       console.error(err);

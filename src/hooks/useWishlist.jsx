@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
 import { toast } from 'react-hot-toast';
+import { auth } from '../firebaseConfig';
+import { onAuthStateChanged } from 'firebase/auth';
 
 export function useWishlist() {
   const [wishlist, setWishlist] = useState(() => {
@@ -14,6 +16,19 @@ export function useWishlist() {
   useEffect(() => {
     localStorage.setItem('vertex_wishlist', JSON.stringify(wishlist));
   }, [wishlist]);
+
+  // Clear wishlist on sign-out so it doesn't leak to the next user on the same device
+  useEffect(() => {
+    let previousUser = auth.currentUser;
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      if (!user && previousUser) {
+        setWishlist([]);
+        localStorage.removeItem('vertex_wishlist');
+      }
+      previousUser = user;
+    });
+    return () => unsubscribe();
+  }, []);
 
   const toggleWishlist = (mango) => {
     const isAlreadyLiked = wishlist.includes(mango.id);

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { collection, getDocs, doc, getDoc } from 'firebase/firestore';
+import { collection, getDocs } from 'firebase/firestore';
 import { db } from '../firebaseConfig';
 import { useAuth } from '../context/AuthContext';
 import { useCart } from '../context/CartContext';
@@ -68,6 +68,18 @@ export default function Shop() {
 
         productsArray.sort((a, b) => (a.order || 0) - (b.order || 0));
         setCategories(fetchedCategories);
+        // Fix: If FILTERS document is functionally empty, use the same defaults as Admin > FiltersTab
+        const isFiltersEmpty = !fetchedFilters.variety?.length && !fetchedFilters.weight?.length && !fetchedFilters.season?.length;
+        if (isFiltersEmpty) {
+          fetchedFilters = {
+            variety: ['Himsagar', 'Langra', 'Fazli', 'Gopalbhog', 'Amrapali', 'Gift Box'],
+            weight: ['5kg', '10kg', '20kg'],
+            season: ['Early Season', 'Peak Season', 'Late Season'],
+            priceRange: ['0-500', '501-1000', '1000+'],
+            rating: fetchedFilters.rating || []
+          };
+        }
+
         setFilters({
           rating: fetchedFilters.rating || [],
           season: fetchedFilters.season || [],
@@ -110,13 +122,14 @@ export default function Shop() {
   const getCategoryCount = (catName) =>
     mangoes.filter(m => {
       const v = m.category || '';
-      return v.toLowerCase() === (catName || '').toLowerCase();
+      const vArray = Array.isArray(v) ? v : [v];
+      return vArray.some(item => String(item).toLowerCase() === String(catName || '').toLowerCase());
     }).length;
 
   const getVarietyCount = (varietyName) =>
     mangoes.filter(m => {
       const v = m.variety || m.section || m.name || '';
-      return v.toLowerCase().includes((varietyName || '').toLowerCase());
+      return String(v).toLowerCase().includes(String(varietyName || '').toLowerCase());
     }).length;
 
   const filteredMangoes = mangoes
@@ -129,7 +142,7 @@ export default function Shop() {
       if (selectedVarieties.length > 0) {
         const v = mango.variety || mango.section || mango.name || '';
         const vArray = Array.isArray(v) ? v : [v];
-        if (!selectedVarieties.some(sv => vArray.some(item => String(item).toLowerCase().includes((sv || '').toLowerCase())))) return false;
+        if (!selectedVarieties.some(sv => vArray.some(item => String(item).toLowerCase().includes(String(sv || '').toLowerCase())))) return false;
       }
       if (searchQuery.trim() !== '') {
         const q = searchQuery.toLowerCase();
