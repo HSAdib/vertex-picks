@@ -430,7 +430,7 @@ Thank you for choosing Vertex Picks.`;
   const [prodFeatured, setProdFeatured] = useState(false);
   const [prodFixedWeight, setProdFixedWeight] = useState([]);
   const [prodBadge, setProdBadge] = useState('');
-  const [prodPacks, setProdPacks] = useState([{ name: '1 Box', price: '' }]);
+
   const [prodTrustStrip, setProdTrustStrip] = useState([
     { title: 'Chemical-Free', sub: 'Guaranteed' },
     { title: 'Same-Day', sub: 'Dispatch' },
@@ -696,7 +696,6 @@ Thank you for choosing Vertex Picks.`;
       const finalImages = cleanImages.length > 0 ? cleanImages : [];
       const cleanHighlights = prodHighlights.filter(h => h?.trim() !== '');
       const cleanSteps = prodSteps.filter(s => s?.trim() !== '');
-      const cleanPacks = prodPacks.filter(p => p.name?.trim() !== '' && p.price !== '');
       const pData = {
         name: prodName,
         price: Number(prodPrice),
@@ -714,7 +713,6 @@ Thank you for choosing Vertex Picks.`;
         fixedWeight: prodFixedWeight,
         order: editProductId ? (mangoes.find(m => m.id === editProductId)?.order ?? mangoes.length + 1) : mangoes.length + 1,
         badge: prodBadge ? prodBadge.trim() : '',
-        packs: cleanPacks.map(p => ({ name: p.name.trim(), price: Number(p.price) })),
         trustStrip: prodTrustStrip,
         deliveryInfo: prodDeliveryInfo,
         farmer: prodFarmer,
@@ -757,7 +755,7 @@ Thank you for choosing Vertex Picks.`;
     setProdFixedWeight(Array.isArray(p.fixedWeight) ? p.fixedWeight : [p.fixedWeight].filter(Boolean));
     
     setProdBadge(p.badge || '');
-    setProdPacks(p.packs?.length ? p.packs : [{ name: '1 Box', price: '' }]);
+
     setProdTrustStrip(p.trustStrip || [
       { title: 'Chemical-Free', sub: 'Guaranteed' },
       { title: 'Same-Day', sub: 'Dispatch' },
@@ -812,7 +810,7 @@ Thank you for choosing Vertex Picks.`;
     setProdFixedWeight([]);
     
     setProdBadge('');
-    setProdPacks([{ name: '1 Box', price: '' }]);
+
     setProdTrustStrip([
       { title: 'Chemical-Free', sub: 'Guaranteed' },
       { title: 'Same-Day', sub: 'Dispatch' },
@@ -1627,105 +1625,20 @@ Thank you for choosing Vertex Picks.`;
                           <label className="form-label">Overlay Badge</label>
                           <input type="text" placeholder="e.g. Best Seller, Rare, Gift" value={prodBadge} onChange={e => setProdBadge(e.target.value)} className="form-input" />
                         </div>
-                        <div>
-                          <label className="form-label mb-2">Pack Options (Name & Price)</label>
-                          {prodPacks.map((pack, idx) => {
-                            const isBasePack = idx === 0;
-                            return (
-                              <div key={idx} className="mb-3">
-                                {isBasePack && (
-                                  <div className="inline-block bg-[var(--gray2)] text-[var(--gray4)] text-[10px] font-bold px-3 py-1 rounded-full mb-2">
-                                    🔒 Base pack — prices auto-synced from Tab 1
-                                  </div>
-                                )}
-                                <div className="flex gap-2">
-                                  {/* Name */}
-                                  <input
-                                    type="text"
-                                    placeholder="Pack Name (e.g. 1 Box)"
-                                    value={pack.name}
-                                    onChange={e => {
-                                      const newP = [...prodPacks];
-                                      newP[idx].name = e.target.value;
-                                      setProdPacks(newP);
-                                    }}
-                                    className="form-input w-2/5"
-                                  />
-                                  {/* Standard Price */}
-                                  <input
-                                    type="number"
-                                    placeholder="Price (৳)"
-                                    value={isBasePack ? prodPrice : pack.price}
-                                    readOnly={isBasePack}
-                                    onChange={isBasePack ? undefined : e => {
-                                      const newP = [...prodPacks];
-                                      newP[idx].price = e.target.value;
-                                      setProdPacks(newP);
-                                    }}
-                                    className="form-input w-1/4"
-                                    style={isBasePack ? { background: 'var(--gray1)', cursor: 'not-allowed', color: 'var(--gray4)' } : {}}
-                                    title={isBasePack ? 'Change this in Tab 1 → Standard Price' : ''}
-                                  />
-                                  {/* Discount Price */}
-                                  <input
-                                    type="number"
-                                    placeholder="Disc. (৳)"
-                                    value={isBasePack ? (prodDiscountPrice || '') : (pack.discountPrice || '')}
-                                    readOnly={isBasePack}
-                                    onChange={isBasePack ? undefined : e => {
-                                      const newP = [...prodPacks];
-                                      newP[idx].discountPrice = e.target.value;
-                                      setProdPacks(newP);
-                                    }}
-                                    className="form-input w-1/4"
-                                    style={isBasePack ? { background: 'var(--gray1)', cursor: 'not-allowed', color: 'var(--gray4)' } : {}}
-                                    title={isBasePack ? 'Change this in Tab 1 → Discount Price' : ''}
-                                  />
-                                  {/* Remove — only for additional packs */}
-                                  {!isBasePack && (
-                                    <button type="button" onClick={() => {
-                                      setProdPacks(prodPacks.filter((_, i) => i !== idx));
-                                    }} className="btn-outline shrink-0 px-3 text-xs" style={{ color: 'var(--red)', borderColor: 'var(--red)' }}>✕</button>
-                                  )}
-                                </div>
-                              </div>
-                            );
-                          })}
-                          <button type="button" onClick={() => setProdPacks([...prodPacks, {name: '', price: '', discountPrice: ''}])} className="btn-secondary text-xs mt-1">
-                            + Add Pack Option
-                          </button>
-                        </div>
+
                       </div>
 
                       <div className="bg-white rounded-[14px] border-[1.5px] border-[var(--gray2)] p-4">
-                        <h4 className="ach-title text-xs mb-3">🚚 Delivery & Farmer Info</h4>
+                        <h4 className="ach-title text-xs mb-3">🚚 Delivery Info</h4>
                         <div className="space-y-3 mb-5">
                           <div className="form-group">
                             <label className="form-label">Dispatch Rule</label>
                             <input type="text" value={prodDeliveryInfo.dispatch} onChange={e => setProdDeliveryInfo({...prodDeliveryInfo, dispatch: e.target.value})} className="form-input" />
                           </div>
-                          <div className="form-group">
-                            <label className="form-label">Metro Fee Text</label>
-                            <input type="text" value={prodDeliveryInfo.metro} onChange={e => setProdDeliveryInfo({...prodDeliveryInfo, metro: e.target.value})} className="form-input" />
-                          </div>
+
                           <div className="form-group">
                             <label className="form-label">Packaging Info</label>
                             <input type="text" value={prodDeliveryInfo.packaging} onChange={e => setProdDeliveryInfo({...prodDeliveryInfo, packaging: e.target.value})} className="form-input" />
-                          </div>
-                        </div>
-                        
-                        <div className="space-y-3 pt-4" style={{ borderTop: '1px solid var(--gray2)' }}>
-                          <div className="form-group">
-                            <label className="form-label">Farmer Name</label>
-                            <input type="text" value={prodFarmer.name} onChange={e => setProdFarmer({...prodFarmer, name: e.target.value})} className="form-input" />
-                          </div>
-                          <div className="form-group">
-                            <label className="form-label">Farmer Bio / Orchard</label>
-                            <input type="text" value={prodFarmer.bio} onChange={e => setProdFarmer({...prodFarmer, bio: e.target.value})} className="form-input" />
-                          </div>
-                          <div className="form-group">
-                            <label className="form-label">Farmer Verification Badge</label>
-                            <input type="text" value={prodFarmer.badge} onChange={e => setProdFarmer({...prodFarmer, badge: e.target.value})} className="form-input" />
                           </div>
                         </div>
                       </div>

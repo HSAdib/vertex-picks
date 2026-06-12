@@ -484,29 +484,24 @@ export default function Shop() {
                 return (
                   <div key={mango.id} className="product-card" onClick={() => navigate(`/product/${mango.id}`)}>
 
-                    {/* Admin quick-edit */}
-                    {isAdmin && (
-                      <button
-                        onClick={e => handleGodModeEdit(e, mango.id)}
-                        style={{ position: 'absolute', top: 10, right: 44, zIndex: 20, background: '#111', color: '#fff', padding: '2px 8px', borderRadius: 4, fontSize: 9, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '.08em', cursor: 'pointer', border: 'none' }}
-                      >
-                        ⚡ Edit
-                      </button>
-                    )}
 
-                    {/* Discount badge */}
-                    {mango.discountPercent && (
-                      <div className="tag-strip">
-                        <span className="badge badge-orange">-{mango.discountPercent}%</span>
-                      </div>
-                    )}
+
+
 
 
 
                     {/* Image */}
-                    <div className="pc-img" style={{ background: 'var(--gray1)' }}>
+                    <div className="pc-img">
+                      {mango.discountPercent && (
+                        <div className="pc-discount-badge">-{mango.discountPercent}%</div>
+                      )}
+                      {isAdmin && (
+                        <button className="pc-edit-btn" onClick={e => handleGodModeEdit(e, mango.id)}>
+                          EDIT
+                        </button>
+                      )}
                       {mainImage
-                        ? <img src={mainImage} alt={mango.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        ? <img src={mainImage} alt={mango.name} />
                         : <span style={{ fontSize: '3.5rem' }}>🥭</span>
                       }
                     </div>
@@ -519,9 +514,9 @@ export default function Shop() {
                         </div>
                       )}
                       <h4 className="pc-name" style={{ overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 1, WebkitBoxOrient: 'vertical' }}>{mango.name}</h4>
-                      <div className="pc-sub">
-                        <span>⚖️ {mango.fixedWeight || 1}kg Box</span>
-                        {mango.season && <span> · {mango.season} Season</span>}
+                      <div className="pc-sub" style={{ fontFamily: "'Sora', sans-serif", fontSize: '0.75rem', color: '#888888', marginBottom: '0.4rem', display: 'flex', gap: '0.3rem', alignItems: 'center' }}>
+                        <span>📦 {mango.fixedWeight || 1}kg Box</span>
+                        {mango.season && <span> · 🌱 {mango.season} Season</span>}
                       </div>
                       <div className="pc-rating">
                         <span className="stars">{'★'.repeat(ratingStars)}{'☆'.repeat(5 - ratingStars)}</span>
@@ -530,7 +525,14 @@ export default function Shop() {
                       <div className="pc-price-row">
                         <div className="pc-price">
                           ৳{Number(displayPrice).toLocaleString()}
-                          {oldPrice && <span className="old">৳{Number(oldPrice).toLocaleString()}</span>}
+                          {oldPrice && (
+                            <>
+                              <span className="old">৳{Number(oldPrice).toLocaleString()}</span>
+                              {Number(oldPrice) > Number(displayPrice) && (
+                                <span className="pc-savings-pill">Save ৳{Number(oldPrice) - Number(displayPrice)}</span>
+                              )}
+                            </>
+                          )}
                         </div>
                         <button
                           style={{ 
@@ -549,16 +551,14 @@ export default function Shop() {
                         </button>
                       </div>
 
-                      {/* Quantity stepper */}
-                      <div
-                        style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem', marginTop: '0.75rem', paddingTop: '0.75rem', borderTop: '1px solid var(--gray2)' }}
-                        onClick={e => { e.preventDefault(); e.stopPropagation(); }}
-                      >
-                        <div style={{ display: 'flex', alignItems: 'center', border: '1.5px solid var(--gray2)', borderRadius: 8, background: 'var(--gray1)', overflow: 'hidden' }}>
-                          <button style={{ padding: '4px 10px', fontWeight: 700, fontSize: '.85rem', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--gray4)' }} onClick={e => { e.stopPropagation(); updateQty(mango.id, -1); }}>−</button>
-                          <span style={{ padding: '0', fontWeight: 700, fontSize: '.8rem', minWidth: 24, textAlign: 'center', display: 'flex', alignItems: 'center' }}>
+                      {/* Bottom Actions */}
+                      <div style={{ marginTop: '0.75rem', paddingTop: '0.75rem', borderTop: '1px solid var(--gray2)', display: 'flex', flexDirection: 'column', alignItems: 'center' }} onClick={e => { e.preventDefault(); e.stopPropagation(); }}>
+                        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', marginBottom: '0.6rem', width: '100%' }}>
+                          <div className="pc-qty-stepper">
+                            <button className="pc-qty-btn" onClick={e => { e.stopPropagation(); updateQty(mango.id, -1); }}>−</button>
                             <input
                               type="number"
+                              className="pc-qty-input"
                               value={quantities[mango.id] === undefined ? 1 : quantities[mango.id]}
                               min="1"
                               onClick={e => { e.preventDefault(); e.stopPropagation(); }}
@@ -571,17 +571,18 @@ export default function Shop() {
                                   setQuantities(prev => ({ ...prev, [mango.id]: 1 }));
                                 }
                               }}
-                              style={{ width: '40px', textAlign: 'center', border: 'none', background: 'transparent', outline: 'none', fontWeight: 'inherit', fontSize: 'inherit', color: 'inherit', padding: '4px 0' }}
                             />
-                          </span>
-                          <button style={{ padding: '4px 10px', fontWeight: 700, fontSize: '.85rem', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--gray4)' }} onClick={e => { e.stopPropagation(); updateQty(mango.id, 1); }}>+</button>
+                            <button className="pc-qty-btn" onClick={e => { e.stopPropagation(); updateQty(mango.id, 1); }}>+</button>
+                          </div>
                         </div>
-                        <button
-                          style={{ background: 'var(--primary)', color: '#fff', fontSize: 10, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '.08em', padding: '6px 12px', borderRadius: 8, border: 'none', cursor: 'pointer' }}
-                          onClick={e => { e.preventDefault(); e.stopPropagation(); handleAddToCart(mango); }}
-                        >
-                          Add 📦
-                        </button>
+                        <div style={{ display: 'flex', gap: '0.5rem', width: '100%' }}>
+                          <button className="pc-add-btn-new" onClick={e => { e.stopPropagation(); handleAddToCart(mango); }}>
+                            Add to Cart
+                          </button>
+                          <button className="pc-buy-btn-new" onClick={e => { e.stopPropagation(); handleAddToCart(mango); navigate('/checkout'); }}>
+                            Buy Now
+                          </button>
+                        </div>
                       </div>
                     </div>
                   </div>

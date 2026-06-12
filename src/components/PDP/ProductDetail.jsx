@@ -325,7 +325,7 @@ export default function ProductDetail() {
             </div>
           </div>
           <button className="pdp-sticky-btn" onClick={handleAddToCart} style={{ height: '44px' }}>🛒 Add to Cart</button>
-          <button className="pdp-sticky-btn buy-now" onClick={handleBuyNow} style={{ height: '44px' }}>⚡ Buy Now</button>
+          <button className="pdp-sticky-btn buy-now" onClick={handleBuyNow} style={{ height: '44px' }}>Buy Now <span style={{ opacity: 0.85, fontWeight: 700 }}>• ৳{Number((mappedProduct.price || 0) * (qty || 1)).toLocaleString()}</span></button>
         </div>
         
         <div className="pdp-sticky-spacer"></div>

@@ -300,28 +300,35 @@ export default function Home() {
           ) : (
             featuredProducts.map(p => (
               <div key={p.id} className="product-card" onClick={() => navigate(`/product/${p.id}`)}>
-                {p.discountPrice && (
-                  <div className="tag-strip">
-                    <span className="badge badge-orange">Sale</span>
-                  </div>
-                )}
-
-                <div className="pc-img" style={{ background: 'linear-gradient(135deg,#FFF3C4,#FFE082)', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <div className="pc-img">
+                  {p.discountPrice && (
+                    <div className="pc-discount-badge">Sale</div>
+                  )}
                   {(p.images?.[0] || p.image)
-                    ? <img src={p.images?.[0] || p.image} alt={p.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                    : <span style={{ fontSize: '3rem' }}>🥭</span>
+                    ? <img src={p.images?.[0] || p.image} alt={p.name} />
+                    : <span style={{ fontSize: '3.5rem' }}>🥭</span>
                   }
                 </div>
                 <div className="pc-body">
                   <div className="pc-name">{p.name}</div>
-                  <div className="pc-sub">📍 Rajshahi · {p.season || 'Peak'} Season</div>
+                  <div className="pc-sub" style={{ fontFamily: "'Sora', sans-serif", fontSize: '0.75rem', color: '#888888', marginBottom: '0.4rem', display: 'flex', gap: '0.3rem', alignItems: 'center' }}>
+                    <span>📦 {p.fixedWeight || 1}kg Box</span>
+                    <span> · 🌱 {p.season || 'Peak'} Season</span>
+                  </div>
                   <div className="pc-rating">
                     <span className="stars">★★★★★</span> 5.0 <span>(—)</span>
                   </div>
                   <div className="pc-price-row">
                     <div className="pc-price">
                       ৳{Number(p.discountPrice || p.price || 0).toLocaleString()} <span className="unit">/ {p.fixedWeight || 1}kg box</span>
-                      {p.discountPrice && <span className="old">৳{p.price}</span>}
+                      {p.discountPrice && (
+                        <>
+                          <span className="old">৳{p.price}</span>
+                          {Number(p.price) > Number(p.discountPrice) && (
+                            <span className="pc-savings-pill">Save ৳{Number(p.price) - Number(p.discountPrice)}</span>
+                          )}
+                        </>
+                      )}
                     </div>
                     <button
                       style={{ 

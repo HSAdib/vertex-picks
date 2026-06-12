@@ -56,16 +56,7 @@
 .pdp-price-old{font-size:.95rem;color:var(--gray3);text-decoration:line-through;font-weight:500}
 .pdp-price-save{display:inline-flex;align-items:center;gap:.3rem;background:#DCFCE7;color:#16A34A;font-size:.72rem;font-weight:800;padding:.25rem .6rem;border-radius:100px;margin-top:.3rem}
 
-/* Variants / Pack options */
 .pdp-section-label{font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--gray4);margin-bottom:.6rem}
-.pdp-pack-options{display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:1.2rem}
-.pdp-pack-opt{border:2px solid var(--gray2);border-radius:var(--radius-sm);padding:.55rem 1rem;cursor:pointer;transition:all .2s;background:#fff;text-align:center}
-.pdp-pack-opt:hover{border-color:var(--primary)}
-.pdp-pack-opt.active{border-color:var(--primary);background:var(--primary-pale)}
-.pdp-pack-opt-name{font-size:.82rem;font-weight:700;color:var(--text)}
-.pdp-pack-opt-price{font-size:.72rem;color:var(--gray4)}
-.pdp-pack-opt.active .pdp-pack-opt-name{color:var(--primary)}
-.pdp-pack-opt.active .pdp-pack-opt-price{color:var(--primary)}
 
 /* Qty + CTA */
 .pdp-buy-row{display:flex;gap:.75rem;align-items:center;margin-bottom:1.2rem}
@@ -76,7 +67,7 @@
 .pdp-add-cart{flex:1;background:var(--primary);color:#fff;border-radius:var(--radius-sm);padding:.85rem 1.5rem;font-size:.95rem;font-weight:700;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:.5rem;transition:all .25s var(--ease);box-shadow:0 6px 20px rgba(232,84,10,.25)}
 .pdp-add-cart:hover{background:var(--dark);transform:translateY(-2px);box-shadow:0 10px 28px rgba(0,0,0,.2)}
 .pdp-add-cart.added{background:var(--green)}
-.pdp-buy-now{background:var(--dark);color:#fff;border-radius:var(--radius-sm);padding:.85rem 1.5rem;font-size:.95rem;font-weight:700;border:none;cursor:pointer;transition:all .25s;white-space:nowrap}
+.pdp-buy-now{background:#ffa600;color:#fff;border-radius:var(--radius-sm);padding:.85rem 1.5rem;font-size:.95rem;font-weight:700;border:none;cursor:pointer;transition:all .25s;white-space:nowrap}
 .pdp-buy-now:hover{background:var(--primary)}
 
 /* Trust strip */
@@ -243,7 +234,7 @@
 .pdp-sticky-actions{display:flex;align-items:center;justify-content:center;gap:.75rem;flex:2}
 .pdp-sticky-btn{flex:1;max-width:200px;background:var(--primary);color:#fff;padding:.75rem 1.3rem;border-radius:100px;font-size:.85rem;font-weight:700;border:none;cursor:pointer;white-space:nowrap;transition:all .2s;text-align:center;box-shadow:0 4px 12px rgba(232,84,10,.2)}
 .pdp-sticky-btn:hover{background:var(--primary-dark);transform:translateY(-2px)}
-.pdp-sticky-btn.buy-now{background:var(--dark);box-shadow:0 4px 12px rgba(0,0,0,.15)}
+.pdp-sticky-btn.buy-now{background:#ffa600;box-shadow:0 4px 12px rgba(0,0,0,.15)}
 .pdp-sticky-btn.buy-now:hover{background:var(--text)}
 .pdp-sticky-spacer{flex:1;display:block}
 

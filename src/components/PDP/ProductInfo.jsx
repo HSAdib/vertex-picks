@@ -110,7 +110,7 @@ export default function ProductInfo({ product, qty, setQty, displayRating }) {
           {product.inStock ? '🛒 Add to Cart' : 'Out of Stock'}
         </button>
         <button className="pdp-buy-now" onClick={handleBuyNow} disabled={!product.inStock}>
-          ⚡ Buy Now
+          Buy Now <span style={{ opacity: 0.85, fontWeight: 700 }}>• ৳{Number((product.price || 0) * (qty || 1)).toLocaleString()}</span>
         </button>
       </div>
 
@@ -137,24 +137,14 @@ export default function ProductInfo({ product, qty, setQty, displayRating }) {
           <span className="pdp-delivery-text"><strong>Same-Day Dispatch</strong> — order before 12pm</span>
 
         </div>
-        <div className="pdp-delivery-row">
-          <span className="pdp-delivery-icon">📍</span>
-          <span className="pdp-delivery-text"><strong>Dhaka Metro</strong> — ৳60 delivery fee</span>
-        </div>
+
         <div className="pdp-delivery-row">
           <span className="pdp-delivery-icon">📦</span>
           <span className="pdp-delivery-text"><strong>Eco-Friendly Packaging</strong> — no plastic</span>
         </div>
       </div>
 
-      <div className="pdp-farmer-card">
-        <div className="pdp-farmer-avatar">🧑‍🌾</div>
-        <div>
-          <div className="pdp-farmer-name">{product.farmerName || 'Abdul Karim'} — Lead Farmer</div>
-          <div className="pdp-farmer-sub">{product.farmerSub || 'Rajshahi Orchards · 15+ years growing premium mangoes'}</div>
-          <div className="pdp-farmer-badge">✅ Verified Farmer Partner</div>
-        </div>
-      </div>
+
     </div>
   );
 }
