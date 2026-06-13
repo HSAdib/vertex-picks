@@ -139,20 +139,55 @@ export default function Login() {
 
   if (showPortal) {
     return (
-      <div className="min-h-screen bg-gray1 flex flex-col justify-center py-12 px-4 pt-28 animate-in fade-in duration-200 select-none">
-        <div className="sm:mx-auto sm:w-full sm:max-w-md bg-white py-10 px-8 shadow-md rounded-brand border-t-4 border-primary text-center">
-          <h2 className="text-3xl font-display font-black text-dark uppercase mb-4 tracking-tight">Access Granted</h2>
-          <p className="text-xs text-gray4 font-semibold mb-8">Administrative session recognized. Route dynamically.</p>
-          <div className="space-y-4">
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', background: '#F7F7F7', padding: '2rem 0', fontFamily: "'Sora', sans-serif", boxSizing: 'border-box' }}>
+        <div style={{ maxWidth: '420px', width: '90%', margin: 'auto', background: '#FFFFFF', borderRadius: '14px', border: '1.5px solid #EEEEEE', boxShadow: '0 20px 60px rgba(0,0,0,0.10)', padding: '2rem 2rem', boxSizing: 'border-box', textAlign: 'center' }}>
+          <h2 style={{ fontFamily: "'Fraunces', serif", fontWeight: 900, fontSize: '1.6rem', color: '#121212', margin: '0 0 0.5rem 0', textTransform: 'uppercase' }}>Access Granted</h2>
+          <p style={{ fontFamily: "'Sora', sans-serif", fontSize: '0.82rem', color: '#888888', margin: '0 0 2rem 0' }}>Administrative session recognized. Route dynamically.</p>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
             <button
               onClick={() => navigate('/admin')}
-              className="w-full btn-primary py-3.5 tracking-wider font-bold uppercase text-sm"
+              style={{
+                width: '100%',
+                background: '#E8540A',
+                color: '#FFFFFF',
+                borderRadius: '100px',
+                fontFamily: "'Sora', sans-serif",
+                fontWeight: 800,
+                fontSize: '0.9rem',
+                padding: '0.8rem',
+                border: 'none',
+                boxShadow: '0 6px 24px rgba(232,84,10,0.2)',
+                cursor: 'pointer',
+                transition: 'transform 0.2s ease, box-shadow 0.2s ease'
+              }}
+              onMouseEnter={e => {
+                e.currentTarget.style.transform = 'translateY(-2px)';
+                e.currentTarget.style.boxShadow = '0 10px 32px rgba(232,84,10,0.3)';
+              }}
+              onMouseLeave={e => {
+                e.currentTarget.style.transform = 'translateY(0)';
+                e.currentTarget.style.boxShadow = '0 6px 24px rgba(232,84,10,0.2)';
+              }}
             >
               Enter Admin Portal ⚡
             </button>
             <button
               onClick={() => navigate('/profile')}
-              className="w-full btn-secondary py-3.5 tracking-wider font-bold uppercase text-sm"
+              style={{
+                width: '100%',
+                background: '#FFFFFF',
+                color: '#121212',
+                border: '1.5px solid #EEEEEE',
+                borderRadius: '100px',
+                fontFamily: "'Sora', sans-serif",
+                fontWeight: 700,
+                fontSize: '0.9rem',
+                padding: '0.8rem',
+                cursor: 'pointer',
+                transition: 'border-color 0.2s ease'
+              }}
+              onMouseEnter={e => e.currentTarget.style.borderColor = '#E8540A'}
+              onMouseLeave={e => e.currentTarget.style.borderColor = '#EEEEEE'}
             >
               My Customer Dashboard
             </button>
@@ -162,146 +197,308 @@ export default function Login() {
     );
   }
 
-  return (
-    <div
-      className="min-h-screen bg-[#f8fafc] flex flex-col items-center pb-20 px-4 select-none font-['Sora'] w-full animate-in fade-in duration-300"
-      style={{ paddingTop: '180px' }}
-    >
-      {/* 1. THE HEADER GROUP - COMPLETELY OUTSIDE AND SEPARATE FROM THE CARD */}
-      <div className="w-full max-w-md flex flex-col items-center mb-10">
-        <h1 className="text-center font-black text-4xl sm:text-5xl text-[#0A192F] tracking-tight uppercase mb-6 leading-tight font-sans">
-          {isForgotPasswordMode ? 'RESET PASSWORD' : 'WELCOME BACK'}
-        </h1>
+  const labelStyle = {
+    fontFamily: "'Sora', sans-serif",
+    fontSize: '0.72rem',
+    fontWeight: 700,
+    textTransform: 'uppercase',
+    letterSpacing: '0.06em',
+    color: '#888888',
+    marginBottom: '0.4rem',
+    display: 'block',
+    textAlign: 'left'
+  };
 
-        {/* TAB SWITCHERS AT THE BOTTOM OF THE HEADER GROUP */}
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', background: '#F7F7F7', padding: '2rem 0', fontFamily: "'Sora', sans-serif", boxSizing: 'border-box' }}>
+      <style>{`
+        .login-input {
+          background: #FFFFFF;
+          border: 1.5px solid #EEEEEE;
+          border-radius: 8px;
+          padding: 0.65rem 1rem;
+          font-family: 'Sora', sans-serif;
+          font-size: 0.875rem;
+          color: #1A1A1A;
+          width: 100%;
+          box-sizing: border-box;
+          transition: border-color 0.2s ease;
+        }
+        .login-input:focus {
+          border-color: #E8540A;
+          outline: none;
+        }
+        .login-btn-primary {
+          width: 100%;
+          background: #E8540A;
+          color: #FFFFFF;
+          border-radius: 100px;
+          font-family: 'Sora', sans-serif;
+          font-weight: 800;
+          font-size: 1rem;
+          padding: 0.8rem;
+          border: none;
+          box-shadow: 0 6px 24px rgba(232,84,10,0.3);
+          cursor: pointer;
+          margin-top: 1rem;
+          transition: transform 0.2s ease, box-shadow 0.2s ease;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+        .login-btn-primary:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 10px 32px rgba(232,84,10,0.4);
+        }
+        .google-btn {
+          width: 100%;
+          background: #FFFFFF;
+          border: 1.5px solid #EEEEEE;
+          border-radius: 100px;
+          font-family: 'Sora', sans-serif;
+          font-weight: 700;
+          font-size: 0.875rem;
+          color: #1A1A1A;
+          padding: 0.75rem;
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 0.5rem;
+          transition: border-color 0.2s ease;
+        }
+        .google-btn:hover {
+          border-color: #E8540A;
+        }
+        .footer-link-text {
+          color: #E8540A;
+          font-weight: 700;
+          text-decoration: none;
+          cursor: pointer;
+        }
+        .footer-link-text:hover {
+          text-decoration: underline;
+        }
+        .login-divider-line {
+          border-top: 1px solid #EEEEEE;
+          flex-grow: 1;
+        }
+        .login-divider-text {
+          font-family: 'Sora', sans-serif;
+          font-size: 0.75rem;
+          color: #BBBBBB;
+          background: #FFFFFF;
+          padding: 0 0.75rem;
+        }
+        .password-toggle-btn {
+          position: absolute;
+          right: 1rem;
+          top: 50%;
+          transform: translateY(-50%);
+          text-align: center;
+          background: none;
+          border: none;
+          cursor: pointer;
+          color: #888888;
+          display: flex;
+          align-items: center;
+          padding: 0;
+        }
+      `}</style>
+
+      {/* LOGIN CARD */}
+      <div style={{ maxWidth: '420px', width: '90%', margin: 'auto', background: '#FFFFFF', borderRadius: '14px', border: '1.5px solid #EEEEEE', boxShadow: '0 20px 60px rgba(0,0,0,0.10)', padding: '2rem 2rem', boxSizing: 'border-box' }}>
+        
+        {/* CARD HEADER */}
+        <div>
+          <h1 style={{ fontFamily: "'Fraunces', serif", fontWeight: 900, fontSize: '1.6rem', color: '#121212', textAlign: 'center', margin: '0 0 0.5rem 0' }}>
+            VertexPicks
+          </h1>
+          <p style={{ fontFamily: "'Sora', sans-serif", fontSize: '0.82rem', color: '#888888', textAlign: 'center', margin: '0 0 1.5rem 0' }}>
+            {isForgotPasswordMode ? 'Reset your account password' : 'Premium Rajshahi Mangoes, direct to your door'}
+          </p>
+        </div>
+
+        {/* TAB SWITCHER (Login / Sign Up) */}
         {!isForgotPasswordMode && (
-          <div className="w-full border-b border-gray-200 flex justify-center text-sm font-black uppercase tracking-widest relative">
-            <div className="flex gap-12 relative top-[1px]">
-              <button
-                type="button"
-                onClick={() => { setIsLoginMode(true); setError(''); setMessage(''); }}
-                className={`pb-4 outline-none transition-all duration-200 border-b-4 ${isLoginMode
-                  ? 'text-[#ff6b00] border-[#ff6b00] font-black'
-                  : 'text-gray-400 border-transparent hover:text-gray-600 font-bold'
-                  }`}
-              >
-                LOG IN
-              </button>
-              <button
-                type="button"
-                onClick={() => { setIsLoginMode(false); setError(''); setMessage(''); }}
-                className={`pb-4 outline-none transition-all duration-200 border-b-4 ${!isLoginMode
-                  ? 'text-[#ff6b00] border-[#ff6b00] font-black'
-                  : 'text-gray-400 border-transparent hover:text-gray-600 font-bold'
-                  }`}
-              >
-                SIGN UP
-              </button>
-            </div>
+          <div style={{ background: '#F7F7F7', borderRadius: '100px', padding: '0.25rem', display: 'flex', gap: '0.25rem', marginBottom: '1.5rem' }}>
+            <button
+              type="button"
+              onClick={() => { setIsLoginMode(true); setError(''); setMessage(''); }}
+              style={{
+                flex: 1,
+                borderRadius: '100px',
+                fontFamily: "'Sora', sans-serif",
+                fontSize: '0.82rem',
+                fontWeight: 700,
+                padding: '0.55rem 1rem',
+                border: 'none',
+                cursor: 'pointer',
+                textAlign: 'center',
+                background: isLoginMode ? '#FFFFFF' : 'transparent',
+                color: isLoginMode ? '#121212' : '#888888',
+                boxShadow: isLoginMode ? '0 2px 8px rgba(0,0,0,0.08)' : 'none',
+                transition: 'all 0.2s ease'
+              }}
+            >
+              Login
+            </button>
+            <button
+              type="button"
+              onClick={() => { setIsLoginMode(false); setError(''); setMessage(''); }}
+              style={{
+                flex: 1,
+                borderRadius: '100px',
+                fontFamily: "'Sora', sans-serif",
+                fontSize: '0.82rem',
+                fontWeight: 700,
+                padding: '0.55rem 1rem',
+                border: 'none',
+                cursor: 'pointer',
+                textAlign: 'center',
+                background: !isLoginMode ? '#FFFFFF' : 'transparent',
+                color: !isLoginMode ? '#121212' : '#888888',
+                boxShadow: !isLoginMode ? '0 2px 8px rgba(0,0,0,0.08)' : 'none',
+                transition: 'all 0.2s ease'
+              }}
+            >
+              Sign Up
+            </button>
           </div>
         )}
-      </div>
 
-      {/* 2. THE WHITE FORM CARD - SEPARATE CONTAINER WITH PERFECT CORNERS & PADDING */}
-      <div className="w-full max-w-md bg-white rounded-2xl shadow-2xl border-t-4 border-[#ff6b00] p-8 sm:p-10 flex flex-col gap-5">
-
-        {/* ALERTS */}
-        {error && <div className="bg-red-50 text-red-600 p-3.5 rounded-xl font-semibold text-xs border border-red-200/60 animate-shake w-full">{error}</div>}
-        {message && <div className="bg-green-50 text-green-700 p-3.5 rounded-xl font-semibold text-xs border border-green-200/60 animate-fadeIn w-full">{message}</div>}
-
-        {/* GOOGLE SIGN IN BUTTON */}
-        {!isForgotPasswordMode && (
-          <button
-            type="button"
-            onClick={handleGoogleLogin}
-            className="w-full flex items-center justify-center gap-3 py-4 min-h-[52px] border border-gray-200 hover:border-gray-300 rounded-xl font-bold text-sm text-[#0A192F] bg-white transition-all shadow-sm tracking-wide"
-          >
-            <img
-              src="https://www.svgrepo.com/show/475656/google-color.svg"
-              alt="Google"
-              className="w-5 h-5 mr-1 flex-shrink-0"
-            />
-            CONTINUE WITH GOOGLE
-          </button>
+        {/* ERROR / SUCCESS MESSAGES */}
+        {error && (
+          <div style={{
+            fontFamily: "'Sora', sans-serif",
+            fontSize: '0.78rem',
+            borderRadius: '8px',
+            padding: '0.65rem 1rem',
+            marginTop: '0.75rem',
+            marginBottom: '1rem',
+            background: '#FFF0F0',
+            color: '#E8540A',
+            border: '1.5px solid #FFD0C0',
+            textAlign: 'left'
+          }}>
+            {error}
+          </div>
+        )}
+        {message && (
+          <div style={{
+            fontFamily: "'Sora', sans-serif",
+            fontSize: '0.78rem',
+            borderRadius: '8px',
+            padding: '0.65rem 1rem',
+            marginTop: '0.75rem',
+            marginBottom: '1rem',
+            background: '#F0FFF4',
+            color: '#22863a',
+            border: '1.5px solid #C0F0D0',
+            textAlign: 'left'
+          }}>
+            {message}
+          </div>
         )}
 
-        {/* OR DIVIDER - THE FLEX DIVIDER FIX */}
+        {/* GOOGLE LOGIN BUTTON & GUEST LINK */}
         {!isForgotPasswordMode && (
-          <div className="flex items-center gap-4 my-2 w-full select-none">
-            <div className="flex-grow border-t border-gray-200"></div>
-            <span className="text-[10px] sm:text-xs font-bold tracking-wider text-gray-400 uppercase font-sans whitespace-nowrap">
-              OR USE EMAIL / PHONE
-            </span>
-            <div className="flex-grow border-t border-gray-200"></div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', alignItems: 'center', width: '100%' }}>
+            <button
+              type="button"
+              onClick={handleGoogleLogin}
+              className="google-btn"
+            >
+              <img
+                src="https://www.svgrepo.com/show/475656/google-color.svg"
+                alt="Google"
+                style={{ width: '1.25rem', height: '1.25rem', flexShrink: 0 }}
+              />
+              Continue with Google
+            </button>
+            <button
+              type="button"
+              onClick={() => navigate('/shop')}
+              className="google-btn"
+              style={{ marginTop: '0.25rem' }}
+            >
+              Continue as Guest
+            </button>
+          </div>
+        )}
+
+        {/* DIVIDER */}
+        {!isForgotPasswordMode && (
+          <div style={{ display: 'flex', alignItems: 'center', width: '100%', margin: '1.25rem 0', select: 'none' }}>
+            <div className="login-divider-line"></div>
+            <span className="login-divider-text">or</span>
+            <div className="login-divider-line"></div>
           </div>
         )}
 
         {/* FORMS */}
         {isForgotPasswordMode ? (
-          <form onSubmit={handleForgotPasswordSubmit} className="flex flex-col gap-5 w-full">
-            <div className="flex flex-col gap-1.5 w-full">
-              <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-500 font-sans">Email Address</label>
+          <form onSubmit={handleForgotPasswordSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem', width: '100%' }}>
+            <div style={{ width: '100%' }}>
+              <label style={labelStyle}>Email Address</label>
               <input
                 type="email"
                 required
                 value={identifier}
                 onChange={(e) => setIdentifier(e.target.value)}
                 placeholder="name@email.com"
-                className="w-full px-4 py-4 min-h-[52px] bg-gray-50 border border-gray-200 rounded-xl text-sm font-medium text-slate-800 placeholder:text-gray-400 focus:bg-white focus:border-[#ff6b00] focus:ring-1 focus:ring-[#ff6b00]/20 outline-none transition-all duration-200 font-sans shadow-xs"
+                className="login-input"
               />
             </div>
 
-            <div className="flex flex-col sm:flex-row gap-4 justify-between items-center pt-2 w-full">
-              <button
-                type="button"
-                onClick={() => setIsForgotPasswordMode(false)}
-                className="text-xs font-bold text-gray-500 hover:text-gray-700 uppercase tracking-wider font-sans py-2"
-              >
-                ← BACK TO LOGIN
-              </button>
-              <button
-                type="submit"
-                className="w-full sm:w-auto px-8 py-4 min-h-[52px] bg-black hover:bg-gray-900 text-white text-sm font-black uppercase rounded-xl tracking-wider shadow-md hover:scale-[1.01] active:scale-[0.99] transition-all font-sans flex items-center justify-center"
-              >
-                SEND RESET LINK
-              </button>
-            </div>
+            <button
+              type="submit"
+              className="login-btn-primary"
+            >
+              Send Reset Link
+            </button>
           </form>
         ) : (
-          <form onSubmit={handleSubmit} className="flex flex-col gap-5 w-full">
-            <div className="w-full">
+          <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem', width: '100%' }}>
+            <div style={{ width: '100%' }}>
+              <label style={labelStyle}>Email or Phone Number</label>
               <input
                 type="text"
                 required
                 value={identifier}
                 onChange={(e) => setIdentifier(e.target.value)}
                 placeholder="Email or Phone Number"
-                className={`w-full px-4 py-4 min-h-[52px] bg-gray-50 border rounded-xl text-sm font-medium text-slate-800 placeholder:text-gray-400 focus:bg-white focus:border-[#ff6b00] focus:ring-1 focus:ring-[#ff6b00]/20 outline-none transition-all duration-200 font-sans shadow-xs ${phoneError ? 'border-red-500 bg-red-50 animate-shake' : 'border-gray-200'
-                  }`}
+                className="login-input"
+                style={{
+                  borderColor: phoneError ? '#E8540A' : '#EEEEEE',
+                  background: phoneError ? '#FFF0F0' : '#FFFFFF'
+                }}
               />
             </div>
 
-            <div className="w-full">
-              <div className="relative">
+            <div style={{ width: '100%' }}>
+              <label style={labelStyle}>Password</label>
+              <div style={{ position: 'relative' }}>
                 <input
                   type={showPassword ? "text" : "password"}
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="Password (Min 8 chars)"
-                  className="w-full px-4 py-4 min-h-[52px] bg-gray-50 border border-gray-200 rounded-xl text-sm font-medium text-slate-800 placeholder:text-gray-400 focus:bg-white focus:border-[#ff6b00] focus:ring-1 focus:ring-[#ff6b00]/20 outline-none transition-all duration-200 font-sans pr-12 shadow-xs"
+                  className="login-input"
+                  style={{ paddingRight: '3rem' }}
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 focus:outline-none flex items-center"
+                  className="password-toggle-btn"
                 >
                   {showPassword ? (
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg style={{ width: '1.25rem', height: '1.25rem' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l18 18" />
                     </svg>
                   ) : (
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg style={{ width: '1.25rem', height: '1.25rem' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                     </svg>
@@ -311,27 +508,29 @@ export default function Login() {
             </div>
 
             {!isLoginMode && (
-              <div className="w-full">
-                <div className="relative">
+              <div style={{ width: '100%' }}>
+                <label style={labelStyle}>Confirm Password</label>
+                <div style={{ position: 'relative' }}>
                   <input
                     type={showConfirmPassword ? "text" : "password"}
                     required
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
                     placeholder="Confirm Password"
-                    className="w-full px-4 py-4 min-h-[52px] bg-gray-50 border border-gray-200 rounded-xl text-sm font-medium text-slate-800 placeholder:text-gray-400 focus:bg-white focus:border-[#ff6b00] focus:ring-1 focus:ring-[#ff6b00]/20 outline-none transition-all duration-200 font-sans pr-12 shadow-xs"
+                    className="login-input"
+                    style={{ paddingRight: '3rem' }}
                   />
                   <button
                     type="button"
                     onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                    className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 focus:outline-none flex items-center"
+                    className="password-toggle-btn"
                   >
                     {showConfirmPassword ? (
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <svg style={{ width: '1.25rem', height: '1.25rem' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l18 18" />
                       </svg>
                     ) : (
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <svg style={{ width: '1.25rem', height: '1.25rem' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                       </svg>
@@ -342,39 +541,46 @@ export default function Login() {
             )}
 
             {isLoginMode && (
-              <div className="flex justify-end w-full">
+              <div style={{ display: 'flex', justifyContent: 'end', width: '100%' }}>
                 <button
                   type="button"
                   onClick={() => { setIsForgotPasswordMode(true); setError(''); setMessage(''); }}
-                  className="text-xs font-bold text-[#ff6b00] hover:text-[#e05e00] hover:underline uppercase tracking-wider font-sans"
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    color: '#E8540A',
+                    fontFamily: "'Sora', sans-serif",
+                    fontSize: '0.78rem',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    padding: 0
+                  }}
+                  className="footer-link-text"
                 >
-                  FORGOT PASSWORD?
+                  Forgot Password?
                 </button>
               </div>
             )}
 
-            <div className="pt-2 w-full">
-              <button
-                type="submit"
-                className="w-full py-4 min-h-[52px] bg-black hover:bg-gray-900 text-white font-black uppercase text-sm tracking-wider rounded-xl shadow-md hover:scale-[1.01] active:scale-[0.99] transition-all duration-200 font-sans flex items-center justify-center"
-              >
-                {isLoginMode ? 'LOG IN' : 'CREATE ACCOUNT'}
-              </button>
-            </div>
+            <button
+              type="submit"
+              className="login-btn-primary"
+            >
+              {isLoginMode ? 'Log In' : 'Create Account'}
+            </button>
           </form>
         )}
-
-        {/* GUEST CONNECTOR */}
-        {!isForgotPasswordMode && (
-          <button
-            type="button"
-            onClick={() => navigate('/shop')}
-            className="w-full py-4 min-h-[52px] bg-gray-100 hover:bg-gray-200 text-[#0A192F] font-black uppercase text-sm tracking-wider rounded-xl transition-all duration-200 font-sans flex items-center justify-center"
-          >
-            CONTINUE AS GUEST
-          </button>
-        )}
       </div>
+
+      {/* FOOTER LINK BELOW THE CARD */}
+      {isForgotPasswordMode && (
+        <div style={{ marginTop: '1.5rem', fontFamily: "'Sora', sans-serif", fontSize: '0.78rem', color: '#888888', textAlign: 'center' }}>
+          Remember your password?{' '}
+          <span onClick={() => setIsForgotPasswordMode(false)} className="footer-link-text">
+            Back to Login
+          </span>
+        </div>
+      )}
     </div>
   );
 }

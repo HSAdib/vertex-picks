@@ -9,10 +9,6 @@ export default function CategoriesTab() {
   const [loading, setLoading] = useState(true);
   const [migrating, setMigrating] = useState(false);
 
-  useEffect(() => {
-    fetchCategories();
-  }, []);
-
   const fetchCategories = async () => {
     try {
       const docSnap = await getDoc(doc(db, 'mangoes', 'CATEGORIES'));
@@ -28,6 +24,11 @@ export default function CategoriesTab() {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    fetchCategories();
+  }, []);
 
   const handleSave = async (updatedList) => {
     try {
@@ -70,7 +71,7 @@ export default function CategoriesTab() {
       // Mode invokes twice, causing duplicate writes).
       const newCats = new Set(categories);
       for (const d of snap.docs) {
-        if (['STORE_SECTIONS', 'STORE_SETTINGS', 'NAVBAR_TABS', 'CATEGORIES'].includes(d.id)) continue;
+        if (['CATEGORIES', 'FILTERS', 'VARIETIES', 'STORE_SECTIONS', 'STORE_SETTINGS', 'NAVBAR_TABS'].includes(d.id)) continue;
         const data = d.data();
         const cat = data.section || data.variety || 'Uncategorized';
         await updateDoc(doc(db, 'mangoes', d.id), { category: cat });

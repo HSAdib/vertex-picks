@@ -22,10 +22,6 @@ export default function FiltersTab() {
   const [detailView, setDetailView] = useState({ active: false, category: null, val: '' });
   const [searchQuery, setSearchQuery] = useState('');
 
-  useEffect(() => {
-    fetchFilters();
-  }, []);
-
   const fetchFilters = async () => {
     try {
       const docSnap = await getDoc(doc(db, 'mangoes', 'FILTERS'));
@@ -61,6 +57,11 @@ export default function FiltersTab() {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    fetchFilters();
+  }, []);
 
   const handleSave = async (updatedFilters) => {
     try {

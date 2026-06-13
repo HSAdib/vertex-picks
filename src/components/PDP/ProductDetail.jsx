@@ -24,7 +24,6 @@ export default function ProductDetail() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [hasPurchased, setHasPurchased] = useState(false);
   const [purchaseCheckDone, setPurchaseCheckDone] = useState(false);
-  const [hasAlreadyReviewed, setHasAlreadyReviewed] = useState(false);
   const [showSticky, setShowSticky] = useState(false);
 
   useEffect(() => {
@@ -38,7 +37,7 @@ export default function ProductDetail() {
 
           const allSnap = await getDocs(collection(db, 'mangoes'));
           const allProducts = allSnap.docs
-            .filter(d => d.id !== 'STORE_SECTIONS' && d.id !== id)
+            .filter(d => !['STORE_SECTIONS', 'STORE_SETTINGS', 'NAVBAR_TABS', 'CATEGORIES', 'FILTERS', 'VARIETIES'].includes(d.id) && d.id !== id)
             .map(d => ({ id: d.id, ...d.data() }));
           
           const sameSection = allProducts.filter(p => p.section && p.section === data.section);
@@ -103,23 +102,11 @@ export default function ProductDetail() {
       setPurchaseCheckDone(true);
     };
     if (!loading) checkPurchase();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, loading]);
 
-  // Fix #2: check "already reviewed" in its own effect so we never call
-  // setHasAlreadyReviewed() inside a setState updater (Strict Mode would
-  // invoke the updater twice, giving inconsistent results).
-  useEffect(() => {
-    if (!hasPurchased || !purchaseCheckDone || !productData) return;
-    const currentUser = auth.currentUser;
-    if (!currentUser) return;
-    // Check ALL reviews (including pending) — fix #7 (prev): prevents re-submitting
-    // a review that's awaiting admin approval.
-    const alreadyReviewed = (productData.reviewsList || []).some(
-      r => r.userEmail === currentUser.email
-    );
-    setHasAlreadyReviewed(alreadyReviewed);
-  }, [hasPurchased, purchaseCheckDone, productData]);
+  const hasAlreadyReviewed = !!(auth.currentUser && productData && (productData.reviewsList || []).some(
+    r => r.userEmail === auth.currentUser.email
+  ));
 
   const handleReviewSubmit = async (reviewData) => {
     if (!auth.currentUser) return toast.error("Please log in to leave a review.");
@@ -145,7 +132,10 @@ export default function ProductDetail() {
     try {
       const docRef = doc(db, 'mangoes', productData.id);
       await updateDoc(docRef, { reviewsList: arrayUnion(newReview) });
-      setHasAlreadyReviewed(true);
+      setProductData(prev => ({
+        ...prev,
+        reviewsList: [...(prev.reviewsList || []), newReview]
+      }));
       toast.success("✅ Review submitted! It will appear after admin approval.", { duration: 5000 });
     } catch (error) {
       console.error("Failed to post review", error);

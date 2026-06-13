@@ -1,15 +1,14 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { signOut } from 'firebase/auth';
-import { collection, getDocs, doc, getDoc, setDoc, deleteDoc, updateDoc, addDoc, onSnapshot } from 'firebase/firestore';
+import { collection, getDocs, doc, getDoc, setDoc, deleteDoc, updateDoc, onSnapshot } from 'firebase/firestore';
 import { auth, db } from '../firebaseConfig';
 import { useAuth } from '../context/AuthContext';
 import { Link, Navigate } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
 import CategoriesTab from '../components/admin/CategoriesTab';
 import FiltersTab from '../components/admin/FiltersTab';
-import { ResponsiveContainer, BarChart, CartesianGrid, XAxis, YAxis, Tooltip, Bar, PieChart, Pie, Cell } from 'recharts';
-import { Eye, Edit3, Trash2, Package, Search, Filter, Plus, Save, Camera, Link as LinkIcon, DollarSign, Activity, Bell, Calendar, User, Truck, CheckCircle, XCircle } from 'lucide-react';
+import { ResponsiveContainer, BarChart, CartesianGrid, XAxis, YAxis, Tooltip, Bar } from 'recharts';
 
 const exportToCSV = (filename, rows, headers) => {
   const escapeCsvField = (field) => {
@@ -67,7 +66,7 @@ export default function Admin() {
       gainNode.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.5);
       oscillator.start(ctx.currentTime);
       oscillator.stop(ctx.currentTime + 0.5);
-    } catch (e) { /* Audio not available */ }
+    } catch { /* Audio not available */ }
   };
 
   // Firestore Data Collections
@@ -76,8 +75,6 @@ export default function Admin() {
   const [users, setUsers] = useState([]);
   const [promos, setPromos] = useState([]);
   const [leads, setLeads] = useState([]);
-  const [activeDropdown, setActiveDropdown] = useState(null);
-  const [dropdownPosition, setDropdownPosition] = useState({ top: 0, right: 0 });
   const [selectedOrders, setSelectedOrders] = useState(new Set());
   const [batchUpdating, setBatchUpdating] = useState(false);
   const [expandedOrder, setExpandedOrder] = useState(null);
@@ -105,7 +102,7 @@ export default function Admin() {
       setOrders(orders.map(o => selectedOrders.has(o.id) ? { ...o, status: newStatus } : o));
       toast.success(`${selectedOrders.size} order(s) marked as ${newStatus}`);
       setSelectedOrders(new Set());
-    } catch (err) {
+    } catch {
       toast.error('Failed to update orders.');
     }
     setBatchUpdating(false);
@@ -116,7 +113,7 @@ export default function Admin() {
       await updateDoc(doc(db, 'orders', id), { status: newStatus });
       setOrders(orders.map(o => o.id === id ? { ...o, status: newStatus } : o));
       toast.success(`Status updated to ${newStatus}`);
-    } catch (err) {
+    } catch {
       toast.error('Failed to update status.');
     }
   };
@@ -128,7 +125,7 @@ export default function Admin() {
       setOrders(orders.map(o => o.id === editAddressModal.orderId ? { ...o, deliveryAddress: editAddressModal.address } : o));
       toast.success('Delivery address updated!');
       setEditAddressModal({ isOpen: false, orderId: null, address: '' });
-    } catch (err) {
+    } catch {
       toast.error('Failed to update address.');
     }
   };
@@ -143,7 +140,7 @@ export default function Admin() {
       setOrders(orders.map(o => o.id === editFinancialsModal.orderId ? { ...o, total: Number(editFinancialsModal.total), deliveryFee: Number(editFinancialsModal.deliveryFee) } : o));
       toast.success('Financials updated!');
       setEditFinancialsModal({ isOpen: false, orderId: null, total: '', deliveryFee: '' });
-    } catch (err) {
+    } catch {
       toast.error('Failed to update financials.');
     }
   };
@@ -155,7 +152,7 @@ export default function Admin() {
       setOrders(orders.map(o => o.id === trackingModal.orderId ? { ...o, trackingLink: trackingModal.value } : o));
       toast.success('Tracking link saved!');
       setTrackingModal({ isOpen: false, orderId: null, value: '' });
-    } catch (err) {
+    } catch {
       toast.error('Failed to save tracking link.');
     }
   };
@@ -228,30 +225,7 @@ export default function Admin() {
     return `https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`;
   };
 
-  const getCustomWhatsAppLink = (order) => {
-    const phone = order.deliveryPhone || order.customerPhone || '';
-    if (!phone) return '#';
-    let cleanPhone = phone.replace(/\D/g, '');
-    if (cleanPhone.startsWith('0')) cleanPhone = '88' + cleanPhone;
-    else if (!cleanPhone.startsWith('88') && cleanPhone.length === 10) cleanPhone = '880' + cleanPhone;
-    const itemsList = (order.items || []).map(i => `${i.quantity || 1}x ${i.name || 'Item'}`).join(', ');
-    const orderIdShort = order.id.slice(-6).toUpperCase();
-    const customerName = order.deliveryName || order.customerName || 'Valued Customer';
-    const message = `Dear ${customerName},
 
-This is a formal update from Vertex Picks regarding your recent order (#${orderIdShort}).
-
-Order Summary:
-- Items: ${itemsList}
-- Total Amount: ৳${order.total || 0}
-- Delivery Address: ${order.deliveryAddress || 'N/A'}
-- Current Status: ${order.status || 'Pending'}
-
-If you require any modifications to your delivery details or have further inquiries, please reply to this message.
-
-Thank you for choosing Vertex Picks.`;
-    return `https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`;
-  };
 
   const [leadsSearch, setLeadsSearch] = useState('');
   const [storeConfig, setStoreConfig] = useState({ baseDeliveryFee: 110, perKgFee: 21 });
@@ -262,7 +236,6 @@ Thank you for choosing Vertex Picks.`;
   const [contactAddress, setContactAddress] = useState('Rajshahi, Bangladesh');
   const [enableFreeDelivery, setEnableFreeDelivery] = useState(true);
   const [freeDeliveryMin, setFreeDeliveryMin] = useState(1500);
-  const [dashboardView, setDashboardView] = useState('overview');
 
   // Homepage Customizer states
   const [marqueeItems, setMarqueeItems] = useState([
@@ -331,8 +304,7 @@ Thank you for choosing Vertex Picks.`;
 
   const [orderSearch, setOrderSearch] = useState('');
   const [orderStatusFilter, setOrderStatusFilter] = useState('All Status');
-  const [ordersPage, setOrdersPage] = useState(1);
-  const ORDERS_PER_PAGE = 10;
+  const [, setOrdersPage] = useState(1);
 
   // Reviews soft-delete (trash + undo)
   const [trashedReviews, setTrashedReviews] = useState({}); // { reviewId: { review, timer } }
@@ -344,25 +316,29 @@ Thank you for choosing Vertex Picks.`;
   const [customerSearch, setCustomerSearch] = useState('');
   const [selectedCustomerDetails, setSelectedCustomerDetails] = useState(null);
 
-  // Analytics Live States
-  const [analyticsOrdersByCity, setAnalyticsOrdersByCity] = useState([]);
-  const [analyticsRevenueByVariety, setAnalyticsRevenueByVariety] = useState([]);
-  const [analyticsMonthlyRevenue, setAnalyticsMonthlyRevenue] = useState([]);
-  const [analyticsLoading, setAnalyticsLoading] = useState(true);
-
-  useEffect(() => {
+  // Analytics Live States derived via useMemo
+  const {
+    analyticsOrdersByCity,
+    analyticsRevenueByVariety,
+    analyticsMonthlyRevenue,
+    analyticsLoading
+  } = useMemo(() => {
     if (!orders || orders.length === 0) {
-      setAnalyticsLoading(false);
-      return;
+      return {
+        analyticsOrdersByCity: [],
+        analyticsRevenueByVariety: [],
+        analyticsMonthlyRevenue: [],
+        analyticsLoading: false
+      };
     }
-    setAnalyticsLoading(true);
+
     const cityMap = {};
     const varietyMap = {};
     const monthMap = {};
     
     orders.filter(o => o.status !== 'Cancelled').forEach(o => {
       const addrLower = (typeof o.deliveryAddress === 'string' ? o.deliveryAddress : '').toLowerCase();
-      let city = 'Other';
+      let city;
       if (addrLower.includes('dhaka')) city = 'Dhaka';
       else if (addrLower.includes('rajshahi')) city = 'Rajshahi';
       else if (addrLower.includes('chattogram') || addrLower.includes('chittagong')) city = 'Chattogram';
@@ -374,7 +350,7 @@ Thank you for choosing Vertex Picks.`;
       else if (addrLower.includes('gazipur')) city = 'Gazipur';
       else if (addrLower.includes('narayanganj')) city = 'Narayanganj';
       else if (addrLower.includes('savar')) city = 'Savar';
-      else city = 'Dhaka'; // Default fallback if no city matched but address exists
+      else city = 'Other';
       
       cityMap[city] = (cityMap[city] || 0) + 1;
       
@@ -392,21 +368,25 @@ Thank you for choosing Vertex Picks.`;
     });
 
     const totalValidOrders = Object.values(cityMap).reduce((a, b) => a + b, 0) || 1;
-    setAnalyticsOrdersByCity(Object.entries(cityMap)
+    const ordersByCity = Object.entries(cityMap)
       .sort((a, b) => b[1] - a[1])
       .slice(0, 5)
-      .map(([city, count]) => ({ city, val: count, fill: `${((count / totalValidOrders) * 100).toFixed(0)}%` }))
-    );
+      .map(([city, count]) => ({ city, val: count, fill: `${((count / totalValidOrders) * 100).toFixed(0)}%` }));
 
     const sortedVars = Object.entries(varietyMap).sort((a, b) => b[1] - a[1]).slice(0, 5);
     const maxVar = sortedVars.length > 0 ? sortedVars[0][1] : 1;
-    setAnalyticsRevenueByVariety(sortedVars.map(([name, revenue]) => ({ name, revenue, fill: `${((revenue / maxVar) * 100).toFixed(0)}%` })));
+    const revenueByVariety = sortedVars.map(([name, revenue]) => ({ name, revenue, fill: `${((revenue / maxVar) * 100).toFixed(0)}%` }));
 
     const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
     const sortedMonths = Object.entries(monthMap).sort((a, b) => monthNames.indexOf(a[0]) - monthNames.indexOf(b[0]));
-    setAnalyticsMonthlyRevenue(sortedMonths.map(([name, revenue]) => ({ name, revenue })));
+    const monthlyRevenue = sortedMonths.map(([name, revenue]) => ({ name, revenue }));
 
-    setAnalyticsLoading(false);
+    return {
+      analyticsOrdersByCity: ordersByCity,
+      analyticsRevenueByVariety: revenueByVariety,
+      analyticsMonthlyRevenue: monthlyRevenue,
+      analyticsLoading: false
+    };
   }, [orders]);
 
   // --- CRUD ACTION MODALS STATES ---
@@ -466,11 +446,7 @@ Thank you for choosing Vertex Picks.`;
   const [showOrderDetailModal, setShowOrderDetailModal] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState(null);
 
-  // 4. Update Order Status Modal
-  const [showOrderStatusModal, setShowOrderStatusModal] = useState(false);
-  const [orderToUpdate, setOrderToUpdate] = useState(null);
-  const [newStatus, setNewStatus] = useState('Pending');
-  const [newTrackingId, setNewTrackingId] = useState('');
+
 
   // Fetch Master Dataset
   const fetchData = async () => {
@@ -595,7 +571,10 @@ Thank you for choosing Vertex Picks.`;
   };
 
   // Initial data load on mount
-  useEffect(() => { fetchData(); }, []);
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    fetchData();
+  }, []);
 
   // Real-time orders listener — fires on new order creation after page load
   useEffect(() => {
@@ -667,6 +646,7 @@ Thank you for choosing Vertex Picks.`;
         const prod = mangoes.find(m => m.id === teleportId);
         if (prod) {
           handleEditProductClick(prod);
+          // eslint-disable-next-line react-hooks/set-state-in-effect
           setActiveAdminTab('products');
           toast.success(`Teleported: Modifying ${prod.name}`);
         }
@@ -886,30 +866,7 @@ Thank you for choosing Vertex Picks.`;
     }
   };
 
-  // Order Status Update
-  const handleUpdateOrderStatus = async (e) => {
-    e.preventDefault();
-    try {
-      await updateDoc(doc(db, 'orders', orderToUpdate.id), {
-        status: newStatus,
-        trackingId: newTrackingId
-      });
-      toast.success(`Order status set to: ${newStatus}`);
-      setShowOrderStatusModal(false);
-      setOrderToUpdate(null);
-      fetchData();
-    } catch (err) {
-      console.error(err);
-      toast.error('Failed to update status.');
-    }
-  };
 
-  const openStatusUpdate = (order) => {
-    setOrderToUpdate(order);
-    setNewStatus(order.status || 'Pending');
-    setNewTrackingId(order.trackingId || '');
-    setShowOrderStatusModal(true);
-  };
 
   // Delivery Config Save
   const handleSaveStoreConfig = async (e) => {
@@ -940,22 +897,7 @@ Thank you for choosing Vertex Picks.`;
     }
   };
 
-  // Save footer details standalone
-  const handleSaveFooterDetails = async (e) => {
-    if (e) e.preventDefault();
-    try {
-      await setDoc(doc(db, 'mangoes', 'STORE_SETTINGS'), {
-        footerDesc,
-        contactPhone,
-        contactAddress,
-        contactEmail
-      }, { merge: true });
-      toast.success('🏡 Homepage footer details updated successfully!');
-    } catch (err) {
-      console.error(err);
-      toast.error('Failed to save footer details.');
-    }
-  };
+
 
   // Save custom UI text configurations
   const handleSaveUIConfig = async (e) => {
@@ -1071,7 +1013,7 @@ Thank you for choosing Vertex Picks.`;
     setTrashedReviews(prev => ({ ...prev, [reviewId]: { productId, review: reviewObj } }));
 
     // Show undo toast
-    const toastId = toast(
+    toast(
       (t) => (
         <span style={{ display: 'flex', alignItems: 'center', gap: '.75rem', fontWeight: 600, fontSize: '.83rem' }}>
           🗑️ Review trashed
@@ -1256,20 +1198,6 @@ Thank you for choosing Vertex Picks.`;
     });
   }
 
-  // Variety sales count leaderboard
-  const varietySales = {};
-  activeOrders.forEach(o => {
-    (o.items || []).forEach(item => {
-      const variety = item.variety || item.section || 'Himsagar';
-      varietySales[variety] = (varietySales[variety] || 0) + (item.quantity || 1);
-    });
-  });
-  const topVarieties = Object.entries(varietySales)
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 5)
-    .map(([name, sales]) => ({ name, sales }));
-  const maxSalesVal = topVarieties.length > 0 ? topVarieties[0].sales : 1;
-
   // --- CRUD SEARCH FILTERS CALCULATIONS ---
   // Products Filter
   const filteredProducts = mangoes.filter(p => {
@@ -1287,19 +1215,7 @@ Thank you for choosing Vertex Picks.`;
     return true;
   });
 
-  // Orders Filter
-  const filteredOrders = orders.filter(o => {
-    if (orderSearch.trim() !== '') {
-      const q = orderSearch.toLowerCase();
-      const idMatch = o.id.toLowerCase().includes(q);
-      const nameMatch = o.deliveryName?.toLowerCase().includes(q) || o.customerEmail?.toLowerCase().includes(q);
-      if (!idMatch && !nameMatch) return false;
-    }
-    if (orderStatusFilter !== 'All Status') {
-      if (o.status !== orderStatusFilter) return false;
-    }
-    return true;
-  });
+
 
   // Customers Filter
   const filteredCustomers = users.filter(u => {
@@ -1327,6 +1243,9 @@ Thank you for choosing Vertex Picks.`;
     }
   });
   const pendingReviewsCount = allProductReviews.filter(r => r.status === 'pending').length;
+
+  const aFirstWord = storeName.split(' ')[0] || '';
+  const aRestWord = storeName.split(' ').slice(1).join(' ') || '';
 
   return (
     <div style={{ paddingTop: 'var(--nav-height)' }}>
@@ -1942,73 +1861,7 @@ Thank you for choosing Vertex Picks.`;
         </div>
       )}
 
-      {/* 4. UPDATE ORDER STATUS MODAL */}
-      {showOrderStatusModal && orderToUpdate && (
-        <div className="fixed inset-0 bg-slate-900/75 z-[300] flex items-center justify-center p-4 backdrop-blur-md animate-in fade-in duration-300">
-          <div className="glass-modal max-w-sm w-full overflow-hidden flex flex-col animate-in scale-in duration-300">
-            {/* Modal Header */}
-            <div className="bg-gradient-to-r from-emerald-700 via-emerald-600 to-green-500 p-6 text-white flex justify-between items-center shrink-0 shadow-md">
-              <div>
-                <h3 className="font-['Fraunces'] font-black text-lg uppercase tracking-wide text-white">⚙️ Update Booking State</h3>
-                <p className="text-[10px] uppercase font-bold tracking-wider text-green-200 mt-1">Logistic Pipeline Transit Control</p>
-              </div>
-              <button 
-                onClick={() => { setShowOrderStatusModal(false); setOrderToUpdate(null); }} 
-                className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center text-white hover:bg-white/20 transition-all font-black text-sm"
-              >
-                ✕
-              </button>
-            </div>
 
-            {/* Modal Content */}
-            <form onSubmit={handleUpdateOrderStatus} className="flex flex-col">
-              <div className="p-6 space-y-4 overflow-y-auto max-h-[60vh] scrollbar-thin">
-                <div>
-                  <label className="block text-[10px] font-black uppercase tracking-widest text-[var(--gray4)] mb-1.5 font-['Sora']">Status Pipeline Step</label>
-                  <select 
-                    value={newStatus} 
-                    onChange={e => setNewStatus(e.target.value)} 
-                    className="form-input font-bold text-xs cursor-pointer"
-                  >
-                    <option>Pending</option>
-                    <option>Confirmed</option>
-                    <option>Shipped</option>
-                    <option>Delivered</option>
-                    <option>Cancelled</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-[10px] font-black uppercase tracking-widest text-[var(--gray4)] mb-1.5 font-['Sora']">Pathao Tracking ID (Optional)</label>
-                  <input 
-                    type="text" 
-                    value={newTrackingId} 
-                    onChange={e => setNewTrackingId(e.target.value)} 
-                    placeholder="e.g. 15Y38A9" 
-                    className="form-input font-bold text-xs" 
-                  />
-                </div>
-              </div>
-
-              {/* Modal Actions Footer */}
-              <div className="p-6 bg-[var(--gray1)] border-t border-[var(--gray2)] flex justify-end gap-3">
-                <button 
-                  type="button" 
-                  onClick={() => { setShowOrderStatusModal(false); setOrderToUpdate(null); }} 
-                  className="btn-secondary uppercase text-xs font-bold py-3 px-6 rounded-full shadow-sm transition-all duration-200 active:scale-95"
-                >
-                  Cancel
-                </button>
-                <button 
-                  type="submit" 
-                  className="btn-primary shiny-btn uppercase text-xs font-bold py-3 px-6 rounded-full shadow-lg shadow-orange-500/20 transition-all duration-200 hover:-translate-y-0.5 active:translate-y-0"
-                >
-                  Apply Status
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
 
       {/* EDIT ADDRESS MODAL */}
       {editAddressModal.isOpen && (
@@ -2096,7 +1949,7 @@ Thank you for choosing Vertex Picks.`;
       {/* ADMIN SIDEBAR */}
       <aside className="admin-sidebar" style={isSidebarOpen ? { display: 'flex', flexDirection: 'column', position: 'fixed', top: 0, left: 0, height: '100vh', zIndex: 300 } : {}}>
         <div className="admin-logo-area">
-          <div className="admin-logo-text">Vertex<span>Picks</span></div>
+          <div className="admin-logo-text">{aFirstWord}<span>{aRestWord}</span></div>
           <div className="admin-role-badge">⚙️ Admin Console</div>
         </div>
 

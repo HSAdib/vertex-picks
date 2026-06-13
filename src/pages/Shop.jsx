@@ -5,7 +5,6 @@ import { useAuth } from '../context/AuthContext';
 import { useCart } from '../context/CartContext';
 import { useWishlist } from '../hooks/useWishlist';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { toast } from 'react-hot-toast';
 import { Heart } from 'lucide-react';
 
 export default function Shop() {
@@ -16,7 +15,6 @@ export default function Shop() {
   const urlCategory = queryParams.get('category');
 
   const [searchQuery, setSearchQuery] = useState(urlSearch || '');
-  const [prevUrlSearch, setPrevUrlSearch] = useState(urlSearch);
   const [categories, setCategories] = useState([]);
   const [filters, setFilters] = useState({ rating: [], season: [], weight: [], priceRange: [], variety: [] });
   const [loading, setLoading] = useState(true);
@@ -34,17 +32,15 @@ export default function Shop() {
   const [viewMode, setViewMode] = useState('grid');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
-  const { wishlist, toggleWishlist, isInWishlist } = useWishlist();
+  const { toggleWishlist, isInWishlist } = useWishlist();
 
   // B11 fix: sync URL search param changes via useEffect, not during render
   useEffect(() => {
-    if (urlSearch !== prevUrlSearch) {
-      setPrevUrlSearch(urlSearch);
-      setSearchQuery(urlSearch || '');
-    }
-  }, [urlSearch, prevUrlSearch]);
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setSearchQuery(urlSearch || '');
+  }, [urlSearch]);
 
-  const { addToCart, cart } = useCart();
+  const { addToCart } = useCart();
   const { isAdmin } = useAuth();
   const navigate = useNavigate();
 
@@ -474,7 +470,6 @@ export default function Shop() {
           ) : (
             <div className={`shop-grid${viewMode === 'list' ? ' list-view' : ''}`} id="shopGrid">
               {filteredMangoes.map(mango => {
-                const isAdded = cart?.some(item => item.id === mango.id);
                 const mainImage = mango.images?.[0] || mango.image;
                 const displayPrice = mango.discountPrice || mango.price;
                 const oldPrice = mango.discountPrice ? mango.price : null;

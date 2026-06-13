@@ -34,6 +34,14 @@ export default function Checkout() {
   const [phoneError, setPhoneError] = useState(false);
   const [locating, setLocating] = useState(false);
   const [storeConfig, setStoreConfig] = useState({ baseDeliveryFee: 110, perKgFee: 21, freeDeliveryMin: 1500, enableFreeDelivery: true });
+  const [deliveryZones, setDeliveryZones] = useState([
+    { zone: 'Dhaka Metro', areas: 'Mirpur, Gulshan, Banani, Uttara, Dhanmondi', fee: 60, time: 'Same Day' },
+    { zone: 'Dhaka Suburbs', areas: 'Savar, Gazipur, Narayanganj', fee: 100, time: 'Next Day' },
+    { zone: 'Chattogram', areas: 'Chittagong City, Halishahar, Agrabad', fee: 120, time: '1–2 Days' },
+    { zone: 'Sylhet', areas: 'Sylhet City, Sunamganj', fee: 150, time: '1–2 Days' },
+    { zone: 'Rajshahi Local', areas: 'Rajshahi City — Free Pickup', fee: 0, time: 'Same Day' }
+  ]);
+  const [selectedZone, setSelectedZone] = useState(null);
 
   const [deliveryHouseNumber, setDeliveryHouseNumber] = useState('');
   const [deliveryPostcode, setDeliveryPostcode] = useState('Postal Code: ');
@@ -96,7 +104,7 @@ export default function Checkout() {
         }
       };
     }
-  }, [showMapModal]);
+  }, [showMapModal, deliveryCoords]);
 
   const handleConfirmMapPin = async () => {
     setDeliveryCoords({ lat: pinnedCoords.lat, lng: pinnedCoords.lng });
@@ -127,7 +135,7 @@ export default function Checkout() {
       setDeliveryAddress(formattedAddress.trim());
       setShowMapModal(false);
       toast.success('📍 Location pinned! Please add your house/flat number above.');
-    } catch (error) {
+    } catch {
       toast.error('Failed to resolve address. Please try again or type manually.');
       setShowMapModal(false);
     }
@@ -137,19 +145,28 @@ export default function Checkout() {
     const fetchCheckoutData = async (currentUser) => {
       try {
         const productSnap = await getDocs(collection(db, 'mangoes'));
-        setLiveProducts(productSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+        setLiveProducts(productSnap.docs
+          .filter(d => !['STORE_SECTIONS', 'STORE_SETTINGS', 'NAVBAR_TABS', 'CATEGORIES', 'FILTERS', 'VARIETIES'].includes(d.id))
+          .map(doc => ({ id: doc.id, ...doc.data() })));
         
         const promoSnap = await getDocs(collection(db, 'promos'));
         setLivePromos(promoSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
 
         const configSnap = await getDoc(doc(db, 'mangoes', 'STORE_SETTINGS'));
         if (configSnap.exists()) {
+          const cData = configSnap.data();
           setStoreConfig({
-            baseDeliveryFee: configSnap.data().baseDeliveryFee ?? 110,
-            perKgFee: configSnap.data().perKgFee ?? 21,
-            freeDeliveryMin: configSnap.data().freeDeliveryMin ?? 1500,
-            enableFreeDelivery: configSnap.data().enableFreeDelivery ?? true,
+            baseDeliveryFee: cData.baseDeliveryFee ?? 110,
+            perKgFee: cData.perKgFee ?? 21,
+            freeDeliveryMin: cData.freeDeliveryMin ?? 1500,
+            enableFreeDelivery: cData.enableFreeDelivery ?? true,
           });
+          if (cData.deliveryZones && Array.isArray(cData.deliveryZones) && cData.deliveryZones.length > 0) {
+            setDeliveryZones(cData.deliveryZones);
+            setSelectedZone(cData.deliveryZones[0]);
+          } else {
+            setSelectedZone({ zone: 'Dhaka Metro', areas: 'Mirpur, Gulshan, Banani, Uttara, Dhanmondi', fee: 60, time: 'Same Day' });
+          }
         }
         
         // B8 fix: use the resolved currentUser from onAuthStateChanged
@@ -243,7 +260,8 @@ export default function Checkout() {
 
   const totalWeight = activeItems.reduce((sum, item) => sum + (item.weight * item.quantity), 0);
   // B6 fix: apply free delivery threshold
-  const rawDeliveryFee = totalWeight > 0 ? storeConfig.baseDeliveryFee + ((totalWeight - 1) * storeConfig.perKgFee) : 0;
+  const zoneBaseFee = selectedZone ? Number(selectedZone.fee) : storeConfig.baseDeliveryFee;
+  const rawDeliveryFee = totalWeight > 0 ? zoneBaseFee + ((totalWeight - 1) * storeConfig.perKgFee) : 0;
   const deliveryFee = (storeConfig.enableFreeDelivery && subtotal >= storeConfig.freeDeliveryMin) ? 0 : rawDeliveryFee;
 
   // B5 fix: support both flat and percentage discounts
@@ -323,6 +341,7 @@ export default function Checkout() {
         deliveryPhone: deliveryPhone,
         deliveryCoords: deliveryCoords,
         deliveryPostcode: deliveryPostcode,
+        deliveryZone: selectedZone ? selectedZone.zone : 'None',
         items: activeItems,
         subtotal: subtotal,
         totalWeight: totalWeight,
@@ -336,6 +355,11 @@ export default function Checkout() {
       };
       
       const docRef = await addDoc(collection(db, 'orders'), orderData);
+
+      if (appliedPromo) {
+        const promoRef = doc(db, 'promos', appliedPromo.id);
+        await setDoc(promoRef, { usedCount: (appliedPromo.usedCount || 0) + 1 }, { merge: true });
+      }
       
       // Local backup caching for guest purchases
       if (!auth.currentUser?.email) {
@@ -535,7 +559,15 @@ export default function Checkout() {
             
             {/* DELIVERY DETAILS FORM */}
             <div 
-              style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}
+              style={{ 
+                display: 'flex', 
+                flexDirection: 'column', 
+                gap: '1rem',
+                border: highlightDelivery ? '2px solid #DC2626' : '2px solid transparent',
+                borderRadius: '12px',
+                padding: highlightDelivery ? '0.5rem' : '0',
+                transition: 'border-color 0.3s ease, padding 0.3s ease'
+              }}
             >
               <div>
                 <label style={{ fontFamily: "'Sora', sans-serif", fontSize: '0.72rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#888888', marginBottom: '0.4rem', display: 'block' }}>Recipient Name</label>
@@ -549,6 +581,24 @@ export default function Checkout() {
                   onFocus={e => e.target.style.borderColor = '#E8540A'}
                   onBlur={e => e.target.style.borderColor = '#EEEEEE'}
                 />
+              </div>
+
+              <div>
+                <label style={{ fontFamily: "'Sora', sans-serif", fontSize: '0.72rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#888888', marginBottom: '0.4rem', display: 'block' }}>Delivery Zone</label>
+                <select
+                  value={selectedZone ? selectedZone.zone : ''}
+                  onChange={e => {
+                    const zoneObj = deliveryZones.find(z => z.zone === e.target.value);
+                    setSelectedZone(zoneObj || null);
+                  }}
+                  style={{ background: '#FFFFFF', border: '1.5px solid #EEEEEE', borderRadius: '8px', padding: '0.65rem 1rem', fontFamily: "'Sora', sans-serif", fontSize: '0.875rem', color: '#1A1A1A', width: '100%', outline: 'none', cursor: 'pointer' }}
+                >
+                  {deliveryZones.map(z => (
+                    <option key={z.zone} value={z.zone}>
+                      {z.zone} (৳{z.fee} - {z.time})
+                    </option>
+                  ))}
+                </select>
               </div>
               
               {savedAddresses.length > 0 && (
@@ -602,7 +652,7 @@ export default function Checkout() {
                       onChange={e => setDeliveryPhone(e.target.value)} 
                       required 
                       placeholder="E.g. 01712345678" 
-                      style={{ background: '#FFFFFF', border: '1.5px solid #EEEEEE', borderRadius: '8px', padding: '0.65rem 1rem', fontFamily: "'Sora', sans-serif", fontSize: '0.875rem', color: '#1A1A1A', width: '100%', outline: 'none' }}
+                      style={{ background: '#FFFFFF', border: phoneError ? '1.5px solid #DC2626' : '1.5px solid #EEEEEE', borderRadius: '8px', padding: '0.65rem 1rem', fontFamily: "'Sora', sans-serif", fontSize: '0.875rem', color: '#1A1A1A', width: '100%', outline: 'none' }}
                       onFocus={e => e.target.style.borderColor = '#E8540A'}
                       onBlur={e => e.target.style.borderColor = '#EEEEEE'}
                     />
@@ -684,6 +734,18 @@ export default function Checkout() {
                   Apply
                 </button>
               </div>
+              {promoMessage.text && (
+                <p style={{ 
+                  fontFamily: "'Sora', sans-serif", 
+                  fontSize: '0.75rem', 
+                  fontWeight: 600, 
+                  color: promoMessage.type === 'success' ? '#10B981' : '#EF4444', 
+                  marginTop: '0.4rem', 
+                  margin: 0 
+                }}>
+                  {promoMessage.text}
+                </p>
+              )}
             </div>
 
             {/* Calculations Fields */}

@@ -21,7 +21,7 @@ export async function fetchCurrentLocation(setAddress, setLocating, setCoordinat
         toast.error('Location permission is blocked. Please enable it in your browser settings or type your address manually.');
         return;
       }
-    } catch (e) {
+    } catch {
       // Ignore if browser doesn't support query correctly
     }
   }
@@ -104,7 +104,7 @@ export async function fetchCurrentLocation(setAddress, setLocating, setCoordinat
         toast.success('📍 Approximate location used — please verify your address.', { id: loadingToast });
         return;
       }
-    } catch (ipErr) {
+    } catch {
       // Fall through to the original manual entry error
     }
 

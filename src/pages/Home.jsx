@@ -24,8 +24,11 @@ export default function Home() {
     footerDesc: "Hand-picked, tree-bagged, and delivered flawlessly. Premium Rajshahi mangoes, direct from farm to your door.",
     contactPhone: "+880 1581-221084",
     contactEmail: "hello@vertexpicks.com",
-    contactAddress: "Rajshahi, Bangladesh"
+    contactAddress: "Rajshahi, Bangladesh",
+    storeName: "Vertex Picks"
   });
+
+  const [homeCategories, setHomeCategories] = useState([]);
 
   const [uiSettings, setUiSettings] = useState({
     // Marquee
@@ -76,7 +79,8 @@ export default function Home() {
             footerDesc: data.footerDesc || prev.footerDesc,
             contactPhone: data.contactPhone || prev.contactPhone,
             contactEmail: data.contactEmail || prev.contactEmail,
-            contactAddress: data.contactAddress || prev.contactAddress
+            contactAddress: data.contactAddress || prev.contactAddress,
+            storeName: data.storeName || prev.storeName
           }));
           
           setUiSettings(prev => ({
@@ -106,6 +110,11 @@ export default function Home() {
             promiseFeature4Text: data.promiseFeature4Text !== undefined ? data.promiseFeature4Text : prev.promiseFeature4Text,
             promiseFeature4Icon: data.promiseFeature4Icon !== undefined ? data.promiseFeature4Icon : prev.promiseFeature4Icon
           }));
+        }
+
+        const catSnap = await getDoc(doc(db, 'mangoes', 'CATEGORIES'));
+        if (catSnap.exists() && catSnap.data().list) {
+          setHomeCategories(catSnap.data().list);
         }
       } catch (err) {
         console.error("Failed to load settings:", err);
@@ -184,7 +193,7 @@ export default function Home() {
       try {
         const snap = await getDocs(collection(db, 'mangoes'));
         const list = snap.docs
-          .filter(d => !['STORE_SECTIONS', 'STORE_SETTINGS', 'NAVBAR_TABS', 'CATEGORIES'].includes(d.id))
+          .filter(d => !['STORE_SECTIONS', 'STORE_SETTINGS', 'NAVBAR_TABS', 'CATEGORIES', 'FILTERS', 'VARIETIES'].includes(d.id))
           .map(d => ({ id: d.id, ...d.data() }))
           .filter(p => p.featured === true)
           .sort((a, b) => (a.order || 0) - (b.order || 0))
@@ -198,6 +207,9 @@ export default function Home() {
     };
     loadFeatured();
   }, []);
+
+  const fFirstWord = footerSettings.storeName.split(' ')[0] || '';
+  const fRestWord = footerSettings.storeName.split(' ').slice(1).join(' ') || '';
 
   return (
     <div style={{ paddingTop: 'var(--nav-height, 88px)' }}>
@@ -256,12 +268,28 @@ export default function Home() {
       <div className="cat-section">
         <div className="cat-scroll">
           <div className="cat-pill active" onClick={() => navigate('/shop')}>🥭 All Varieties</div>
-          <div className="cat-pill" onClick={() => navigate('/shop?category=Himsagar')}>✨ Himsagar</div>
-          <div className="cat-pill" onClick={() => navigate('/shop?category=Langra')}>💚 Langra</div>
-          <div className="cat-pill" onClick={() => navigate('/shop?category=Fazli')}>🟠 Fazli</div>
-          <div className="cat-pill" onClick={() => navigate('/shop?category=Gopalbhog')}>⭐ Gopalbhog</div>
-          <div className="cat-pill" onClick={() => navigate('/shop?category=Amrapali')}>🌸 Amrapali</div>
-          <div className="cat-pill" onClick={() => navigate('/shop?category=Gift')}>🎁 Gift Boxes</div>
+          {homeCategories.map(cat => {
+            const getCategoryEmoji = (name) => {
+              const n = name.toLowerCase();
+              if (n.includes('himsagar')) return '✨';
+              if (n.includes('langra')) return '💚';
+              if (n.includes('fazli')) return '🟠';
+              if (n.includes('gopalbhog')) return '⭐';
+              if (n.includes('amrapali')) return '🌸';
+              if (n.includes('gift')) return '🎁';
+              return '🥭';
+            };
+            return (
+              <div 
+                key={cat} 
+                className="cat-pill" 
+                onClick={() => navigate(`/shop?category=${encodeURIComponent(cat)}`)}
+                style={{ cursor: 'pointer' }}
+              >
+                {getCategoryEmoji(cat)} {cat}
+              </div>
+            );
+          })}
         </div>
       </div>
 
@@ -482,7 +510,7 @@ export default function Home() {
       <footer>
         <div className="footer-grid">
           <div>
-            <div className="footer-logo">Vertex<span>Picks</span></div>
+            <div className="footer-logo">{fFirstWord}<span>{fRestWord}</span></div>
             <div className="footer-desc">{footerSettings.footerDesc}</div>
             <div className="footer-socials">
               <div className="fsoc"><Globe size={18} /></div>
@@ -518,7 +546,7 @@ export default function Home() {
           </div>
         </div>
         <div className="footer-bottom">
-          <span>© 2026 Vertex Picks. All rights reserved.</span>
+          <span>© 2026 {footerSettings.storeName}. All rights reserved.</span>
           <span>Made with 🥭 in Rajshahi</span>
         </div>
       </footer>

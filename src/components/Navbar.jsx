@@ -13,6 +13,8 @@ export default function Navbar() {
   const [searchVal, setSearchVal] = useState('');
   const [isScrolled, setIsScrolled] = useState(false);
   const [topBarText, setTopBarText] = useState('🚚 Free delivery on orders above ৳1,500 | Season 2025 Open!');
+  const [storeName, setStoreName] = useState('Vertex Picks');
+  const [contactPhone, setContactPhone] = useState('+880 1581-221084');
   
   const { cart } = useCart();
   const { user, isAdmin } = useAuth();
@@ -46,8 +48,18 @@ export default function Navbar() {
         }
 
         const settingsSnap = await getDoc(doc(db, 'mangoes', 'STORE_SETTINGS'));
-        if (settingsSnap.exists() && settingsSnap.data().topBarText !== undefined) {
-          setTopBarText(settingsSnap.data().topBarText);
+        if (settingsSnap.exists()) {
+          const sData = settingsSnap.data();
+          if (sData.topBarText !== undefined) {
+            setTopBarText(sData.topBarText);
+          }
+          if (sData.storeName) {
+            setStoreName(sData.storeName);
+            document.title = `${sData.storeName} | Premium Rajshahi Mangoes`;
+          }
+          if (sData.contactPhone) {
+            setContactPhone(sData.contactPhone);
+          }
         }
       } catch (err) {
         console.error("Error loading navbar data", err);
@@ -64,6 +76,14 @@ export default function Navbar() {
     }
   };
 
+  const firstWord = storeName.split(' ')[0] || '';
+  const restWord = storeName.split(' ').slice(1).join(' ') || '';
+  const shortLogo = storeName.split(' ').map(w => w.charAt(0)).join('').toUpperCase() || '';
+
+  const cleanPhone = contactPhone.replace(/\D/g, '');
+  const waPhone = cleanPhone.startsWith('0') ? '88' + cleanPhone : cleanPhone;
+  const whatsappUrl = `https://wa.me/${waPhone}?text=${encodeURIComponent(`Hello! I need help with my ${storeName} order.`)}`;
+
   return (
     <div className="absolute top-0 left-0 w-full z-50 print:hidden">
       {/* TOPBAR */}
@@ -71,7 +91,7 @@ export default function Navbar() {
         <span>{topBarText}</span>
         <div className="topbar-links">
           <Link to="/profile">Track Order</Link>
-          <a href="https://wa.me/8801581221084?text=Hello!%20I%20need%20help%20with%20my%20Vertex%20Picks%20order." target="_blank" rel="noreferrer">Help</a>
+          <a href={whatsappUrl} target="_blank" rel="noreferrer">Help</a>
           <button 
             className="bg-transparent text-inherit p-0 font-medium hover:text-white border-none cursor-pointer outline-none" 
             onClick={() => alert("বাংলা সংস্করণ শীঘ্রই আসছে!")}
@@ -93,8 +113,8 @@ export default function Navbar() {
           }}
           className="nav-logo"
         >
-          <span className="nav-logo-full">Vertex<span className="nav-logo-accent">Picks</span></span>
-          <span className="nav-logo-short">V<span>P</span></span>
+          <span className="nav-logo-full">{firstWord}<span className="nav-logo-accent">{restWord}</span></span>
+          <span className="nav-logo-short">{shortLogo.charAt(0)}<span>{shortLogo.slice(1)}</span></span>
         </Link>
         
         {/* Search input */}
@@ -182,19 +202,78 @@ export default function Navbar() {
               {/* Invisible Padding Top Bridge within Dropdown Container */}
               {isDropdownOpen && (
                 <div 
-                  className="nav-user-dropdown text-left pt-2 z-50 animate-in fade-in duration-200"
+                  className="nav-user-dropdown text-left pt-2 z-[9999] animate-in fade-in duration-200"
                   style={{ display: 'block', position: 'absolute', top: '100%', right: 0, border: 'none', background: 'transparent', boxShadow: 'none', overflow: 'visible' }}
                 >
-                  <div className="bg-white border border-gray2 rounded-brand shadow-lg min-w-[180px] overflow-hidden">
-                    <Link to="/profile?tab=account" className="nud-item" onClick={() => setIsDropdownOpen(false)}>👤 My Account</Link>
-                    <Link to="/profile?tab=orders" className="nud-item" onClick={() => setIsDropdownOpen(false)}>📦 My Orders</Link>
-                    <Link to="/profile?tab=wishlist" className="nud-item" onClick={() => setIsDropdownOpen(false)}>❤️ Wishlist</Link>
-                    <div className="nud-divider"></div>
+                  <style>{`
+                    .nav-custom-dropdown-item {
+                      display: flex;
+                      align-items: center;
+                      gap: 0.75rem;
+                      padding: 0.7rem 1rem;
+                      border-radius: 8px;
+                      font-family: 'Sora', sans-serif;
+                      font-size: 0.85rem;
+                      font-weight: 600;
+                      color: #1A1A1A;
+                      cursor: pointer;
+                      transition: background 0.15s ease, color 0.15s ease;
+                      text-decoration: none;
+                      background: transparent;
+                      border: none;
+                      width: 100%;
+                      text-align: left;
+                      box-sizing: border-box;
+                    }
+                    .nav-custom-dropdown-item:hover {
+                      background: #F7F7F7;
+                      color: #E8540A;
+                    }
+                    .nav-custom-dropdown-logout {
+                      color: #E8540A;
+                      font-weight: 700;
+                    }
+                    .nav-custom-dropdown-logout:hover {
+                      background: #FFF0E8;
+                      color: #E8540A;
+                    }
+                    .nav-custom-dropdown-icon {
+                      font-size: 1rem;
+                      display: inline-flex;
+                      align-items: center;
+                      justify-content: center;
+                    }
+                    .nav-custom-dropdown-divider {
+                      border-top: 1px solid #EEEEEE;
+                      margin: 0.25rem 0.5rem;
+                    }
+                  `}</style>
+                  <div 
+                    style={{
+                      background: '#FFFFFF',
+                      borderRadius: '14px',
+                      border: '1.5px solid #EEEEEE',
+                      boxShadow: '0 20px 60px rgba(0,0,0,0.12)',
+                      padding: '0.5rem',
+                      minWidth: '200px',
+                      boxSizing: 'border-box'
+                    }}
+                  >
+                    <Link to="/profile?tab=account" className="nav-custom-dropdown-item" onClick={() => setIsDropdownOpen(false)}>
+                      <span className="nav-custom-dropdown-icon">👤</span> My Account
+                    </Link>
+                    <Link to="/profile?tab=orders" className="nav-custom-dropdown-item" onClick={() => setIsDropdownOpen(false)}>
+                      <span className="nav-custom-dropdown-icon">📦</span> My Orders
+                    </Link>
+                    <Link to="/profile?tab=wishlist" className="nav-custom-dropdown-item" onClick={() => setIsDropdownOpen(false)}>
+                      <span className="nav-custom-dropdown-icon">❤️</span> Wishlist
+                    </Link>
+                    <div className="nav-custom-dropdown-divider"></div>
                     <button 
                       onClick={() => { setIsDropdownOpen(false); signOut(auth); }} 
-                      className="nud-item danger w-full text-left font-semibold bg-transparent border-none outline-none cursor-pointer"
+                      className="nav-custom-dropdown-item nav-custom-dropdown-logout"
                     >
-                      🚪 Logout
+                      <span className="nav-custom-dropdown-icon">🚪</span> Logout
                     </button>
                   </div>
                 </div>

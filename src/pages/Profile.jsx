@@ -50,6 +50,21 @@ const cancellationReasons = [
   'অন্যান্য (Other)',
 ];
 
+const NavItem = ({ tabId, icon, label, badge, danger, activeTab, onClick }) => {
+  const active = activeTab === tabId;
+  return (
+    <button
+      onClick={onClick}
+      className={`dash-nav-item${active ? ' active' : ''}`}
+      style={danger && !active ? { color: 'var(--red)' } : {}}
+    >
+      <span className="dni-icon">{icon}</span>
+      {label}
+      {badge > 0 && <span className="dni-badge">{badge}</span>}
+    </button>
+  );
+};
+
 export default function Profile() {
   const { user, isAdmin, authLoading } = useAuth();
   const navigate = useNavigate();
@@ -92,6 +107,22 @@ export default function Profile() {
 
   const { wishlist, toggleWishlist } = useWishlist();
   const [wishlistProducts, setWishlistProducts] = useState([]);
+  const [contactPhone, setContactPhone] = useState('+880 1581-221084');
+
+  useEffect(() => {
+    const fetchSettings = async () => {
+      try {
+        const settingsSnap = await getDoc(doc(db, 'mangoes', 'STORE_SETTINGS'));
+        if (settingsSnap.exists()) {
+          const data = settingsSnap.data();
+          if (data.contactPhone) setContactPhone(data.contactPhone);
+        }
+      } catch (err) {
+        console.error("Failed to load store settings in Profile:", err);
+      }
+    };
+    fetchSettings();
+  }, []);
 
   useEffect(() => {
     const loadProfile = async () => {
@@ -146,7 +177,7 @@ export default function Profile() {
       if (ids.length === 0) { setWishlistProducts([]); return; }
       try {
         const snap = await getDocs(collection(db, 'mangoes'));
-        const all = snap.docs.filter(d => !['STORE_SECTIONS','STORE_SETTINGS','NAVBAR_TABS'].includes(d.id)).map(d => ({ id: d.id, ...d.data() }));
+        const all = snap.docs.filter(d => !['STORE_SECTIONS','STORE_SETTINGS','NAVBAR_TABS', 'CATEGORIES', 'FILTERS', 'VARIETIES'].includes(d.id)).map(d => ({ id: d.id, ...d.data() }));
         setWishlistProducts(all.filter(m => ids.includes(m.id)));
       } catch (err) { console.error('Wishlist load error:', err); }
     };
@@ -338,20 +369,7 @@ export default function Profile() {
   const deliveredOrders = myOrders.filter(o => o.status === 'Delivered');
   const ltvAmount = deliveredOrders.reduce((s, o) => s + Number(o.total || 0), 0);
 
-  const NavItem = ({ tabId, icon, label, badge, danger }) => {
-    const active = activeTab === tabId;
-    return (
-      <button
-        onClick={() => { setActiveTab(tabId); setIsSidebarOpen(false); }}
-        className={`dash-nav-item${active ? ' active' : ''}`}
-        style={danger && !active ? { color: 'var(--red)' } : {}}
-      >
-        <span className="dni-icon">{icon}</span>
-        {label}
-        {badge > 0 && <span className="dni-badge">{badge}</span>}
-      </button>
-    );
-  };
+
 
   return (
     <div style={{ paddingTop: 'var(--nav-height)', minHeight: '100vh', background: 'var(--gray1)' }}>
@@ -438,18 +456,18 @@ export default function Profile() {
           {/* Nav */}
           <nav className="dash-nav">
             <div style={{ fontSize: '.65rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.1em', color: 'var(--gray4)', padding: '.25rem .75rem .6rem', marginTop: '.4rem' }}>Main</div>
-            <NavItem tabId="overview" icon="🏠" label="Overview" />
-            <NavItem tabId="orders" icon="📦" label="My Orders" badge={myOrders.length} />
-            <NavItem tabId="wishlist" icon="❤️" label="Wishlist" badge={wishlist.length} />
-            <NavItem tabId="addresses" icon="📍" label="Addresses" />
-            <NavItem tabId="reviews" icon="⭐" label="My Reviews" />
-            <NavItem tabId="notifications" icon="🔔" label="Notifications" badge={2} />
+            <NavItem tabId="overview" icon="🏠" label="Overview" activeTab={activeTab} onClick={() => { setActiveTab('overview'); setIsSidebarOpen(false); }} />
+            <NavItem tabId="orders" icon="📦" label="My Orders" badge={myOrders.length} activeTab={activeTab} onClick={() => { setActiveTab('orders'); setIsSidebarOpen(false); }} />
+            <NavItem tabId="wishlist" icon="❤️" label="Wishlist" badge={wishlist.length} activeTab={activeTab} onClick={() => { setActiveTab('wishlist'); setIsSidebarOpen(false); }} />
+            <NavItem tabId="addresses" icon="📍" label="Addresses" activeTab={activeTab} onClick={() => { setActiveTab('addresses'); setIsSidebarOpen(false); }} />
+            <NavItem tabId="reviews" icon="⭐" label="My Reviews" activeTab={activeTab} onClick={() => { setActiveTab('reviews'); setIsSidebarOpen(false); }} />
+            <NavItem tabId="notifications" icon="🔔" label="Notifications" badge={2} activeTab={activeTab} onClick={() => { setActiveTab('notifications'); setIsSidebarOpen(false); }} />
 
             <div className="dash-nav-divider" />
 
             <div style={{ fontSize: '.65rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.1em', color: 'var(--gray4)', padding: '.25rem .75rem .6rem' }}>Account</div>
-            <NavItem tabId="profile" icon="👤" label="Edit Profile" />
-            <NavItem tabId="security" icon="🔒" label="Security" />
+            <NavItem tabId="profile" icon="👤" label="Edit Profile" activeTab={activeTab} onClick={() => { setActiveTab('profile'); setIsSidebarOpen(false); }} />
+            <NavItem tabId="security" icon="🔒" label="Security" activeTab={activeTab} onClick={() => { setActiveTab('security'); setIsSidebarOpen(false); }} />
 
             {isAdmin && (
               <>
@@ -587,7 +605,13 @@ export default function Profile() {
                                 {order.status !== 'Cancelled' && (
                                   order.trackingLink
                                     ? <a href={order.trackingLink.startsWith('http') ? order.trackingLink : `https://${order.trackingLink}`} target="_blank" rel="noreferrer" className="order-action-btn" style={{ display: 'block', textAlign: 'center' }}>Track</a>
-                                    : <a href={`https://wa.me/8801581221084?text=Hello!%20Order%20%23${order.id.slice(-6).toUpperCase()}`} target="_blank" rel="noreferrer" className="order-action-btn" style={{ display: 'block', textAlign: 'center', background: '#DCFCE7', color: 'var(--green)' }}>Courier</a>
+                                    : (() => {
+                                        const cleanPhone = contactPhone.replace(/\D/g, '');
+                                        const waPhone = cleanPhone.startsWith('0') ? '88' + cleanPhone : cleanPhone;
+                                        return (
+                                          <a href={`https://wa.me/${waPhone}?text=${encodeURIComponent(`Hello! Order #${order.id.slice(-6).toUpperCase()}`)}`} target="_blank" rel="noreferrer" className="order-action-btn" style={{ display: 'block', textAlign: 'center', background: '#DCFCE7', color: 'var(--green)' }}>Courier</a>
+                                        );
+                                      })()
                                 )}
                                 {(order.status === 'Delivered' || order.status === 'Cancelled') && (
                                   <button
