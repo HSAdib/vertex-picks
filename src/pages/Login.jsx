@@ -12,11 +12,13 @@ import {
 import { useNavigate } from 'react-router-dom';
 import { auth } from '../firebaseConfig';
 import { useAuth } from '../context/AuthContext';
+import { useStore } from '../context/StoreContext';
 import { isValidBDPhoneNumber } from '../utils/phoneValidation';
 import { toast } from 'react-hot-toast';
 
 export default function Login() {
   const { ADMIN_EMAIL } = useAuth();
+  const { storeName } = useStore();
 
   const [isLoginMode, setIsLoginMode] = useState(true);
   const [isForgotPasswordMode, setIsForgotPasswordMode] = useState(false);
@@ -312,7 +314,7 @@ export default function Login() {
         {/* CARD HEADER */}
         <div>
           <h1 style={{ fontFamily: "'Fraunces', serif", fontWeight: 900, fontSize: '1.6rem', color: 'var(--text-primary)', textAlign: 'center', margin: '0 0 0.5rem 0' }}>
-            VertexPicks
+            {storeName}
           </h1>
           <p style={{ fontFamily: "'Sora', sans-serif", fontSize: '0.82rem', color: 'var(--text-muted)', textAlign: 'center', margin: '0 0 1.5rem 0' }}>
             {isForgotPasswordMode ? 'Reset your account password' : 'Premium Rajshahi Mangoes, direct to your door'}

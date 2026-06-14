@@ -3,6 +3,7 @@ import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
+import { useStore } from '../context/StoreContext';
 import { doc, getDoc } from 'firebase/firestore';
 import { db, auth } from '../firebaseConfig';
 import { signOut } from 'firebase/auth';
@@ -14,9 +15,9 @@ export default function Navbar() {
   const [searchVal, setSearchVal] = useState('');
   const [isScrolled, setIsScrolled] = useState(false);
   const [topBarText, setTopBarText] = useState('🚚 Free delivery on orders above ৳1,500 | Season 2025 Open!');
-  const [storeName, setStoreName] = useState('Vertex Picks');
   const [contactPhone, setContactPhone] = useState('+880 1581-221084');
   
+  const { storeName } = useStore();
   const { cart } = useCart();
   const { user, isAdmin } = useAuth();
   const { isDark, setIsDark } = useTheme();
@@ -55,10 +56,6 @@ export default function Navbar() {
           if (sData.topBarText !== undefined) {
             setTopBarText(sData.topBarText);
           }
-          if (sData.storeName) {
-            setStoreName(sData.storeName);
-            document.title = `${sData.storeName} | Premium Rajshahi Mangoes`;
-          }
           if (sData.contactPhone) {
             setContactPhone(sData.contactPhone);
           }
@@ -71,6 +68,11 @@ export default function Navbar() {
   }, []);
 
   const totalItems = cart.reduce((total, item) => total + item.quantity, 0);
+
+  // Update document.title whenever storeName changes (real-time via StoreContext)
+  useEffect(() => {
+    document.title = `${storeName} | Premium Rajshahi Mangoes`;
+  }, [storeName]);
 
   const handleSearchKeyDown = (e) => {
     if (e.key === 'Enter') {

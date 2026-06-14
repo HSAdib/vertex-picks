@@ -5,6 +5,7 @@ import { motion } from 'framer-motion';
 import { AuthProvider } from './context/AuthContext';
 import { CartProvider } from './context/CartContext';
 import { ThemeProvider } from './context/ThemeContext';
+import { StoreProvider, useStore } from './context/StoreContext';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from './firebaseConfig';
 import AdminRoute from './components/AdminRoute';
@@ -19,6 +20,7 @@ import ProductDetail from './components/PDP/ProductDetail';
 import { Analytics } from "@vercel/analytics/react"
 
 const FloatingWhatsApp = () => {
+  const { storeName } = useStore();
   const [waUrl, setWaUrl] = useState("https://wa.me/8801581221084?text=Hello!%20I%20need%20help%20with%20my%20Vertex%20Picks%20order.");
 
   useEffect(() => {
@@ -27,8 +29,7 @@ const FloatingWhatsApp = () => {
         const settingsSnap = await getDoc(doc(db, 'mangoes', 'STORE_SETTINGS'));
         if (settingsSnap.exists()) {
           const data = settingsSnap.data();
-          const phone = data.contactPhone || '8801581221084';
-          const storeName = data.storeName || 'Vertex Picks';
+          const phone = data.floatingWhatsappPhone || data.contactPhone || '8801581221084';
           const cleanPhone = phone.replace(/\D/g, '');
           const waPhone = cleanPhone.startsWith('0') ? '88' + cleanPhone : cleanPhone;
           setWaUrl(`https://wa.me/${waPhone}?text=${encodeURIComponent(`Hello! I need help with my ${storeName} order.`)}`);
@@ -38,7 +39,7 @@ const FloatingWhatsApp = () => {
       }
     };
     fetchPhone();
-  }, []);
+  }, [storeName]);
 
   return (
     <motion.a
@@ -60,6 +61,7 @@ const FloatingWhatsApp = () => {
 
 function App() {
   return (
+    <StoreProvider>
     <ThemeProvider>
       <AuthProvider>
         <CartProvider>
@@ -94,6 +96,7 @@ function App() {
         </CartProvider>
       </AuthProvider>
     </ThemeProvider>
+    </StoreProvider>
   );
 }
 export default App;

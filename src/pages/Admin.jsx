@@ -236,6 +236,7 @@ export default function Admin() {
   const [contactAddress, setContactAddress] = useState('Rajshahi, Bangladesh');
   const [enableFreeDelivery, setEnableFreeDelivery] = useState(true);
   const [freeDeliveryMin, setFreeDeliveryMin] = useState(1500);
+  const [floatingWhatsappPhone, setFloatingWhatsappPhone] = useState('8801581221084');
 
   // Homepage Customizer states
   const [marqueeItems, setMarqueeItems] = useState([
@@ -532,6 +533,7 @@ export default function Admin() {
         setContactAddress(cData.contactAddress || 'Rajshahi, Bangladesh');
         setEnableFreeDelivery(cData.enableFreeDelivery ?? true);
         setFreeDeliveryMin(cData.freeDeliveryMin ?? 1500);
+        setFloatingWhatsappPhone(cData.floatingWhatsappPhone || '8801581221084');
         if (cData.deliveryZones && Array.isArray(cData.deliveryZones)) {
           setDeliveryZones(cData.deliveryZones);
         }
@@ -892,7 +894,8 @@ export default function Admin() {
         storeName,
         contactEmail,
         enableFreeDelivery,
-        freeDeliveryMin: Number(freeDeliveryMin)
+        freeDeliveryMin: Number(freeDeliveryMin),
+        floatingWhatsappPhone: floatingWhatsappPhone.trim()
       }, { merge: true });
       toast.success('General store configurations updated!');
     } catch (err) {
@@ -2275,6 +2278,16 @@ export default function Admin() {
                       className="form-input" 
                       value={contactEmail} 
                       onChange={e => setContactEmail(e.target.value)}
+                      required 
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Floating WhatsApp Number</label>
+                    <input 
+                      type="text" 
+                      className="form-input" 
+                      value={floatingWhatsappPhone} 
+                      onChange={e => setFloatingWhatsappPhone(e.target.value)}
                       required 
                     />
                   </div>
