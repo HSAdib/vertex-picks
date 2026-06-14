@@ -3,7 +3,7 @@
 ══════════════════════════════════════════ */
 
 /* Breadcrumb */
-.pdp-breadcrumb{padding:1rem 5%;display:flex;align-items:center;gap:.5rem;font-size:.78rem;color:var(--gray4);border-bottom:1px solid var(--gray2);background:#fff;flex-wrap:wrap}
+.pdp-breadcrumb{padding:1rem 5%;display:flex;align-items:center;gap:.5rem;font-size:.78rem;color:var(--gray4);border-bottom:1px solid var(--gray2);background:var(--bg-card);flex-wrap:wrap}
 .pdp-breadcrumb a{cursor:pointer;transition:color .2s}
 .pdp-breadcrumb a:hover{color:var(--primary)}
 .pdp-breadcrumb .sep{color:var(--gray3)}
@@ -30,7 +30,7 @@
 .pdp-thumb.active{border-color:var(--primary);background:var(--primary-pale);box-shadow:0 4px 12px rgba(232,84,10,.2)}
 .pdp-share-row{display:flex;gap:.5rem;margin-top:.9rem;align-items:center}
 .pdp-share-label{font-size:.75rem;font-weight:600;color:var(--gray4)}
-.pdp-share-btn{width:34px;height:34px;border-radius:50%;border:1.5px solid var(--gray2);background:#fff;display:flex;align-items:center;justify-content:center;font-size:.85rem;cursor:pointer;transition:all .2s}
+.pdp-share-btn{width:34px;height:34px;border-radius:50%;border:1.5px solid var(--gray2);background:var(--bg-card);display:flex;align-items:center;justify-content:center;font-size:.85rem;cursor:pointer;transition:all .2s}
 .pdp-share-btn:hover{border-color:var(--primary);background:var(--primary-pale)}
 
 /* ── RIGHT: Info ── */
@@ -85,7 +85,7 @@
 .pdp-coupon-success{font-size:.78rem;color:var(--green-light);font-weight:600;margin-top:.3rem;display:none}
 
 /* Delivery estimator */
-.pdp-delivery-card{background:#fff;border:1.5px solid var(--gray2);border-radius:var(--radius);padding:1rem 1.2rem;margin-bottom:1.4rem}
+.pdp-delivery-card{background:var(--bg-card);border:1.5px solid var(--gray2);border-radius:var(--radius);padding:1rem 1.2rem;margin-bottom:1.4rem}
 .pdp-delivery-title{font-size:.8rem;font-weight:700;color:var(--dark);margin-bottom:.6rem;display:flex;align-items:center;gap:.4rem}
 .pdp-delivery-row{display:flex;align-items:center;gap:.75rem;padding:.5rem 0;border-bottom:1px solid var(--gray2);font-size:.82rem}
 .pdp-delivery-row:last-child{border-bottom:none;padding-bottom:0}
@@ -145,10 +145,10 @@
 .rs-bar-fill{height:100%;border-radius:4px;background:var(--gold);transition:width .6s var(--ease)}
 .rs-bar-count{width:24px;color:var(--gray4);flex-shrink:0}
 .review-filter-row{display:flex;gap:.5rem;margin-bottom:1.5rem;flex-wrap:wrap;align-items:center}
-.rf-chip{padding:.4rem .85rem;border-radius:100px;border:1.5px solid var(--gray2);font-size:.78rem;font-weight:600;cursor:pointer;transition:all .15s;background:#fff;color:var(--gray4)}
+.rf-chip{padding:.4rem .85rem;border-radius:100px;border:1.5px solid var(--gray2);font-size:.78rem;font-weight:600;cursor:pointer;transition:all .15s;background:var(--bg-card);color:var(--gray4)}
 .rf-chip:hover,.rf-chip.active{background:var(--primary);border-color:var(--primary);color:#fff}
 .review-list{display:flex;flex-direction:column;gap:1.2rem}
-.review-item{background:#fff;border:1.5px solid var(--gray2);border-radius:var(--radius);padding:1.3rem;transition:box-shadow .2s}
+.review-item{background:var(--bg-card);border:1.5px solid var(--gray2);border-radius:var(--radius);padding:1.3rem;transition:box-shadow .2s}
 .review-item:hover{box-shadow:var(--shadow-sm)}
 .ri-head{display:flex;align-items:flex-start;justify-content:space-between;gap:.75rem;margin-bottom:.7rem}
 .ri-author-row{display:flex;align-items:center;gap:.7rem}
@@ -271,4 +271,22 @@
   .pdp-add-cart{min-width:0}
   .pdp-trust-strip{grid-template-columns:1fr 1fr 1fr}
   .wr-grid{grid-template-columns:1fr}
+}
+
+/* ══ DARK THEME PRODUCT DETAIL OVERRIDES ══ */
+html[data-theme="dark"] .pdp-price-block {
+  background: linear-gradient(135deg, rgba(232, 84, 10, 0.1), var(--bg-card)) !important;
+  border-color: rgba(232, 84, 10, 0.3) !important;
+}
+html[data-theme="dark"] .pdp-farmer-card {
+  background: linear-gradient(135deg, rgba(27, 107, 47, 0.1), var(--bg-card)) !important;
+  border-color: rgba(27, 107, 47, 0.3) !important;
+}
+html[data-theme="dark"] .write-review-card {
+  background: linear-gradient(135deg, rgba(232, 84, 10, 0.1), var(--bg-card)) !important;
+  border-color: rgba(232, 84, 10, 0.3) !important;
+}
+html[data-theme="dark"] .pdp-sticky-bar {
+  background: rgba(34, 34, 34, 0.85) !important;
+  border-color: rgba(255, 255, 255, 0.1) !important;
 }

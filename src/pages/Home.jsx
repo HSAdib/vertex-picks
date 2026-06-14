@@ -212,17 +212,17 @@ export default function Home() {
   const fRestWord = footerSettings.storeName.split(' ').slice(1).join(' ') || '';
 
   return (
-    <div style={{ paddingTop: 'var(--nav-height, 88px)' }}>
+    <div style={{ paddingTop: 'var(--nav-height, 88px)', background: 'var(--bg-primary)' }}>
 
       {/* HERO */}
-      <section className="hero-banner">
+      <section className="hero-banner" style={{ background: 'var(--bg-primary)' }}>
         <div className="hero-left">
           <div className="hero-badge-row">
             <span className="badge badge-orange">{uiSettings.heroBadge1}</span>
             <span className="badge badge-green">{uiSettings.heroBadge2}</span>
             <span className="badge badge-gold">{uiSettings.heroBadge3}</span>
           </div>
-          <h1 className="hero-h1">
+          <h1 className="hero-h1" style={{ color: 'var(--text-primary)' }}>
             {uiSettings.heroTitleLine1.includes('<em>') ? (
               <span dangerouslySetInnerHTML={{ __html: sanitizeHTML(uiSettings.heroTitleLine1) }} />
             ) : (
@@ -241,7 +241,7 @@ export default function Home() {
               uiSettings.heroTitleLine3
             )}
           </h1>
-          <p className="hero-sub">
+          <p className="hero-sub" style={{ color: 'var(--text-primary)' }}>
             {uiSettings.heroSubtitle}
           </p>
           <div className="hero-btns">
@@ -265,9 +265,9 @@ export default function Home() {
       </section>
 
       {/* CATEGORY PILLS */}
-      <div className="cat-section">
+      <div className="cat-section" style={{ background: 'var(--bg-primary)' }}>
         <div className="cat-scroll">
-          <div className="cat-pill active" onClick={() => navigate('/shop')}>🥭 All Varieties</div>
+          <div className="cat-pill active" onClick={() => navigate('/shop')} style={{ background: '#E8540A', color: '#ffffff', borderColor: '#E8540A' }}>🥭 All Varieties</div>
           {homeCategories.map(cat => {
             const getCategoryEmoji = (name) => {
               const n = name.toLowerCase();
@@ -284,7 +284,7 @@ export default function Home() {
                 key={cat} 
                 className="cat-pill" 
                 onClick={() => navigate(`/shop?category=${encodeURIComponent(cat)}`)}
-                style={{ cursor: 'pointer' }}
+                style={{ background: 'var(--bg-card)', borderColor: 'var(--border-color)', color: 'var(--text-primary)', cursor: 'pointer' }}
               >
                 {getCategoryEmoji(cat)} {cat}
               </div>
@@ -303,7 +303,7 @@ export default function Home() {
       </div>
 
       {/* FEATURED PRODUCTS — Live from Firestore */}
-      <div className="home-section">
+      <div className="home-section" style={{ background: 'var(--bg-primary)' }}>
         <div className="sec-head">
           <div className="sec-title">🔥 Featured <span>Mangoes</span></div>
           <span className="sec-link" onClick={() => navigate('/shop')}>View All →</span>
@@ -328,7 +328,7 @@ export default function Home() {
           ) : (
             featuredProducts.map(p => (
               <div key={p.id} className="product-card" onClick={() => navigate(`/product/${p.id}`)}>
-                <div className="pc-img">
+                <div className="pc-img" style={{ background: 'var(--bg-card)' }}>
                   {p.discountPrice && (
                     <div className="pc-discount-badge">Sale</div>
                   )}
@@ -339,7 +339,7 @@ export default function Home() {
                 </div>
                 <div className="pc-body">
                   <div className="pc-name">{p.name}</div>
-                  <div className="pc-sub" style={{ fontFamily: "'Sora', sans-serif", fontSize: '0.75rem', color: '#888888', marginBottom: '0.4rem', display: 'flex', gap: '0.3rem', alignItems: 'center' }}>
+                  <div className="pc-sub" style={{ fontFamily: "'Sora', sans-serif", fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '0.4rem', display: 'flex', gap: '0.3rem', alignItems: 'center' }}>
                     <span>📦 {p.fixedWeight || 1}kg Box</span>
                     <span> · 🌱 {p.season || 'Peak'} Season</span>
                   </div>
@@ -382,7 +382,7 @@ export default function Home() {
       </div>
 
       {/* PROMO BANNERS */}
-      <div className="home-section bg-light">
+      <div className="home-section bg-light" style={{ background: 'var(--bg-primary)' }}>
         <div className="banner-grid">
           <div className="banner-card bc-orange">
             <div className="bc-label">Limited Stock</div>
@@ -400,7 +400,7 @@ export default function Home() {
       </div>
 
       {/* FEATURES / PROMISE */}
-      <div className="home-section bg-light" id="why-section">
+      <div className="home-section bg-light" id="why-section" style={{ background: 'var(--bg-primary)' }}>
         <div className="sec-head">
           <div className="sec-title">
             {uiSettings.promiseTitle.includes('<span>') ? (
@@ -435,7 +435,7 @@ export default function Home() {
       </div>
 
       {/* REVIEWS */}
-      <div className="home-section">
+      <div className="home-section" style={{ background: 'var(--bg-card)' }}>
         <div className="sec-head"><div className="sec-title">💬 What Customers <span>Say</span></div></div>
         <div className="reviews-row">
           {reviewsLoading ? (

@@ -139,10 +139,10 @@ export default function Login() {
 
   if (showPortal) {
     return (
-      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', background: '#F7F7F7', padding: '2rem 0', fontFamily: "'Sora', sans-serif", boxSizing: 'border-box' }}>
-        <div style={{ maxWidth: '420px', width: '90%', margin: 'auto', background: '#FFFFFF', borderRadius: '14px', border: '1.5px solid #EEEEEE', boxShadow: '0 20px 60px rgba(0,0,0,0.10)', padding: '2rem 2rem', boxSizing: 'border-box', textAlign: 'center' }}>
-          <h2 style={{ fontFamily: "'Fraunces', serif", fontWeight: 900, fontSize: '1.6rem', color: '#121212', margin: '0 0 0.5rem 0', textTransform: 'uppercase' }}>Access Granted</h2>
-          <p style={{ fontFamily: "'Sora', sans-serif", fontSize: '0.82rem', color: '#888888', margin: '0 0 2rem 0' }}>Administrative session recognized. Route dynamically.</p>
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', background: 'var(--bg-primary)', padding: '2rem 0', fontFamily: "'Sora', sans-serif", boxSizing: 'border-box' }}>
+        <div style={{ maxWidth: '420px', width: '90%', margin: 'auto', background: 'var(--bg-card)', borderRadius: '14px', border: '1.5px solid var(--border-color)', boxShadow: '0 20px 60px var(--shadow-color)', padding: '2rem 2rem', boxSizing: 'border-box', textAlign: 'center' }}>
+          <h2 style={{ fontFamily: "'Fraunces', serif", fontWeight: 900, fontSize: '1.6rem', color: 'var(--text-primary)', margin: '0 0 0.5rem 0', textTransform: 'uppercase' }}>Access Granted</h2>
+          <p style={{ fontFamily: "'Sora', sans-serif", fontSize: '0.82rem', color: 'var(--text-muted)', margin: '0 0 2rem 0' }}>Administrative session recognized. Route dynamically.</p>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
             <button
               onClick={() => navigate('/admin')}
@@ -175,9 +175,9 @@ export default function Login() {
               onClick={() => navigate('/profile')}
               style={{
                 width: '100%',
-                background: '#FFFFFF',
-                color: '#121212',
-                border: '1.5px solid #EEEEEE',
+                background: 'var(--bg-card)',
+                color: 'var(--text-primary)',
+                border: '1.5px solid var(--border-color)',
                 borderRadius: '100px',
                 fontFamily: "'Sora', sans-serif",
                 fontWeight: 700,
@@ -186,8 +186,8 @@ export default function Login() {
                 cursor: 'pointer',
                 transition: 'border-color 0.2s ease'
               }}
-              onMouseEnter={e => e.currentTarget.style.borderColor = '#E8540A'}
-              onMouseLeave={e => e.currentTarget.style.borderColor = '#EEEEEE'}
+              onMouseEnter={e => e.currentTarget.style.borderColor = 'var(--primary)'}
+              onMouseLeave={e => e.currentTarget.style.borderColor = 'var(--border-color)'}
             >
               My Customer Dashboard
             </button>
@@ -203,23 +203,23 @@ export default function Login() {
     fontWeight: 700,
     textTransform: 'uppercase',
     letterSpacing: '0.06em',
-    color: '#888888',
+    color: 'var(--text-muted)',
     marginBottom: '0.4rem',
     display: 'block',
     textAlign: 'left'
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', background: '#F7F7F7', padding: '2rem 0', fontFamily: "'Sora', sans-serif", boxSizing: 'border-box' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', background: 'var(--bg-primary)', padding: '2rem 0', fontFamily: "'Sora', sans-serif", boxSizing: 'border-box' }}>
       <style>{`
         .login-input {
-          background: #FFFFFF;
-          border: 1.5px solid #EEEEEE;
+          background: var(--bg-card);
+          border: 1.5px solid var(--border-color);
           border-radius: 8px;
           padding: 0.65rem 1rem;
           font-family: 'Sora', sans-serif;
           font-size: 0.875rem;
-          color: #1A1A1A;
+          color: var(--text-primary);
           width: 100%;
           box-sizing: border-box;
           transition: border-color 0.2s ease;
@@ -252,13 +252,13 @@ export default function Login() {
         }
         .google-btn {
           width: 100%;
-          background: #FFFFFF;
-          border: 1.5px solid #EEEEEE;
+          background: var(--bg-card);
+          border: 1.5px solid var(--border-color);
           border-radius: 100px;
           font-family: 'Sora', sans-serif;
           font-weight: 700;
           font-size: 0.875rem;
-          color: #1A1A1A;
+          color: var(--text-primary);
           padding: 0.75rem;
           cursor: pointer;
           display: flex;
@@ -280,14 +280,14 @@ export default function Login() {
           text-decoration: underline;
         }
         .login-divider-line {
-          border-top: 1px solid #EEEEEE;
-          flex-grow: 1;
+          flex: 1;
+          border-top: 1px solid var(--border-color);
         }
         .login-divider-text {
-          font-family: 'Sora', sans-serif;
           font-size: 0.75rem;
-          color: #BBBBBB;
-          background: #FFFFFF;
+          font-weight: 600;
+          color: var(--text-muted);
+          background: var(--bg-card);
           padding: 0 0.75rem;
         }
         .password-toggle-btn {
@@ -299,7 +299,7 @@ export default function Login() {
           background: none;
           border: none;
           cursor: pointer;
-          color: #888888;
+          color: var(--text-muted);
           display: flex;
           align-items: center;
           padding: 0;
@@ -307,21 +307,21 @@ export default function Login() {
       `}</style>
 
       {/* LOGIN CARD */}
-      <div style={{ maxWidth: '420px', width: '90%', margin: 'auto', background: '#FFFFFF', borderRadius: '14px', border: '1.5px solid #EEEEEE', boxShadow: '0 20px 60px rgba(0,0,0,0.10)', padding: '2rem 2rem', boxSizing: 'border-box' }}>
+      <div style={{ maxWidth: '420px', width: '90%', margin: 'auto', background: 'var(--bg-card)', borderRadius: '14px', border: '1.5px solid var(--border-color)', boxShadow: '0 20px 60px var(--shadow-color)', padding: '2rem 2rem', boxSizing: 'border-box' }}>
         
         {/* CARD HEADER */}
         <div>
-          <h1 style={{ fontFamily: "'Fraunces', serif", fontWeight: 900, fontSize: '1.6rem', color: '#121212', textAlign: 'center', margin: '0 0 0.5rem 0' }}>
+          <h1 style={{ fontFamily: "'Fraunces', serif", fontWeight: 900, fontSize: '1.6rem', color: 'var(--text-primary)', textAlign: 'center', margin: '0 0 0.5rem 0' }}>
             VertexPicks
           </h1>
-          <p style={{ fontFamily: "'Sora', sans-serif", fontSize: '0.82rem', color: '#888888', textAlign: 'center', margin: '0 0 1.5rem 0' }}>
+          <p style={{ fontFamily: "'Sora', sans-serif", fontSize: '0.82rem', color: 'var(--text-muted)', textAlign: 'center', margin: '0 0 1.5rem 0' }}>
             {isForgotPasswordMode ? 'Reset your account password' : 'Premium Rajshahi Mangoes, direct to your door'}
           </p>
         </div>
 
         {/* TAB SWITCHER (Login / Sign Up) */}
         {!isForgotPasswordMode && (
-          <div style={{ background: '#F7F7F7', borderRadius: '100px', padding: '0.25rem', display: 'flex', gap: '0.25rem', marginBottom: '1.5rem' }}>
+          <div style={{ background: 'var(--bg-primary)', borderRadius: '100px', padding: '0.25rem', display: 'flex', gap: '0.25rem', marginBottom: '1.5rem' }}>
             <button
               type="button"
               onClick={() => { setIsLoginMode(true); setError(''); setMessage(''); }}
@@ -335,9 +335,9 @@ export default function Login() {
                 border: 'none',
                 cursor: 'pointer',
                 textAlign: 'center',
-                background: isLoginMode ? '#FFFFFF' : 'transparent',
-                color: isLoginMode ? '#121212' : '#888888',
-                boxShadow: isLoginMode ? '0 2px 8px rgba(0,0,0,0.08)' : 'none',
+                background: isLoginMode ? 'var(--bg-card)' : 'transparent',
+                color: isLoginMode ? 'var(--text-primary)' : 'var(--text-muted)',
+                boxShadow: isLoginMode ? '0 2px 8px var(--shadow-color)' : 'none',
                 transition: 'all 0.2s ease'
               }}
             >
@@ -356,9 +356,9 @@ export default function Login() {
                 border: 'none',
                 cursor: 'pointer',
                 textAlign: 'center',
-                background: !isLoginMode ? '#FFFFFF' : 'transparent',
-                color: !isLoginMode ? '#121212' : '#888888',
-                boxShadow: !isLoginMode ? '0 2px 8px rgba(0,0,0,0.08)' : 'none',
+                background: !isLoginMode ? 'var(--bg-card)' : 'transparent',
+                color: !isLoginMode ? 'var(--text-primary)' : 'var(--text-muted)',
+                boxShadow: !isLoginMode ? '0 2px 8px var(--shadow-color)' : 'none',
                 transition: 'all 0.2s ease'
               }}
             >

@@ -4,6 +4,7 @@ import { Toaster } from 'react-hot-toast';
 import { motion } from 'framer-motion';
 import { AuthProvider } from './context/AuthContext';
 import { CartProvider } from './context/CartContext';
+import { ThemeProvider } from './context/ThemeContext';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from './firebaseConfig';
 import AdminRoute from './components/AdminRoute';
@@ -59,39 +60,40 @@ const FloatingWhatsApp = () => {
 
 function App() {
   return (
-    <AuthProvider>
-      <CartProvider>
-        <Analytics />
-        <Router>
-          <div className="min-h-screen bg-white flex flex-col">
-            <Toaster position="top-center" toastOptions={{ duration: 3000 }} />
-            <Navbar />
-            <main className="flex-grow">
-              <Routes>
-               <Route path="/product/:id" element={<ProductDetail />} />
-                <Route path="/profile" element={<Profile />} />
-                <Route path="/login" element={<Login />} />
-                <Route path="/admin" element={<AdminRoute><Admin /></AdminRoute>} />
-                <Route path="/" element={<Home />} />
-                <Route path="/shop" element={<Shop />} />
-                <Route path="/checkout" element={<Checkout />} />
-                {/* Fix #8: catch-all 404 — renders instead of a blank page */}
-                <Route path="*" element={
-                  <div style={{ paddingTop: 'var(--nav-height)', minHeight: '80vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', gap: '1rem' }}>
-                    <div style={{ fontSize: '4rem' }}>🥭</div>
-                    <h2 style={{ fontSize: '1.5rem', fontWeight: 900, color: 'var(--dark)' }}>Page Not Found</h2>
-                    <p style={{ color: 'var(--gray4)', fontSize: '.9rem' }}>The page you're looking for doesn't exist.</p>
-                    <Link to="/" style={{ background: 'var(--primary)', color: '#fff', padding: '.6rem 1.5rem', borderRadius: 100, fontWeight: 700, fontSize: '.85rem', textDecoration: 'none' }}>← Back to Home</Link>
-                  </div>
-                } />
-              </Routes>
-            </main>
-            <FloatingWhatsApp />
-          </div>
-        </Router>
-      </CartProvider>
-    </AuthProvider>
+    <ThemeProvider>
+      <AuthProvider>
+        <CartProvider>
+          <Analytics />
+          <Router>
+            <div className="min-h-screen bg-white dark:bg-[#222222] flex flex-col">
+              <Toaster position="top-center" toastOptions={{ duration: 3000 }} />
+              <Navbar />
+              <main className="flex-grow">
+                <Routes>
+                 <Route path="/product/:id" element={<ProductDetail />} />
+                  <Route path="/profile" element={<Profile />} />
+                  <Route path="/login" element={<Login />} />
+                  <Route path="/admin" element={<AdminRoute><Admin /></AdminRoute>} />
+                  <Route path="/" element={<Home />} />
+                  <Route path="/shop" element={<Shop />} />
+                  <Route path="/checkout" element={<Checkout />} />
+                  {/* Fix #8: catch-all 404 — renders instead of a blank page */}
+                  <Route path="*" element={
+                    <div style={{ paddingTop: 'var(--nav-height)', minHeight: '80vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', gap: '1rem' }}>
+                      <div style={{ fontSize: '4rem' }}>🥭</div>
+                      <h2 style={{ fontSize: '1.5rem', fontWeight: 900, color: 'var(--dark)' }}>Page Not Found</h2>
+                      <p style={{ color: 'var(--gray4)', fontSize: '.9rem' }}>The page you're looking for doesn't exist.</p>
+                      <Link to="/" style={{ background: 'var(--primary)', color: '#fff', padding: '.6rem 1.5rem', borderRadius: 100, fontWeight: 700, fontSize: '.85rem', textDecoration: 'none' }}>← Back to Home</Link>
+                    </div>
+                  } />
+                </Routes>
+              </main>
+              <FloatingWhatsApp />
+            </div>
+          </Router>
+        </CartProvider>
+      </AuthProvider>
+    </ThemeProvider>
   );
 }
-
 export default App;

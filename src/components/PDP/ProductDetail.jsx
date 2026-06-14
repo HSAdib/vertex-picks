@@ -20,6 +20,17 @@ export default function ProductDetail() {
   const [loading, setLoading] = useState(true);
   const [qty, setQty] = useState(1);
   const [productData, setProductData] = useState(null);
+  const [selectedWeight, setSelectedWeight] = useState('');
+
+  useEffect(() => {
+    if (productData) {
+      const initialWeight = productData.weightOptions && productData.weightOptions.length > 0
+        ? productData.weightOptions[0]
+        : `${productData.fixedWeight || 1} Kg`;
+      setSelectedWeight(initialWeight);
+    }
+  }, [productData]);
+
   const [relatedProducts, setRelatedProducts] = useState([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [hasPurchased, setHasPurchased] = useState(false);
@@ -224,6 +235,7 @@ export default function ProductDetail() {
     farmerSub: 'Rajshahi Orchards · 15+ years growing premium mangoes',
     reviewsList: approvedReviews,
     images: productData.images || [],
+    weightOptions: productData.weightOptions || [],
     related: relatedProducts.map(p => ({
       id: p.id,
       name: p.name,
@@ -233,12 +245,12 @@ export default function ProductDetail() {
   };
 
   const handleAddToCart = () => {
-    addToCart(mappedProduct.id, qty);
+    addToCart(mappedProduct.id, qty, productData, selectedWeight);
     // NOTE: CartContext.addToCart already fires a toast (B18 fix) — no extra toast here
   };
 
   const handleBuyNow = () => {
-    addToCart(mappedProduct.id, qty);
+    addToCart(mappedProduct.id, qty, productData, selectedWeight);
     navigate('/checkout');
   };
 
@@ -254,7 +266,14 @@ export default function ProductDetail() {
 
       <div className="pdp-layout">
         <ProductGallery product={mappedProduct} />
-        <ProductInfo product={mappedProduct} qty={qty} setQty={setQty} displayRating={displayRating} />
+        <ProductInfo 
+          product={mappedProduct} 
+          qty={qty} 
+          setQty={setQty} 
+          displayRating={displayRating} 
+          selectedWeight={selectedWeight}
+          setSelectedWeight={setSelectedWeight}
+        />
       </div>
 
       <ProductTabs 
@@ -275,7 +294,7 @@ export default function ProductDetail() {
           </div>
           <div className="pdp-related-grid" id="pdp-related-grid">
             {mappedProduct.related.map((item, index) => (
-              <Link key={index} to={`/product/${item.id}`} className="product-card" style={{ padding: '1rem', background: '#fff', borderRadius: '14px', display: 'block', textDecoration: 'none' }}>
+              <Link key={index} to={`/product/${item.id}`} className="product-card" style={{ padding: '1rem', background: 'var(--bg-card)', borderRadius: '14px', display: 'block', textDecoration: 'none' }}>
                 <div style={{ fontSize: '3rem', textAlign: 'center' }}>{item.emoji}</div>
                 <div style={{ fontWeight: 'bold', marginTop: '1rem', color: 'var(--dark)' }}>{item.name}</div>
                 <div style={{ color: 'var(--primary)', fontWeight: 'bold' }}>{item.price}</div>
@@ -296,9 +315,9 @@ export default function ProductDetail() {
         
         <div className="pdp-sticky-actions" style={{ alignItems: 'center' }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-            <div className="pdp-qty" style={{ height: '44px', margin: 0, borderRadius: '14px', background: '#fff' }}>
-              <button className="pdp-qty-btn" onClick={() => setQty(Math.max(1, qty - 1))} style={{ height: '44px', background: '#F7F7F7' }}>−</button>
-              <div className="pdp-qty-val" style={{ height: '44px', background: '#fff' }}>
+            <div className="pdp-qty" style={{ height: '44px', margin: 0, borderRadius: '14px', background: 'var(--bg-card)' }}>
+              <button className="pdp-qty-btn" onClick={() => setQty(Math.max(1, qty - 1))} style={{ height: '44px', background: 'var(--bg-primary)' }}>−</button>
+              <div className="pdp-qty-val" style={{ height: '44px', background: 'var(--bg-card)' }}>
                 <input
                   type="number"
                   value={qty}
@@ -311,7 +330,7 @@ export default function ProductDetail() {
                   style={{ width: '100%', height: '100%', textAlign: 'center', border: 'none', background: 'transparent', outline: 'none', fontWeight: 700, fontSize: 'inherit', color: 'inherit', margin: 0, padding: 0 }}
                 />
               </div>
-              <button className="pdp-qty-btn" onClick={() => setQty(qty + 1)} style={{ height: '44px', background: '#F7F7F7' }}>+</button>
+              <button className="pdp-qty-btn" onClick={() => setQty(qty + 1)} style={{ height: '44px', background: 'var(--bg-primary)' }}>+</button>
             </div>
           </div>
           <button className="pdp-sticky-btn" onClick={handleAddToCart} style={{ height: '44px' }}>🛒 Add to Cart</button>

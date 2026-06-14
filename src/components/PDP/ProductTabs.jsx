@@ -129,20 +129,20 @@ export default function ProductTabs({ product, onReviewSubmit, onHelpfulVote, is
 
               {/* Gate: not logged in */}
               {!user ? (
-                <div style={{ marginTop: '1rem', padding: '1.25rem', background: '#FFF7ED', borderRadius: 12, border: '1.5px solid #FED7AA', textAlign: 'center' }}>
+                <div style={{ marginTop: '1rem', padding: '1.25rem', background: 'var(--primary-pale)', borderRadius: 12, border: '1.5px solid rgba(232, 84, 10, 0.2)', textAlign: 'center' }}>
                   <div style={{ fontSize: '1.5rem', marginBottom: '.5rem' }}>🔒</div>
-                  <p style={{ fontSize: '.83rem', fontWeight: 600, color: '#9A3412', marginBottom: '.75rem' }}>You need to be logged in to write a review.</p>
+                  <p style={{ fontSize: '.83rem', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '.75rem' }}>You need to be logged in to write a review.</p>
                   <Link to="/login" style={{ display: 'inline-block', background: 'var(--primary)', color: '#fff', fontWeight: 700, fontSize: '.8rem', padding: '.5rem 1.25rem', borderRadius: 100, textDecoration: 'none' }}>Log In</Link>
                 </div>
               ) : !purchaseCheckDone ? (
                 <div style={{ marginTop: '1rem', padding: '1rem', textAlign: 'center', color: 'var(--gray4)', fontSize: '.82rem' }}>Checking purchase history…</div>
               ) : hasAlreadyReviewed ? (
-                <div style={{ marginTop: '1rem', padding: '1.25rem', background: '#F0FDF4', borderRadius: 12, border: '1.5px solid #BBF7D0', textAlign: 'center' }}>
+                <div style={{ marginTop: '1rem', padding: '1.25rem', background: 'rgba(27, 107, 47, 0.1)', borderRadius: 12, border: '1.5px solid rgba(27, 107, 47, 0.2)', textAlign: 'center' }}>
                   <div style={{ fontSize: '1.5rem', marginBottom: '.5rem' }}>✅</div>
-                  <p style={{ fontSize: '.83rem', fontWeight: 600, color: '#166534' }}>You've already reviewed this product. Thank you!</p>
+                  <p style={{ fontSize: '.83rem', fontWeight: 600, color: 'var(--text-primary)' }}>You've already reviewed this product. Thank you!</p>
                 </div>
               ) : !hasPurchased ? (
-                <div style={{ marginTop: '1rem', padding: '1.25rem', background: '#F8FAFC', borderRadius: 12, border: '1.5px dashed var(--gray3)', textAlign: 'center' }}>
+                <div style={{ marginTop: '1rem', padding: '1.25rem', background: 'var(--bg-primary)', borderRadius: 12, border: '1.5px dashed var(--gray3)', textAlign: 'center' }}>
                   <div style={{ fontSize: '1.5rem', marginBottom: '.5rem' }}>🥭</div>
                   <p style={{ fontSize: '.83rem', fontWeight: 700, color: 'var(--dark)', marginBottom: '.4rem' }}>Verified Purchase Required</p>
                   <p style={{ fontSize: '.78rem', color: 'var(--gray4)', marginBottom: '.75rem', lineHeight: 1.55 }}>Only customers who have received a delivery can leave a review. This keeps reviews honest and trustworthy.</p>

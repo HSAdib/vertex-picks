@@ -409,6 +409,7 @@ export default function Admin() {
   const [prodDescription, setProdDescription] = useState('');
   const [prodFeatured, setProdFeatured] = useState(false);
   const [prodFixedWeight, setProdFixedWeight] = useState([]);
+  const [weightOptions, setWeightOptions] = useState([]);
   const [prodBadge, setProdBadge] = useState('');
 
   const [prodTrustStrip, setProdTrustStrip] = useState([
@@ -691,6 +692,7 @@ export default function Admin() {
         description: prodDescription || 'Fresh premium bagged mango from Rajshahi orchards.',
         featured: prodFeatured,
         fixedWeight: prodFixedWeight,
+        weightOptions: weightOptions.map(opt => opt?.trim()).filter(Boolean),
         order: editProductId ? (mangoes.find(m => m.id === editProductId)?.order ?? mangoes.length + 1) : mangoes.length + 1,
         badge: prodBadge ? prodBadge.trim() : '',
         trustStrip: prodTrustStrip,
@@ -733,6 +735,7 @@ export default function Admin() {
     setProdDescription(p.description || '');
     setProdFeatured(p.featured || false);
     setProdFixedWeight(Array.isArray(p.fixedWeight) ? p.fixedWeight : [p.fixedWeight].filter(Boolean));
+    setWeightOptions(Array.isArray(p.weightOptions) ? p.weightOptions : []);
     
     setProdBadge(p.badge || '');
 
@@ -788,6 +791,7 @@ export default function Admin() {
     setProdDescription('');
     setProdFeatured(false);
     setProdFixedWeight([]);
+    setWeightOptions([]);
     
     setProdBadge('');
 
@@ -1260,8 +1264,8 @@ export default function Admin() {
       
       {/* 1. PRODUCT CREATION MODAL */}
       {showProductModal && (
-        <div className="fixed inset-0 bg-slate-900/75 z-[300] flex items-center justify-center p-4 backdrop-blur-md animate-in fade-in duration-300">
-          <div className="max-w-lg w-full max-h-[85vh] overflow-hidden flex flex-col animate-in scale-in duration-300" style={{ background: '#FFFFFF', borderRadius: '14px', border: '1.5px solid #EEEEEE', boxShadow: '0 20px 60px rgba(0,0,0,.15)' }}>
+        <div className="fixed inset-0 z-[300] flex items-center justify-center p-4 backdrop-blur-md animate-in fade-in duration-300" style={{ background: 'rgba(0,0,0,0.6)' }}>
+          <div className="max-w-lg w-full max-h-[85vh] overflow-hidden flex flex-col animate-in scale-in duration-300" style={{ background: 'var(--bg-card)', borderRadius: '14px', border: '1.5px solid var(--border-color)', boxShadow: '0 20px 60px var(--shadow-color)' }}>
             {/* Modal Header */}
             <div style={{ background: '#121212', padding: '1rem 1.4rem', borderRadius: '14px 14px 0 0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0 }}>
               <div style={{ flex: 1 }}>
@@ -1281,25 +1285,25 @@ export default function Admin() {
             </div>
 
             {/* Tab Row */}
-            <div style={{ background: '#F7F7F7', padding: '0.75rem 1rem', display: 'flex', gap: '0.5rem', flexShrink: 0 }}>
+            <div style={{ background: 'var(--bg-primary)', padding: '0.75rem 1rem', display: 'flex', gap: '0.5rem', flexShrink: 0 }}>
               <button 
                 type="button"
                 onClick={() => setActiveProdFormTab('basic')}
-                style={{ borderRadius: '100px', fontFamily: "'Sora', sans-serif", fontSize: '0.8rem', fontWeight: 700, padding: '0.5rem 1.1rem', border: activeProdFormTab === 'basic' ? '1.5px solid #E8540A' : '1.5px solid #EEEEEE', background: activeProdFormTab === 'basic' ? '#E8540A' : '#FFFFFF', color: activeProdFormTab === 'basic' ? '#FFFFFF' : '#888888', cursor: 'pointer' }}
+                style={{ borderRadius: '100px', fontFamily: "'Sora', sans-serif", fontSize: '0.8rem', fontWeight: 700, padding: '0.5rem 1.1rem', border: activeProdFormTab === 'basic' ? '1.5px solid #E8540A' : '1.5px solid var(--border-color)', background: activeProdFormTab === 'basic' ? '#E8540A' : 'var(--bg-card)', color: activeProdFormTab === 'basic' ? '#FFFFFF' : 'var(--text-muted)', cursor: 'pointer' }}
               >
                 1. Basic Details
               </button>
               <button 
                 type="button"
                 onClick={() => setActiveProdFormTab('rich')}
-                style={{ borderRadius: '100px', fontFamily: "'Sora', sans-serif", fontSize: '0.8rem', fontWeight: 700, padding: '0.5rem 1.1rem', border: activeProdFormTab === 'rich' ? '1.5px solid #E8540A' : '1.5px solid #EEEEEE', background: activeProdFormTab === 'rich' ? '#E8540A' : '#FFFFFF', color: activeProdFormTab === 'rich' ? '#FFFFFF' : '#888888', cursor: 'pointer' }}
+                style={{ borderRadius: '100px', fontFamily: "'Sora', sans-serif", fontSize: '0.8rem', fontWeight: 700, padding: '0.5rem 1.1rem', border: activeProdFormTab === 'rich' ? '1.5px solid #E8540A' : '1.5px solid var(--border-color)', background: activeProdFormTab === 'rich' ? '#E8540A' : 'var(--bg-card)', color: activeProdFormTab === 'rich' ? '#FFFFFF' : 'var(--text-muted)', cursor: 'pointer' }}
               >
                 2. Rich Display Details
               </button>
               <button 
                 type="button"
                 onClick={() => setActiveProdFormTab('filters')}
-                style={{ borderRadius: '100px', fontFamily: "'Sora', sans-serif", fontSize: '0.8rem', fontWeight: 700, padding: '0.5rem 1.1rem', border: activeProdFormTab === 'filters' ? '1.5px solid #E8540A' : '1.5px solid #EEEEEE', background: activeProdFormTab === 'filters' ? '#E8540A' : '#FFFFFF', color: activeProdFormTab === 'filters' ? '#FFFFFF' : '#888888', cursor: 'pointer' }}
+                style={{ borderRadius: '100px', fontFamily: "'Sora', sans-serif", fontSize: '0.8rem', fontWeight: 700, padding: '0.5rem 1.1rem', border: activeProdFormTab === 'filters' ? '1.5px solid #E8540A' : '1.5px solid var(--border-color)', background: activeProdFormTab === 'filters' ? '#E8540A' : 'var(--bg-card)', color: activeProdFormTab === 'filters' ? '#FFFFFF' : 'var(--text-muted)', cursor: 'pointer' }}
               >
                 3. Classification & Filters
               </button>
@@ -1314,18 +1318,18 @@ export default function Admin() {
                   font-weight: 700 !important;
                   text-transform: uppercase !important;
                   letter-spacing: 0.06em !important;
-                  color: #888888 !important;
+                  color: var(--text-muted) !important;
                   margin-bottom: 0.4rem !important;
                   display: block;
                 }
                 .product-edit-form .form-input {
-                  background: #FFFFFF !important;
-                  border: 1.5px solid #EEEEEE !important;
+                  background: var(--input-bg) !important;
+                  border: 1.5px solid var(--border-color) !important;
                   border-radius: 8px !important;
                   padding: 0.65rem 1rem !important;
                   font-family: 'Sora', sans-serif !important;
                   font-size: 0.875rem !important;
-                  color: #1A1A1A !important;
+                  color: var(--text-primary) !important;
                   width: 100% !important;
                   box-sizing: border-box;
                   box-shadow: none !important;
@@ -1335,7 +1339,7 @@ export default function Admin() {
                   border-color: #E8540A !important;
                 }
               `}</style>
-              <div className="overflow-y-auto flex-grow scrollbar-thin space-y-4" style={{ background: '#FFFFFF', padding: '1.2rem 1.4rem' }}>
+              <div className="overflow-y-auto flex-grow scrollbar-thin space-y-4" style={{ background: 'var(--bg-card)', padding: '1.2rem 1.4rem' }}>
                 {/* TAB 1: BASIC DETAILS */}
                 <div style={{ display: activeProdFormTab === 'basic' ? 'block' : 'none' }}>
                 <div className="grid grid-cols-2 gap-4">
@@ -1377,6 +1381,68 @@ export default function Admin() {
                       required 
                       className="form-input font-bold text-xs" 
                     />
+                  </div>
+                  
+                  <div className="col-span-2">
+                    <label className="form-label">Weight / Size Options</label>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginBottom: '0.5rem' }}>
+                      {weightOptions.map((opt, idx) => (
+                        <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                          <input
+                            type="text"
+                            value={opt}
+                            onChange={e => {
+                              const updated = [...weightOptions];
+                              updated[idx] = e.target.value;
+                              setWeightOptions(updated);
+                            }}
+                            placeholder="E.g. 3kg, 5kg Box, 10kg Premium Box"
+                            className="form-input"
+                            style={{
+                              background: 'var(--input-bg)',
+                              border: '1.5px solid var(--border-color)',
+                              borderRadius: '8px',
+                              padding: '0.65rem 1rem',
+                              fontFamily: "'Sora', sans-serif",
+                              fontSize: '0.875rem',
+                              color: 'var(--text-primary)'
+                            }}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setWeightOptions(weightOptions.filter((_, i) => i !== idx))}
+                            style={{
+                              background: 'transparent',
+                              border: 'none',
+                              color: '#EF4444',
+                              fontSize: '1.5rem',
+                              lineHeight: 1,
+                              cursor: 'pointer',
+                              padding: '0 0.5rem'
+                            }}
+                            title="Remove Option"
+                          >
+                            ×
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setWeightOptions([...weightOptions, ''])}
+                      style={{
+                        background: 'var(--bg-card)',
+                        border: '1.5px solid var(--border-color)',
+                        borderRadius: '100px',
+                        fontSize: '0.8rem',
+                        fontWeight: 700,
+                        color: 'var(--text-primary)',
+                        padding: '0.5rem 1rem',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      + Add Weight Option
+                    </button>
                   </div>
                   <div>
                     <label className="form-label">SKU Code (Auto if blank)</label>
@@ -1426,7 +1492,7 @@ export default function Admin() {
                       <button
                         type="button"
                         onClick={addProdImageField}
-                        style={{ background: '#FFFFFF', border: '1.5px solid #EEEEEE', borderRadius: '100px', fontSize: '0.8rem', fontWeight: 700, color: '#1A1A1A', padding: '0.5rem 1rem', cursor: 'pointer', marginTop: '0.25rem', alignSelf: 'flex-start' }}
+                        style={{ background: 'var(--bg-card)', border: '1.5px solid var(--border-color)', borderRadius: '100px', fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-primary)', padding: '0.5rem 1rem', cursor: 'pointer', marginTop: '0.25rem', alignSelf: 'flex-start' }}
                       >
                         + Add Another Image URL
                       </button>
@@ -1469,7 +1535,7 @@ export default function Admin() {
 
                 {/* TAB 3: CLASSIFICATION & FILTERS */}
                 <div style={{ display: activeProdFormTab === 'filters' ? 'block' : 'none' }}>
-                  <div className="bg-white rounded-[14px] border-[1.5px] border-[var(--gray2)] p-6">
+                  <div className="bg-white dark:bg-[#222222] rounded-[14px] border-[1.5px] border-[var(--gray2)] p-6">
                     <h4 className="text-xs font-black uppercase text-dark mb-6">🏷️ Classification & Global Filters</h4>
                     
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
@@ -1538,7 +1604,7 @@ export default function Admin() {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     {/* Left Column */}
                     <div className="space-y-6">
-                      <div className="bg-white rounded-[14px] border-[1.5px] border-[var(--gray2)] p-4">
+                      <div className="bg-white dark:bg-[#222222] rounded-[14px] border-[1.5px] border-[var(--gray2)] p-4">
                         <h4 className="text-xs font-black uppercase text-dark mb-3">🏷️ Pricing & Badges</h4>
                         <div className="form-group">
                           <label className="form-label">Overlay Badge</label>
@@ -1547,7 +1613,7 @@ export default function Admin() {
 
                       </div>
 
-                      <div className="bg-white rounded-[14px] border-[1.5px] border-[var(--gray2)] p-4">
+                      <div className="bg-white dark:bg-[#222222] rounded-[14px] border-[1.5px] border-[var(--gray2)] p-4">
                         <h4 className="ach-title text-xs mb-3">🚚 Delivery Info</h4>
                         <div className="space-y-3 mb-5">
                           <div className="form-group">
@@ -1562,7 +1628,7 @@ export default function Admin() {
                         </div>
                       </div>
 
-                      <div className="bg-white rounded-[14px] border-[1.5px] border-[var(--gray2)] p-4">
+                      <div className="bg-white dark:bg-[#222222] rounded-[14px] border-[1.5px] border-[var(--gray2)] p-4">
                         <h4 className="ach-title text-xs mb-2">🛡️ Trust Strip</h4>
                         <div className="inline-block bg-[rgba(232,84,10,0.1)] text-[var(--primary)] text-[10px] font-bold px-3 py-1 rounded-full mb-3">3 Items Fixed</div>
                         {prodTrustStrip.map((ts, idx) => (
@@ -1584,7 +1650,7 @@ export default function Admin() {
 
                     {/* Right Column */}
                     <div className="space-y-6">
-                      <div className="bg-white rounded-[14px] border-[1.5px] border-[var(--gray2)] p-4">
+                      <div className="bg-white dark:bg-[#222222] rounded-[14px] border-[1.5px] border-[var(--gray2)] p-4">
                         <h4 className="ach-title text-xs mb-3">📋 Specifications Table</h4>
                         <div className="form-row" style={{ gridTemplateColumns: '1fr 1fr' }}>
                           <div className="form-group">
@@ -1614,7 +1680,7 @@ export default function Admin() {
                         </div>
                       </div>
 
-                      <div className="bg-white rounded-[14px] border-[1.5px] border-[var(--gray2)] p-4">
+                      <div className="bg-white dark:bg-[#222222] rounded-[14px] border-[1.5px] border-[var(--gray2)] p-4">
                         <label className="form-label mb-2">Feature Highlights (Bullets)</label>
                         {prodHighlights.map((h, idx) => (
                           <div key={idx} className="flex gap-2 mb-2">
@@ -1633,7 +1699,7 @@ export default function Admin() {
                         </button>
                       </div>
 
-                      <div className="bg-white rounded-[14px] border-[1.5px] border-[var(--gray2)] p-4">
+                      <div className="bg-white dark:bg-[#222222] rounded-[14px] border-[1.5px] border-[var(--gray2)] p-4">
                         <label className="form-label mb-2">How We Grow Steps (Numbered)</label>
                         {prodSteps.map((s, idx) => (
                           <div key={idx} className="flex gap-2 mb-2">
@@ -1658,11 +1724,11 @@ export default function Admin() {
               </div>
 
               {/* Modal Actions Footer */}
-              <div style={{ background: '#FFFFFF', padding: '1rem 1.4rem', borderTop: '1px solid #EEEEEE', display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', flexShrink: 0 }}>
+              <div style={{ background: 'var(--bg-card)', padding: '1rem 1.4rem', borderTop: '1px solid var(--border-color)', display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', flexShrink: 0 }}>
                 <button 
                   type="button" 
                   onClick={() => { setShowProductModal(false); setEditProductId(null); clearProductForm(); }} 
-                  style={{ background: '#FFFFFF', border: '1.5px solid #EEEEEE', borderRadius: '100px', color: '#1A1A1A', fontWeight: 700, padding: '0.7rem 1.5rem', fontFamily: "'Sora', sans-serif", cursor: 'pointer' }}
+                  style={{ background: 'var(--bg-card)', border: '1.5px solid var(--border-color)', borderRadius: '100px', color: 'var(--text-primary)', fontWeight: 700, padding: '0.7rem 1.5rem', fontFamily: "'Sora', sans-serif", cursor: 'pointer' }}
                 >
                   CANCEL
                 </button>
@@ -1680,10 +1746,10 @@ export default function Admin() {
 
       {/* 2. COUPON CREATION MODAL */}
       {showCouponModal && (
-        <div className="fixed inset-0 bg-slate-900/75 z-[300] flex items-center justify-center p-4 backdrop-blur-md animate-in fade-in duration-300">
-          <div className="glass-modal max-w-sm w-full overflow-hidden flex flex-col animate-in scale-in duration-300">
+        <div className="fixed inset-0 z-[300] flex items-center justify-center p-4 backdrop-blur-md animate-in fade-in duration-300" style={{ background: 'rgba(0,0,0,0.6)' }}>
+          <div className="max-w-sm w-full overflow-hidden flex flex-col animate-in scale-in duration-300" style={{ background: 'var(--bg-card)', border: '1.5px solid var(--border-color)', borderRadius: '14px', boxShadow: '0 20px 60px var(--shadow-color)' }}>
             {/* Modal Header */}
-            <div className="bg-gradient-to-r from-purple-600 via-purple-500 to-orange-500 p-6 text-white flex justify-between items-center shrink-0 shadow-md">
+            <div className="p-6 text-white flex justify-between items-center shrink-0 shadow-md" style={{ background: '#121212' }}>
               <div>
                 <h3 className="font-['Fraunces'] font-black text-lg uppercase tracking-wide text-white">🎟️ Create New Coupon</h3>
                 <p className="text-[10px] uppercase font-bold tracking-wider text-purple-100 mt-1">VIP Discounts & Campaigns</p>
@@ -1764,7 +1830,7 @@ export default function Admin() {
               </div>
 
               {/* Modal Actions Footer */}
-              <div className="p-6 bg-[var(--gray1)] border-t border-[var(--gray2)] flex justify-end gap-3">
+              <div style={{ padding: '1.5rem', background: 'var(--bg-card)', borderTop: '1.5px solid var(--border-color)', display: 'flex', justifyContent: 'flex-end', gap: '0.75rem' }}>
                 <button 
                   type="button" 
                   onClick={() => setShowCouponModal(false)} 
@@ -1786,10 +1852,10 @@ export default function Admin() {
 
       {/* 3. VIEW ORDER DETAIL MODAL */}
       {showOrderDetailModal && selectedOrder && (
-        <div className="fixed inset-0 bg-slate-900/75 z-[300] flex items-center justify-center p-4 backdrop-blur-md animate-in fade-in duration-300">
-          <div className="glass-modal max-w-md w-full overflow-hidden flex flex-col animate-in scale-in duration-300">
+        <div className="fixed inset-0 z-[300] flex items-center justify-center p-4 backdrop-blur-md animate-in fade-in duration-300" style={{ background: 'rgba(0,0,0,0.6)' }}>
+          <div className="max-w-md w-full overflow-hidden flex flex-col animate-in scale-in duration-300" style={{ background: 'var(--bg-card)', border: '1.5px solid var(--border-color)', borderRadius: '14px', boxShadow: '0 20px 60px var(--shadow-color)' }}>
             {/* Modal Header */}
-            <div className="bg-gradient-to-r from-gray-800 via-gray-900 to-black p-6 text-white flex justify-between items-center shrink-0 shadow-md">
+            <div className="p-6 text-white flex justify-between items-center shrink-0 shadow-md" style={{ background: '#121212' }}>
               <div>
                 <h3 className="font-['Fraunces'] font-black text-lg uppercase tracking-wide text-white">📋 Order Invoice Details</h3>
                 <p className="text-[10px] uppercase font-bold tracking-wider text-gray-300 mt-1">Sales Transaction Log</p>
@@ -1849,7 +1915,7 @@ export default function Admin() {
             </div>
             
             {/* Modal Actions Footer */}
-            <div className="p-6 bg-[var(--gray1)] border-t border-[var(--gray2)] flex justify-end shrink-0">
+            <div style={{ padding: '1.5rem', background: 'var(--bg-card)', borderTop: '1.5px solid var(--border-color)', display: 'flex', justifyContent: 'flex-end', shrink: 0 }}>
               <button 
                 onClick={() => { setShowOrderDetailModal(false); setSelectedOrder(null); }} 
                 className="w-full btn-secondary uppercase text-xs font-bold py-3.5 px-6 rounded-full shadow-md transition-all duration-200 active:scale-95"
@@ -1865,9 +1931,9 @@ export default function Admin() {
 
       {/* EDIT ADDRESS MODAL */}
       {editAddressModal.isOpen && (
-        <div className="fixed inset-0 bg-slate-900/75 z-[300] flex items-center justify-center p-4 backdrop-blur-md">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full overflow-hidden">
-            <div style={{ background: 'linear-gradient(135deg, var(--primary), var(--primary-dark, #c1450a))', padding: '1.25rem 1.5rem', color: '#fff', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div className="fixed inset-0 z-[300] flex items-center justify-center p-4 backdrop-blur-md" style={{ background: 'rgba(0,0,0,0.6)' }}>
+          <div className="max-w-lg w-full overflow-hidden flex flex-col" style={{ background: 'var(--bg-card)', border: '1.5px solid var(--border-color)', borderRadius: '14px', boxShadow: '0 20px 60px var(--shadow-color)' }}>
+            <div style={{ background: '#121212', padding: '1.25rem 1.5rem', color: '#fff', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <h3 style={{ fontWeight: 900, fontSize: '1rem', textTransform: 'uppercase', letterSpacing: '.05em' }}>📍 Edit Delivery Address</h3>
               <button onClick={() => setEditAddressModal({ isOpen: false, orderId: null, address: '' })} style={{ background: 'rgba(255,255,255,.15)', border: 'none', borderRadius: 8, color: '#fff', width: 32, height: 32, cursor: 'pointer', fontSize: '1rem', fontWeight: 900 }}>✕</button>
             </div>
@@ -1880,8 +1946,8 @@ export default function Admin() {
                 placeholder="Enter new delivery address..."
               />
               <div style={{ display: 'flex', gap: '.75rem', marginTop: '1rem' }}>
-                <button onClick={() => setEditAddressModal({ isOpen: false, orderId: null, address: '' })} className="btn-secondary" style={{ flex: 1, padding: '.75rem', textTransform: 'uppercase', fontSize: '.78rem', fontWeight: 800 }}>Cancel</button>
-                <button onClick={handleUpdateAddress} className="btn-primary" style={{ flex: 1, padding: '.75rem', textTransform: 'uppercase', fontSize: '.78rem', fontWeight: 800 }}>Save Address</button>
+                <button onClick={() => setEditAddressModal({ isOpen: false, orderId: null, address: '' })} style={{ flex: 1, padding: '.75rem', borderRadius: '100px', textTransform: 'uppercase', fontSize: '.78rem', fontWeight: 800, background: 'var(--bg-card)', border: '1.5px solid var(--border-color)', color: 'var(--text-primary)', cursor: 'pointer' }}>Cancel</button>
+                <button onClick={handleUpdateAddress} className="btn-primary" style={{ flex: 1, padding: '.75rem', borderRadius: '100px', textTransform: 'uppercase', fontSize: '.78rem', fontWeight: 800, cursor: 'pointer' }}>Save Address</button>
               </div>
             </div>
           </div>
@@ -1890,9 +1956,9 @@ export default function Admin() {
 
       {/* EDIT FINANCIALS MODAL */}
       {editFinancialsModal.isOpen && (
-        <div className="fixed inset-0 bg-slate-900/75 z-[300] flex items-center justify-center p-4 backdrop-blur-md">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-sm w-full overflow-hidden">
-            <div style={{ background: 'linear-gradient(135deg, #16A34A, #15803D)', padding: '1.25rem 1.5rem', color: '#fff', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div className="fixed inset-0 z-[300] flex items-center justify-center p-4 backdrop-blur-md" style={{ background: 'rgba(0,0,0,0.6)' }}>
+          <div className="max-w-sm w-full overflow-hidden flex flex-col" style={{ background: 'var(--bg-card)', border: '1.5px solid var(--border-color)', borderRadius: '14px', boxShadow: '0 20px 60px var(--shadow-color)' }}>
+            <div style={{ background: '#121212', padding: '1.25rem 1.5rem', color: '#fff', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <h3 style={{ fontWeight: 900, fontSize: '1rem', textTransform: 'uppercase', letterSpacing: '.05em' }}>💰 Edit Financials</h3>
               <button onClick={() => setEditFinancialsModal({ isOpen: false, orderId: null, total: '', deliveryFee: '' })} style={{ background: 'rgba(255,255,255,.15)', border: 'none', borderRadius: 8, color: '#fff', width: 32, height: 32, cursor: 'pointer', fontSize: '1rem', fontWeight: 900 }}>✕</button>
             </div>
@@ -1906,8 +1972,8 @@ export default function Admin() {
                 <input type="number" value={editFinancialsModal.total} onChange={(e) => setEditFinancialsModal({ ...editFinancialsModal, total: e.target.value })} className="form-input" />
               </div>
               <div style={{ display: 'flex', gap: '.75rem', marginTop: '.5rem' }}>
-                <button onClick={() => setEditFinancialsModal({ isOpen: false, orderId: null, total: '', deliveryFee: '' })} className="btn-secondary" style={{ flex: 1, padding: '.75rem', textTransform: 'uppercase', fontSize: '.78rem', fontWeight: 800 }}>Cancel</button>
-                <button onClick={handleUpdateFinancials} className="btn-primary" style={{ flex: 1, padding: '.75rem', textTransform: 'uppercase', fontSize: '.78rem', fontWeight: 800 }}>Update</button>
+                <button onClick={() => setEditFinancialsModal({ isOpen: false, orderId: null, total: '', deliveryFee: '' })} style={{ flex: 1, padding: '.75rem', borderRadius: '100px', textTransform: 'uppercase', fontSize: '.78rem', fontWeight: 800, background: 'var(--bg-card)', border: '1.5px solid var(--border-color)', color: 'var(--text-primary)', cursor: 'pointer' }}>Cancel</button>
+                <button onClick={handleUpdateFinancials} className="btn-primary" style={{ flex: 1, padding: '.75rem', borderRadius: '100px', textTransform: 'uppercase', fontSize: '.78rem', fontWeight: 800, cursor: 'pointer' }}>Update</button>
               </div>
             </div>
           </div>
@@ -1916,9 +1982,9 @@ export default function Admin() {
 
       {/* ADD/EDIT TRACKING LINK MODAL */}
       {trackingModal.isOpen && (
-        <div className="fixed inset-0 bg-slate-900/75 z-[300] flex items-center justify-center p-4 backdrop-blur-md">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-sm w-full overflow-hidden">
-            <div style={{ background: 'linear-gradient(135deg, #2563EB, #1D4ED8)', padding: '1.25rem 1.5rem', color: '#fff', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div className="fixed inset-0 z-[300] flex items-center justify-center p-4 backdrop-blur-md" style={{ background: 'rgba(0,0,0,0.6)' }}>
+          <div className="max-w-sm w-full overflow-hidden flex flex-col" style={{ background: 'var(--bg-card)', border: '1.5px solid var(--border-color)', borderRadius: '14px', boxShadow: '0 20px 60px var(--shadow-color)' }}>
+            <div style={{ background: '#121212', padding: '1.25rem 1.5rem', color: '#fff', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <h3 style={{ fontWeight: 900, fontSize: '1rem', textTransform: 'uppercase', letterSpacing: '.05em' }}>📦 Tracking Link</h3>
               <button onClick={() => setTrackingModal({ isOpen: false, orderId: null, value: '' })} style={{ background: 'rgba(255,255,255,.15)', border: 'none', borderRadius: 8, color: '#fff', width: 32, height: 32, cursor: 'pointer', fontSize: '1rem', fontWeight: 900 }}>✕</button>
             </div>
@@ -1933,8 +1999,8 @@ export default function Admin() {
                 autoFocus
               />
               <div style={{ display: 'flex', gap: '.75rem', marginTop: '1rem' }}>
-                <button onClick={() => setTrackingModal({ isOpen: false, orderId: null, value: '' })} className="btn-secondary" style={{ flex: 1, padding: '.75rem', textTransform: 'uppercase', fontSize: '.78rem', fontWeight: 800 }}>Cancel</button>
-                <button onClick={handleSaveTracking} className="btn-primary" style={{ flex: 1, padding: '.75rem', textTransform: 'uppercase', fontSize: '.78rem', fontWeight: 800 }}>Save Link</button>
+                <button onClick={() => setTrackingModal({ isOpen: false, orderId: null, value: '' })} style={{ flex: 1, padding: '.75rem', borderRadius: '100px', textTransform: 'uppercase', fontSize: '.78rem', fontWeight: 800, background: 'var(--bg-card)', border: '1.5px solid var(--border-color)', color: 'var(--text-primary)', cursor: 'pointer' }}>Cancel</button>
+                <button onClick={handleSaveTracking} className="btn-primary" style={{ flex: 1, padding: '.75rem', borderRadius: '100px', textTransform: 'uppercase', fontSize: '.78rem', fontWeight: 800, cursor: 'pointer' }}>Save Link</button>
               </div>
             </div>
           </div>
@@ -2710,15 +2776,15 @@ export default function Admin() {
                 .print-hide { display: none !important; }
               }
               .order-card {
-                background: #fff;
-                border: 1.5px solid #EEEEEE;
+                background: var(--bg-card);
+                border: 1.5px solid var(--border-color);
                 border-radius: 14px;
                 overflow: hidden;
                 transition: box-shadow .2s, border-color .2s;
-                box-shadow: 0 1px 4px rgba(0,0,0,.04);
+                box-shadow: 0 1px 4px var(--shadow-color);
               }
               .order-card:hover {
-                box-shadow: 0 4px 16px rgba(0,0,0,.08);
+                box-shadow: 0 4px 16px var(--shadow-color);
               }
               .order-card.selected {
                 border-color: #E8540A;
@@ -2728,7 +2794,7 @@ export default function Admin() {
                 border-color: #FECACA;
               }
               .order-card.manual {
-                background: #F0F7FF;
+                background: var(--bg-card);
               }
               .status-pill {
                 display: inline-flex;
@@ -2759,16 +2825,16 @@ export default function Admin() {
                 text-transform: uppercase;
                 letter-spacing: .05em;
                 cursor: pointer;
-                border: 1.5px solid #EEEEEE;
-                background: #F7F7F7;
-                color: #555;
+                border: 1.5px solid var(--border-color);
+                background: var(--bg-card);
+                color: var(--text-primary);
                 transition: all .18s;
                 font-family: var(--ff);
               }
               .order-action-pill:hover {
-                background: #121212;
-                color: #fff;
-                border-color: #121212;
+                background: var(--bg-primary);
+                color: var(--text-primary);
+                border-color: var(--border-color);
               }
               .order-action-pill.primary {
                 background: #E8540A;
@@ -2814,22 +2880,23 @@ export default function Admin() {
                 font-weight: 800;
                 text-transform: uppercase;
                 letter-spacing: .1em;
-                color: #BBBBBB;
+                color: var(--text-muted);
                 margin-bottom: .5rem;
               }
               .order-modal-backdrop {
                 position: fixed; inset: 0;
-                background: rgba(18,18,18,.7);
+                background: rgba(0,0,0,0.6);
                 z-index: 400;
                 display: flex; align-items: center; justify-content: center;
                 padding: 1rem;
                 backdrop-filter: blur(4px);
               }
               .order-modal {
-                background: #fff;
+                background: var(--bg-card);
                 border-radius: 14px;
+                border: 1.5px solid var(--border-color);
                 overflow: hidden;
-                box-shadow: 0 24px 64px rgba(0,0,0,.18);
+                box-shadow: 0 24px 64px var(--shadow-color);
                 width: 100%;
               }
               .order-modal-header {
@@ -2837,56 +2904,56 @@ export default function Admin() {
                 display: flex;
                 justify-content: space-between;
                 align-items: center;
-                border-bottom: 1.5px solid #EEEEEE;
+                background: #121212;
+                border-bottom: 1.5px solid var(--border-color);
               }
               .order-modal-title {
                 font-family: var(--ff-display);
                 font-weight: 900;
                 font-size: 1.05rem;
-                color: #121212;
+                color: #FFFFFF;
                 letter-spacing: -.01em;
               }
               .order-modal-close {
                 width: 32px; height: 32px;
                 border-radius: 100px;
-                border: 1.5px solid #EEEEEE;
-                background: #F7F7F7;
-                color: #888;
+                border: none;
+                background: rgba(255,255,255,0.1);
+                color: #FFFFFF;
                 cursor: pointer;
                 font-weight: 800;
                 font-size: .9rem;
-                display: flex; align-items: center; justify-content: center;
+                display: flex align-items: center; justify-content: center;
                 transition: all .18s;
               }
               .order-modal-close:hover {
-                background: #121212;
+                background: rgba(255,255,255,0.2);
                 color: #fff;
-                border-color: #121212;
               }
-              .order-modal-body { padding: 1.5rem; }
+              .order-modal-body { padding: 1.5rem; background: var(--bg-card); }
               .order-modal-footer {
                 padding: 1rem 1.5rem;
-                background: #F7F7F7;
-                border-top: 1.5px solid #EEEEEE;
+                background: var(--bg-card);
+                border-top: 1.5px solid var(--border-color);
                 display: flex;
                 gap: .75rem;
               }
               .order-input {
                 width: 100%;
                 padding: .75rem 1rem;
-                border: 1.5px solid #EEEEEE;
+                border: 1.5px solid var(--border-color);
                 border-radius: 10px;
                 font-family: var(--ff);
                 font-size: .85rem;
                 font-weight: 600;
-                color: #121212;
-                background: #F7F7F7;
+                color: var(--text-primary);
+                background: var(--input-bg);
                 outline: none;
                 transition: border-color .18s, background .18s;
               }
               .order-input:focus {
                 border-color: #E8540A;
-                background: #fff;
+                background: var(--input-bg);
               }
               .order-input-label {
                 display: block;
@@ -2895,7 +2962,7 @@ export default function Admin() {
                 font-weight: 800;
                 text-transform: uppercase;
                 letter-spacing: .1em;
-                color: #BBBBBB;
+                color: var(--text-muted);
                 margin-bottom: .45rem;
               }
               .order-receipt-row {
@@ -2917,12 +2984,12 @@ export default function Admin() {
             <div className="print-hide space-y-5">
 
               {/* ── HEADER ─────────────────────────────────────────── */}
-              <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem', background: '#fff', border: '1.5px solid #EEEEEE', borderRadius: 14, padding: '1.25rem 1.5rem', boxShadow: '0 1px 4px rgba(0,0,0,.04)' }}>
+              <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem', background: 'var(--bg-card)', border: '1.5px solid var(--border-color)', borderRadius: 14, padding: '1.25rem 1.5rem', boxShadow: '0 1px 4px var(--shadow-color)' }}>
                 <div>
-                  <h2 style={{ fontFamily: 'var(--ff-display)', fontWeight: 900, fontSize: '1.2rem', color: '#121212', margin: 0, letterSpacing: '-.02em' }}>
+                  <h2 style={{ fontFamily: 'var(--ff-display)', fontWeight: 900, fontSize: '1.2rem', color: 'var(--text-primary)', margin: 0, letterSpacing: '-.02em' }}>
                     {showTrash ? '🗑 Trash Bin' : '🛒 Order Management'}
                   </h2>
-                  <p style={{ fontFamily: 'var(--ff)', fontSize: '.78rem', color: '#888', fontWeight: 600, margin: '.2rem 0 0' }}>
+                  <p style={{ fontFamily: 'var(--ff)', fontSize: '.78rem', color: 'var(--text-muted)', fontWeight: 600, margin: '.2rem 0 0' }}>
                     {showTrash ? 'Restore or permanently delete trashed orders.' : `${orders.filter(o => !o.deleted).length} active orders`}
                   </p>
                 </div>
@@ -3033,7 +3100,7 @@ export default function Admin() {
               </div>
 
               {/* ── SEARCH + BULK ACTIONS ────────────────────────────── */}
-              <div style={{ background: '#fff', border: '1.5px solid #EEEEEE', borderRadius: 14, overflow: 'hidden', boxShadow: '0 1px 4px rgba(0,0,0,.04)' }}>
+              <div style={{ background: 'var(--bg-card)', border: '1.5px solid var(--border-color)', borderRadius: 14, overflow: 'hidden', boxShadow: '0 1px 4px var(--shadow-color)' }}>
                 {selectedOrders.size > 0 && (
                   <div style={{ padding: '.85rem 1.25rem', background: 'rgba(232,84,10,.06)', borderBottom: '1.5px solid rgba(232,84,10,.15)', display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: '.75rem' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '.6rem' }}>
@@ -3048,14 +3115,14 @@ export default function Admin() {
                   </div>
                 )}
                 <div style={{ padding: '.85rem 1.25rem', display: 'flex', alignItems: 'center', gap: '.75rem' }}>
-                  <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '.6rem', background: '#F7F7F7', border: '1.5px solid #EEEEEE', borderRadius: 100, padding: '.5rem 1rem', transition: 'border-color .18s' }}>
+                  <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '.6rem', background: 'var(--input-bg)', border: '1.5px solid var(--border-color)', borderRadius: 100, padding: '.5rem 1rem', transition: 'border-color .18s' }}>
                     <span style={{ fontSize: '.9rem' }}>🔍</span>
                     <input
                       type="text"
                       placeholder="Search by order ID, name, or phone…"
                       value={orderSearch}
                       onChange={e => { setOrderSearch(e.target.value); setOrdersPage(1); }}
-                      style={{ border: 'none', background: 'transparent', outline: 'none', fontFamily: 'var(--ff)', fontSize: '.82rem', fontWeight: 600, color: '#121212', width: '100%' }}
+                      style={{ border: 'none', background: 'transparent', outline: 'none', fontFamily: 'var(--ff)', fontSize: '.82rem', fontWeight: 600, color: 'var(--text-primary)', width: '100%' }}
                     />
                     {orderSearch && (
                       <button onClick={() => setOrderSearch('')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#BBBBBB', fontSize: '.9rem', fontWeight: 900 }}>✕</button>
@@ -3115,7 +3182,7 @@ export default function Admin() {
                   });
 
                 if (displayOrders.length === 0) return (
-                  <div style={{ textAlign:'center',padding:'4rem 1rem',background:'#fff',border:'1.5px dashed #EEEEEE',borderRadius:14 }}>
+                  <div style={{ textAlign:'center',padding:'4rem 1rem',background:'var(--bg-card)',border:'1.5px dashed var(--border-color)',borderRadius:14 }}>
                     <div style={{ fontSize:'2.5rem',marginBottom:'.75rem' }}>📭</div>
                     <p style={{ fontFamily:'var(--ff)',fontSize:'.85rem',fontWeight:700,color:'#BBBBBB' }}>
                       {showTrash ? 'Trash is empty.' : `No ${orderStatusFilter !== 'All Status' ? orderStatusFilter.toLowerCase()+' ' : ''}orders found.`}
@@ -3276,16 +3343,16 @@ export default function Admin() {
                                     {/* Delivery Info */}
                                     <div>
                                       <div className="order-section-label">📍 Delivery Info</div>
-                                      <div style={{ background:'#fff',border:'1.5px solid #EEEEEE',borderRadius:10,padding:'1rem',display:'flex',flexDirection:'column',gap:'.5rem' }}>
+                                      <div style={{ background:'var(--bg-card)',border:'1.5px solid var(--border-color)',borderRadius:10,padding:'1rem',display:'flex',flexDirection:'column',gap:'.5rem' }}>
                                         <div style={{ display:'flex',justifyContent:'space-between',alignItems:'center' }}>
-                                          <span style={{ fontFamily:'var(--ff)',fontSize:'.75rem',color:'#888',fontWeight:700 }}>Phone</span>
+                                          <span style={{ fontFamily:'var(--ff)',fontSize:'.75rem',color:'var(--text-muted)',fontWeight:700 }}>Phone</span>
                                           <span style={{ fontFamily:'var(--ff)',fontWeight:800,fontSize:'.82rem',color:'#2563EB' }}>{order.deliveryPhone || 'N/A'}</span>
                                         </div>
-                                        <div style={{ height:1,background:'#EEEEEE' }}></div>
+                                        <div style={{ height:1,background:'var(--border-color)' }}></div>
                                         <div style={{ display:'flex',justifyContent:'space-between',alignItems:'flex-start',gap:'.5rem' }}>
-                                          <span style={{ fontFamily:'var(--ff)',fontSize:'.75rem',color:'#888',fontWeight:700,flexShrink:0 }}>Address</span>
+                                          <span style={{ fontFamily:'var(--ff)',fontSize:'.75rem',color:'var(--text-muted)',fontWeight:700,flexShrink:0 }}>Address</span>
                                           <div style={{ display:'flex',alignItems:'flex-start',gap:'.35rem' }}>
-                                            <span style={{ fontFamily:'var(--ff)',fontWeight:700,fontSize:'.8rem',color:'#121212',textAlign:'right',whiteSpace:'pre-line',lineHeight:1.5 }}>{order.deliveryAddress || 'N/A'}</span>
+                                            <span style={{ fontFamily:'var(--ff)',fontWeight:700,fontSize:'.8rem',color:'var(--text-primary)',textAlign:'right',whiteSpace:'pre-line',lineHeight:1.5 }}>{order.deliveryAddress || 'N/A'}</span>
                                             <button
                                               onClick={() => setEditAddressModal({ isOpen: true, orderId: order.id, address: order.deliveryAddress || '' })}
                                               style={{ background:'none',border:'none',cursor:'pointer',color:'#BBBBBB',padding:'.15rem',borderRadius:6,flexShrink:0,transition:'color .18s' }}
@@ -3317,17 +3384,17 @@ export default function Admin() {
                                     {/* Items + Receipt */}
                                     <div>
                                       <div className="order-section-label">🛍 Items & Receipt</div>
-                                      <div style={{ background:'#fff',border:'1.5px solid #EEEEEE',borderRadius:10,padding:'1rem' }}>
+                                      <div style={{ background:'var(--bg-card)',border:'1.5px solid var(--border-color)',borderRadius:10,padding:'1rem' }}>
                                         <ul style={{ listStyle:'none',padding:0,margin:'0 0 .75rem' }}>
                                           {order.items?.map((item, idx) => (
-                                            <li key={idx} style={{ display:'flex',justifyContent:'space-between',alignItems:'center',fontFamily:'var(--ff)',fontWeight:700,fontSize:'.8rem',color:'#121212',padding:'.3rem 0',borderBottom:'1px dashed #EEEEEE' }}>
+                                            <li key={idx} style={{ display:'flex',justifyContent:'space-between',alignItems:'center',fontFamily:'var(--ff)',fontWeight:700,fontSize:'.8rem',color:'var(--text-primary)',padding:'.3rem 0',borderBottom:'1px dashed var(--border-color)' }}>
                                               <span>{item.quantity||1}× {item.name||'Item'} {item.weight?`(${item.weight}kg)`:''}</span>
                                               <span style={{ fontWeight:800,color:'#E8540A' }}>৳{((item.discountPrice||item.price||0)*(item.quantity||1))}</span>
                                             </li>
                                           ))}
                                         </ul>
-                                        <div style={{ borderTop:'1.5px solid #EEEEEE',paddingTop:'.6rem' }}>
-                                          <div className="order-receipt-row" style={{ color:'#888' }}>
+                                        <div style={{ borderTop:'1.5px solid var(--border-color)',paddingTop:'.6rem' }}>
+                                          <div className="order-receipt-row" style={{ color:'var(--text-muted)' }}>
                                             <span>Subtotal</span>
                                             <span>৳{order.subtotal||Math.max(0,(order.total||0)-(order.deliveryFee||0)+(order.discount||0))}</span>
                                           </div>
@@ -3341,7 +3408,7 @@ export default function Admin() {
                                               <span>-৳{order.discount||0}</span>
                                             </div>
                                           )}
-                                          <div style={{ display:'flex',justifyContent:'space-between',alignItems:'center',fontFamily:'var(--ff-display)',fontWeight:900,fontSize:'.95rem',color:'#121212',paddingTop:'.5rem',borderTop:'2px dashed #EEEEEE',marginTop:'.35rem' }}>
+                                          <div style={{ display:'flex',justifyContent:'space-between',alignItems:'center',fontFamily:'var(--ff-display)',fontWeight:900,fontSize:'.95rem',color:'var(--text-primary)',paddingTop:'.5rem',borderTop:'2px dashed var(--border-color)',marginTop:'.35rem' }}>
                                             <span style={{ display:'flex',alignItems:'center',gap:'.35rem' }}>
                                               Total
                                               <button
@@ -4368,9 +4435,9 @@ export default function Admin() {
                 <div style={{ 
                   border: '1.5px solid var(--gray2)', 
                   borderRadius: '20px', 
-                  background: '#ffffff', 
+                  background: 'var(--bg-card)', 
                   overflow: 'hidden', 
-                  boxShadow: '0 20px 40px -15px rgba(0,0,0,0.12)',
+                  boxShadow: '0 20px 40px -15px var(--shadow-color)',
                   display: 'flex',
                   flexDirection: 'column',
                   maxHeight: '750px'
@@ -4392,18 +4459,18 @@ export default function Admin() {
                     </div>
                     
                     <div style={{ 
-                      background: '#ffffff', 
-                      border: '1.5px solid var(--gray2)', 
+                      background: 'var(--input-bg)', 
+                      border: '1.5px solid var(--border-color)', 
                       borderRadius: '10px', 
                       padding: '.3rem .8rem', 
                       fontSize: '.68rem', 
                       fontWeight: 700, 
-                      color: 'var(--gray4)', 
+                      color: 'var(--text-muted)', 
                       flex: 1, 
                       display: 'flex', 
                       alignItems: 'center', 
                       gap: '.4rem',
-                      boxShadow: 'inset 0 1px 2px rgba(0,0,0,0.02)'
+                      boxShadow: 'inset 0 1px 2px var(--shadow-color)'
                     }}>
                       <span style={{ fontSize: '.8rem' }}>🔒</span>
                       <span style={{ color: 'var(--dark)', opacity: 0.8 }}>https://</span>
@@ -4415,14 +4482,14 @@ export default function Admin() {
                   <div style={{ 
                     overflowY: 'auto', 
                     flexGrow: 1, 
-                    background: '#ffffff', 
+                    background: 'var(--bg-primary)', 
                     fontFamily: '"Sora", sans-serif',
                     fontSize: '12px'
                   }} className="scrollbar-thin">
                     
                     {/* Miniature Top Bar */}
                     <div style={{ 
-                      background: 'var(--dark)', 
+                      background: '#121212', 
                       color: 'var(--gray2)', 
                       padding: '.35rem 1.25rem', 
                       fontSize: '.5rem', 
@@ -4440,11 +4507,11 @@ export default function Admin() {
                     {/* Micro Navigation */}
                     <div style={{ 
                       padding: '.8rem 1.25rem', 
-                      borderBottom: '1px solid var(--gray2)', 
+                      borderBottom: '1px solid var(--border-color)', 
                       display: 'flex', 
                       alignItems: 'center', 
                       justifyContent: 'space-between',
-                      background: '#ffffff'
+                      background: 'var(--bg-card)'
                     }}>
                       <div style={{ fontWeight: 900, fontSize: '.8rem', color: 'var(--dark)', fontFamily: '"Fraunces", serif' }}>
                         Vertex<span style={{ color: 'var(--primary)' }}>Picks</span>
@@ -4488,11 +4555,11 @@ export default function Admin() {
                     {/* Miniature Hero Section */}
                     <div style={{ 
                       padding: '2rem 1.25rem 1.5rem', 
-                      background: 'radial-gradient(circle at top right, #FFFDEB, #ffffff)', 
+                      background: 'var(--hero-gradient)', 
                       display: 'flex',
                       flexDirection: 'column',
                       gap: '.8rem',
-                      borderBottom: '1.5px solid var(--gray2)'
+                      borderBottom: '1.5px solid var(--border-color)'
                     }}>
                       
                       {/* Badge Row */}
@@ -4530,7 +4597,7 @@ export default function Admin() {
                       {/* Micro Call to Actions */}
                       <div style={{ display: 'flex', gap: '.6rem', marginTop: '.2rem' }}>
                         <span style={{ fontSize: '.6rem', fontWeight: 800, background: 'var(--primary)', color: '#ffffff', padding: '.45rem .9rem', borderRadius: '100px', boxShadow: '0 4px 10px rgba(232,84,10,0.15)' }}>🛒 Shop Mangoes</span>
-                        <span style={{ fontSize: '.6rem', fontWeight: 800, border: '1.5px solid var(--gray2)', color: 'var(--dark)', padding: '.45rem .9rem', borderRadius: '100px', background: '#fff' }}>✦ Our Promise</span>
+                        <span style={{ fontSize: '.6rem', fontWeight: 800, border: '1.5px solid var(--gray2)', color: 'var(--dark)', padding: '.45rem .9rem', borderRadius: '100px', background: 'var(--bg-card)' }}>✦ Our Promise</span>
                       </div>
                       
                       {/* Trust Row */}
@@ -4551,7 +4618,7 @@ export default function Admin() {
                     {/* Miniature Category Pills */}
                     <div style={{ 
                       padding: '.75rem 1.25rem', 
-                      background: '#ffffff',
+                      background: 'var(--bg-primary)',
                       display: 'flex',
                       gap: '.4rem',
                       overflowX: 'auto',
@@ -4587,25 +4654,25 @@ export default function Admin() {
                         gap: '.75rem' 
                       }}>
                         {/* Promise Card 1 */}
-                        <div style={{ background: '#ffffff', border: '1px solid var(--gray2)', borderRadius: '12px', padding: '.75rem', boxShadow: 'var(--shadow-sm)' }}>
+                        <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: '12px', padding: '.75rem', boxShadow: 'var(--shadow-sm)' }}>
                           <span style={{ fontSize: '1rem', display: 'block', marginBottom: '.3rem' }}>{promiseFeature1Icon}</span>
                           <span style={{ fontSize: '.68rem', fontWeight: 800, color: 'var(--dark)', display: 'block', marginBottom: '.15rem' }}>{promiseFeature1Title}</span>
                           <span style={{ fontSize: '.58rem', color: 'var(--gray4)', lineHeight: 1.4, display: 'block', fontWeight: 500 }}>{promiseFeature1Text}</span>
                         </div>
                         {/* Promise Card 2 */}
-                        <div style={{ background: '#ffffff', border: '1px solid var(--gray2)', borderRadius: '12px', padding: '.75rem', boxShadow: 'var(--shadow-sm)' }}>
+                        <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: '12px', padding: '.75rem', boxShadow: 'var(--shadow-sm)' }}>
                           <span style={{ fontSize: '1rem', display: 'block', marginBottom: '.3rem' }}>{promiseFeature2Icon}</span>
                           <span style={{ fontSize: '.68rem', fontWeight: 800, color: 'var(--dark)', display: 'block', marginBottom: '.15rem' }}>{promiseFeature2Title}</span>
                           <span style={{ fontSize: '.58rem', color: 'var(--gray4)', lineHeight: 1.4, display: 'block', fontWeight: 500 }}>{promiseFeature2Text}</span>
                         </div>
                         {/* Promise Card 3 */}
-                        <div style={{ background: '#ffffff', border: '1px solid var(--gray2)', borderRadius: '12px', padding: '.75rem', boxShadow: 'var(--shadow-sm)' }}>
+                        <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: '12px', padding: '.75rem', boxShadow: 'var(--shadow-sm)' }}>
                           <span style={{ fontSize: '1rem', display: 'block', marginBottom: '.3rem' }}>{promiseFeature3Icon}</span>
                           <span style={{ fontSize: '.68rem', fontWeight: 800, color: 'var(--dark)', display: 'block', marginBottom: '.15rem' }}>{promiseFeature3Title}</span>
                           <span style={{ fontSize: '.58rem', color: 'var(--gray4)', lineHeight: 1.4, display: 'block', fontWeight: 500 }}>{promiseFeature3Text}</span>
                         </div>
                         {/* Promise Card 4 */}
-                        <div style={{ background: '#ffffff', border: '1px solid var(--gray2)', borderRadius: '12px', padding: '.75rem', boxShadow: 'var(--shadow-sm)' }}>
+                        <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: '12px', padding: '.75rem', boxShadow: 'var(--shadow-sm)' }}>
                           <span style={{ fontSize: '1rem', display: 'block', marginBottom: '.3rem' }}>{promiseFeature4Icon}</span>
                           <span style={{ fontSize: '.68rem', fontWeight: 800, color: 'var(--dark)', display: 'block', marginBottom: '.15rem' }}>{promiseFeature4Title}</span>
                           <span style={{ fontSize: '.58rem', color: 'var(--gray4)', lineHeight: 1.4, display: 'block', fontWeight: 500 }}>{promiseFeature4Text}</span>
@@ -4616,7 +4683,7 @@ export default function Admin() {
                     {/* Miniature Footer Section */}
                     <div style={{ 
                       padding: '1.5rem 1.25rem', 
-                      background: 'var(--dark)', 
+                      background: '#1E1E1E', 
                       color: 'rgba(255,255,255,0.6)', 
                       display: 'flex',
                       flexDirection: 'column',
@@ -4692,9 +4759,9 @@ export default function Admin() {
 
             {/* Dynamic Delivery Zone Creation Modal */}
             {showZoneModal && (
-              <div className="fixed inset-0 bg-slate-900/75 z-[300] flex items-center justify-center p-4 backdrop-blur-md animate-in fade-in duration-300">
-                <div className="glass-modal max-w-sm w-full overflow-hidden flex flex-col animate-in scale-in duration-300">
-                  <div className="bg-gradient-to-r from-emerald-700 via-emerald-600 to-green-500 p-6 text-white flex justify-between items-center shrink-0 shadow-md">
+              <div className="fixed inset-0 z-[300] flex items-center justify-center p-4 backdrop-blur-md animate-in fade-in duration-300" style={{ background: 'rgba(0,0,0,0.6)' }}>
+                <div className="max-w-sm w-full overflow-hidden flex flex-col animate-in scale-in duration-300" style={{ background: 'var(--bg-card)', border: '1.5px solid var(--border-color)', borderRadius: '14px', boxShadow: '0 20px 60px var(--shadow-color)' }}>
+                  <div className="p-6 text-white flex justify-between items-center shrink-0 shadow-md" style={{ background: '#121212' }}>
                     <div>
                       <h3 className="font-['Fraunces'] font-black text-lg uppercase tracking-wide text-white">{editZoneIndex !== null ? '✏️ Edit Delivery Zone' : '🚚 Add Delivery Zone'}</h3>
                       <p className="text-[10px] uppercase font-bold tracking-wider text-green-100 mt-1">Logistics Coverage Registry</p>
@@ -4754,10 +4821,11 @@ export default function Admin() {
                       </div>
                     </div>
 
-                    <div className="p-6 bg-[var(--gray1)] border-t border-[var(--gray2)] flex justify-end gap-3">
+                    <div style={{ padding: '1.5rem', background: 'var(--bg-card)', borderTop: '1.5px solid var(--border-color)', display: 'flex', justifyContent: 'flex-end', gap: '0.75rem' }}>
                       <button 
                         type="button" 
                         onClick={() => setShowZoneModal(false)} 
+                        style={{ background: 'var(--bg-card)', border: '1.5px solid var(--border-color)', color: 'var(--text-primary)', cursor: 'pointer' }}
                         className="btn-secondary uppercase text-xs font-bold py-3 px-6 rounded-full shadow-sm transition-all duration-200 active:scale-95"
                       >
                         Cancel

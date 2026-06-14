@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
+import { useTheme } from '../context/ThemeContext';
 import { doc, getDoc } from 'firebase/firestore';
 import { db, auth } from '../firebaseConfig';
 import { signOut } from 'firebase/auth';
@@ -18,6 +19,7 @@ export default function Navbar() {
   
   const { cart } = useCart();
   const { user, isAdmin } = useAuth();
+  const { isDark, setIsDark } = useTheme();
   
   const navigate = useNavigate();
   const location = useLocation();
@@ -166,6 +168,29 @@ export default function Navbar() {
             ❤️
           </Link>
 
+          {/* Theme Toggle Button */}
+          <button
+            onClick={() => setIsDark(!isDark)}
+            style={{
+              width: '38px',
+              height: '38px',
+              borderRadius: '100px',
+              border: '1.5px solid var(--border-color)',
+              background: 'var(--bg-card)',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: '1.1rem',
+              transition: 'all 0.2s ease',
+              outline: 'none',
+              padding: 0
+            }}
+            title={isDark ? "Switch to Light Mode" : "Switch to Dark Mode"}
+          >
+            {isDark ? '☀️' : '🌙'}
+          </button>
+
           {/* Cart Icon Button */}
           <Link to="/checkout" className="nav-icon-btn" title="Cart">
             🛒
@@ -215,7 +240,7 @@ export default function Navbar() {
                       font-family: 'Sora', sans-serif;
                       font-size: 0.85rem;
                       font-weight: 600;
-                      color: #1A1A1A;
+                      color: var(--text-primary);
                       cursor: pointer;
                       transition: background 0.15s ease, color 0.15s ease;
                       text-decoration: none;
@@ -226,7 +251,7 @@ export default function Navbar() {
                       box-sizing: border-box;
                     }
                     .nav-custom-dropdown-item:hover {
-                      background: #F7F7F7;
+                      background: var(--bg-primary);
                       color: #E8540A;
                     }
                     .nav-custom-dropdown-logout {
@@ -244,16 +269,16 @@ export default function Navbar() {
                       justify-content: center;
                     }
                     .nav-custom-dropdown-divider {
-                      border-top: 1px solid #EEEEEE;
+                      border-top: 1px solid var(--border-color);
                       margin: 0.25rem 0.5rem;
                     }
                   `}</style>
                   <div 
                     style={{
-                      background: '#FFFFFF',
+                      background: 'var(--bg-card)',
                       borderRadius: '14px',
-                      border: '1.5px solid #EEEEEE',
-                      boxShadow: '0 20px 60px rgba(0,0,0,0.12)',
+                      border: '1.5px solid var(--border-color)',
+                      boxShadow: '0 20px 60px var(--shadow-color)',
                       padding: '0.5rem',
                       minWidth: '200px',
                       boxSizing: 'border-box'
@@ -288,10 +313,10 @@ export default function Navbar() {
           {/* Admin Panel button shown when admin logged in */}
           {isAdmin && (
             <>
-              <Link to="/admin" className="nav-order-btn nav-admin-full" style={{ background: 'var(--dark)' }}>
+              <Link to="/admin" className="nav-order-btn nav-admin-full" style={{ background: 'var(--navbar-bg)' }}>
                 ⚙️ Admin Panel
               </Link>
-              <Link to="/admin" className="nav-icon-btn nav-admin-compact" title="Admin Panel" style={{ background: 'var(--dark)', color: '#fff', fontSize: '.85rem' }}>
+              <Link to="/admin" className="nav-icon-btn nav-admin-compact" title="Admin Panel" style={{ background: 'var(--navbar-bg)', color: '#fff', fontSize: '.85rem' }}>
                 ⚙️
               </Link>
             </>
@@ -310,7 +335,7 @@ export default function Navbar() {
 
         {/* Mobile Dropdown Menu */}
         {isMobileMenuOpen && (
-          <div className="absolute top-[100%] left-0 w-full bg-white border-b border-gray2 shadow-md z-[190] py-5 px-6 animate-in fade-in slide-in-from-top-4 duration-200">
+          <div className="absolute top-[100%] left-0 w-full border-b border-gray2 shadow-md z-[190] py-5 px-6 animate-in fade-in slide-in-from-top-4 duration-200" style={{ background: 'var(--bg-card)' }}>
             <div className="flex flex-col gap-4">
               {/* Responsive Search Input */}
               <div style={{ position: 'relative', width: '100%', marginBottom: '.25rem' }}>
@@ -326,7 +351,7 @@ export default function Navbar() {
                       handleSearchKeyDown(e);
                     }
                   }}
-                  style={{ width: '100%', background: 'var(--gray1)', border: '1.5px solid transparent', borderRadius: '100px', padding: '.6rem 1rem .6rem 2.6rem', fontSize: '.85rem', outline: 'none' }}
+                  style={{ width: '100%', background: 'var(--input-bg)', border: '1.5px solid transparent', borderRadius: '100px', padding: '.6rem 1rem .6rem 2.6rem', fontSize: '.85rem', outline: 'none', color: 'var(--text-primary)' }}
                 />
               </div>
 

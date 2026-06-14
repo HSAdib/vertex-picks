@@ -378,7 +378,7 @@ export default function Profile() {
       {/* CONFIRM MODAL */}
       {confirmModal.isOpen && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.5)', zIndex: 500, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem', backdropFilter: 'blur(4px)' }}>
-          <div style={{ background: '#fff', borderRadius: 20, padding: '2rem', maxWidth: 380, width: '100%', boxShadow: 'var(--shadow-lg)' }}>
+          <div style={{ background: 'var(--bg-card)', borderRadius: 20, padding: '2rem', maxWidth: 380, width: '100%', boxShadow: 'var(--shadow-lg)' }}>
             <h3 style={{ fontSize: '1.1rem', fontWeight: 900, color: 'var(--dark)', marginBottom: '.5rem' }}>{confirmModal.title}</h3>
             <p style={{ fontSize: '.82rem', color: 'var(--gray4)', lineHeight: 1.6, marginBottom: '1.5rem' }}>{confirmModal.message}</p>
             <div style={{ display: 'flex', gap: '.75rem' }}>
@@ -392,7 +392,7 @@ export default function Profile() {
       {/* ADDRESS MODAL */}
       {showAddressModal && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.5)', zIndex: 500, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem', backdropFilter: 'blur(4px)' }}>
-          <div style={{ background: '#fff', borderRadius: 20, padding: '2rem', maxWidth: 440, width: '100%', boxShadow: 'var(--shadow-lg)' }}>
+          <div style={{ background: 'var(--bg-card)', borderRadius: 20, padding: '2rem', maxWidth: 440, width: '100%', boxShadow: 'var(--shadow-lg)' }}>
             <h3 style={{ fontSize: '1.1rem', fontWeight: 900, color: 'var(--dark)', marginBottom: '1.5rem' }}>{editAddressId ? 'Edit Address' : 'Add New Address'}</h3>
             <form onSubmit={handleSaveAddressModal} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
               <div><label className="form-label">Label (e.g. Home, Office)</label><input type="text" className="form-input" value={newLabel} onChange={e => setNewLabel(e.target.value)} required /></div>
@@ -416,7 +416,7 @@ export default function Profile() {
       {/* CANCEL ORDER MODAL */}
       {cancelModalOpen && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.5)', zIndex: 500, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem', backdropFilter: 'blur(4px)' }}>
-          <div style={{ background: '#fff', borderRadius: 20, padding: '2rem', maxWidth: 440, width: '100%', boxShadow: 'var(--shadow-lg)' }}>
+          <div style={{ background: 'var(--bg-card)', borderRadius: 20, padding: '2rem', maxWidth: 440, width: '100%', boxShadow: 'var(--shadow-lg)' }}>
             <h3 style={{ fontSize: '1.1rem', fontWeight: 900, color: 'var(--red)', marginBottom: '.75rem' }}>Cancel Order?</h3>
             <p style={{ fontSize: '.82rem', color: 'var(--gray4)', marginBottom: '1rem' }}>Please let us know why:</p>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '.5rem', marginBottom: '1.5rem' }}>
@@ -571,9 +571,9 @@ export default function Profile() {
                 <div style={{ display: 'flex', gap: '.6rem', padding: '1rem 1.5rem', borderBottom: '1px solid var(--gray2)', background: 'var(--gray1)', flexWrap: 'wrap' }}>
                   <div style={{ position: 'relative' }}>
                     <span style={{ position: 'absolute', left: '.7rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--gray4)', fontSize: '.8rem', pointerEvents: 'none' }}>🔍</span>
-                    <input type="text" placeholder="Search orders…" value={orderSearchQuery} onChange={e => setOrderSearchQuery(e.target.value)} style={{ background: '#fff', border: '1.5px solid var(--gray2)', borderRadius: 100, padding: '.4rem .9rem .4rem 2rem', fontSize: '.8rem', outline: 'none', width: 220 }} />
+                    <input type="text" placeholder="Search orders…" value={orderSearchQuery} onChange={e => setOrderSearchQuery(e.target.value)} style={{ background: 'var(--input-bg)', color: 'var(--text-primary)', border: '1.5px solid var(--gray2)', borderRadius: 100, padding: '.4rem .9rem .4rem 2rem', fontSize: '.8rem', outline: 'none', width: 220 }} />
                   </div>
-                  <select value={orderStatusFilter} onChange={e => setOrderStatusFilter(e.target.value)} style={{ background: '#fff', border: '1.5px solid var(--gray2)', borderRadius: 100, padding: '.4rem .9rem', fontSize: '.8rem', outline: 'none', cursor: 'pointer' }}>
+                  <select value={orderStatusFilter} onChange={e => setOrderStatusFilter(e.target.value)} style={{ background: 'var(--input-bg)', color: 'var(--text-primary)', border: '1.5px solid var(--gray2)', borderRadius: 100, padding: '.4rem .9rem', fontSize: '.8rem', outline: 'none', cursor: 'pointer' }}>
                     <option>All Status</option><option>Processing</option><option>In Transit</option><option>Delivered</option><option>Cancelled</option>
                   </select>
                 </div>

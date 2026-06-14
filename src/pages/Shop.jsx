@@ -19,6 +19,7 @@ export default function Shop() {
   const [filters, setFilters] = useState({ rating: [], season: [], weight: [], priceRange: [], variety: [] });
   const [loading, setLoading] = useState(true);
   const [quantities, setQuantities] = useState({});
+  const [cardSelectedWeights, setCardSelectedWeights] = useState({});
 
   const [selectedCategories, setSelectedCategories] = useState(urlCategory ? [urlCategory] : []);
   const [selectedVarieties, setSelectedVarieties] = useState([]);
@@ -39,6 +40,10 @@ export default function Shop() {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setSearchQuery(urlSearch || '');
   }, [urlSearch]);
+
+  useEffect(() => {
+    setSelectedCategories(urlCategory ? [urlCategory] : []);
+  }, [urlCategory]);
 
   const { addToCart } = useCart();
   const { isAdmin } = useAuth();
@@ -102,7 +107,8 @@ export default function Shop() {
 
   const handleAddToCart = (mango) => {
     const qtyToAdd = quantities[mango.id] || 1;
-    addToCart(mango.id, qtyToAdd);
+    const selW = cardSelectedWeights[mango.id] || (mango.weightOptions && mango.weightOptions.length > 0 ? mango.weightOptions[0] : `${mango.fixedWeight || 1}kg Box`);
+    addToCart(mango.id, qtyToAdd, mango, selW);
     setQuantities(prev => ({ ...prev, [mango.id]: 1 }));
   };
 
@@ -225,7 +231,7 @@ export default function Shop() {
 
   if (loading) {
     return (
-      <div style={{ paddingTop: 'var(--nav-height)', minHeight: '80vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#fff' }}>
+      <div style={{ paddingTop: 'var(--nav-height)', minHeight: '80vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg-primary)' }}>
         <div style={{ textAlign: 'center' }}>
           <div style={{ width: 48, height: 48, border: '4px solid var(--primary)', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite', margin: '0 auto 1rem' }} />
           <p style={{ fontSize: '.875rem', fontWeight: 700, color: 'var(--gray4)', textTransform: 'uppercase', letterSpacing: '.1em' }}>Syncing Harvests…</p>
@@ -241,11 +247,11 @@ export default function Shop() {
   const showHeader = true;
 
   return (
-    <div style={{ paddingTop: 'var(--nav-height)', background: '#fff', minHeight: '100vh' }}>
+    <div style={{ paddingTop: 'var(--nav-height)', background: 'var(--bg-primary)', minHeight: '100vh' }}>
 
       {/* HERO HEADER */}
       {showHeader && (
-        <section style={{ background: 'linear-gradient(135deg,#FFF8F0,#FFF3E5)', padding: '3rem 5% 2.5rem', textAlign: 'center', borderBottom: '1px solid var(--gray2)' }}>
+        <section style={{ background: 'var(--peach-gradient)', padding: '3rem 5% 2.5rem', textAlign: 'center', borderBottom: '1px solid var(--gray2)' }}>
           {showTitle && (
             <h1 className="hero-h1" style={{ fontSize: 'clamp(1.8rem,3vw,2.6rem)', marginBottom: '.5rem' }}>
               {titleRaw !== undefined ? renderTwoToneTitle(titleRaw) : <>Premium <span style={{ color: 'var(--primary)' }}>Selection</span></>}
@@ -509,8 +515,38 @@ export default function Shop() {
                         </div>
                       )}
                       <h4 className="pc-name" style={{ overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 1, WebkitBoxOrient: 'vertical' }}>{mango.name}</h4>
-                      <div className="pc-sub" style={{ fontFamily: "'Sora', sans-serif", fontSize: '0.75rem', color: '#888888', marginBottom: '0.4rem', display: 'flex', gap: '0.3rem', alignItems: 'center' }}>
-                        <span>📦 {mango.fixedWeight || 1}kg Box</span>
+                      <div className="pc-sub" style={{ fontFamily: "'Sora', sans-serif", fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '0.4rem', display: 'flex', gap: '0.3rem', alignItems: 'center', flexWrap: 'wrap' }}>
+                        {mango.weightOptions && mango.weightOptions.length > 1 ? (
+                          <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap', marginTop: '0.2rem', marginBottom: '0.2rem' }} onClick={e => { e.preventDefault(); e.stopPropagation(); }}>
+                            {mango.weightOptions.map(opt => {
+                              const isSelected = (cardSelectedWeights[mango.id] || mango.weightOptions[0]) === opt;
+                              return (
+                                <button
+                                  key={opt}
+                                  type="button"
+                                  onClick={() => setCardSelectedWeights(prev => ({ ...prev, [mango.id]: opt }))}
+                                  style={{
+                                    background: isSelected ? '#E8540A' : 'var(--bg-card)',
+                                    borderColor: isSelected ? '#E8540A' : 'var(--border-color)',
+                                    borderStyle: 'solid',
+                                    borderWidth: '1.5px',
+                                    borderRadius: '100px',
+                                    fontSize: '0.75rem',
+                                    fontWeight: 700,
+                                    color: isSelected ? '#FFFFFF' : 'var(--text-primary)',
+                                    padding: '0.3rem 0.8rem',
+                                    cursor: 'pointer',
+                                    transition: 'all 0.15s'
+                                  }}
+                                >
+                                  {opt}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        ) : (
+                          <span>📦 {mango.weightOptions && mango.weightOptions.length === 1 ? mango.weightOptions[0] : `${mango.fixedWeight || 1}kg Box`}</span>
+                        )}
                         {mango.season && <span> · 🌱 {mango.season} Season</span>}
                       </div>
                       <div className="pc-rating">

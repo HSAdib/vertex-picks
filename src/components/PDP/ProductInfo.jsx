@@ -2,7 +2,14 @@ import { useState } from 'react';
 import { useCart } from '../../context/CartContext';
 import { useNavigate } from 'react-router-dom';
 
-export default function ProductInfo({ product, qty, setQty, displayRating }) {
+export default function ProductInfo({ 
+  product, 
+  qty, 
+  setQty, 
+  displayRating,
+  selectedWeight,
+  setSelectedWeight 
+}) {
   const { addToCart } = useCart();
   const navigate = useNavigate();
   const [isAdded, setIsAdded] = useState(false);
@@ -10,7 +17,7 @@ export default function ProductInfo({ product, qty, setQty, displayRating }) {
   // B2 fix: actually add the product to cart
   const handleAddToCart = () => {
     if (!product.inStock) return;
-    addToCart(product.id, qty);
+    addToCart(product.id, qty, product, selectedWeight);
     setIsAdded(true);
     setTimeout(() => setIsAdded(false), 2000);
   };
@@ -18,7 +25,7 @@ export default function ProductInfo({ product, qty, setQty, displayRating }) {
   // B17 fix: Buy Now → add to cart + navigate
   const handleBuyNow = () => {
     if (!product.inStock) return;
-    addToCart(product.id, qty);
+    addToCart(product.id, qty, product, selectedWeight);
     navigate('/checkout');
   };
 
@@ -79,6 +86,44 @@ export default function ProductInfo({ product, qty, setQty, displayRating }) {
             Inclusive of all taxes
           </div>
         </div>
+      </div>
+
+      {/* Weight / Size Options */}
+      <div style={{ marginTop: '1.25rem', marginBottom: '1.25rem' }}>
+        <div className="pdp-section-label">Weight / Size</div>
+        {product.weightOptions && product.weightOptions.length > 1 ? (
+          <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginTop: '0.5rem' }}>
+            {product.weightOptions.map(opt => {
+              const isSelected = selectedWeight === opt;
+              return (
+                <button
+                  key={opt}
+                  type="button"
+                  onClick={() => setSelectedWeight(opt)}
+                  style={{
+                    background: isSelected ? '#E8540A' : 'var(--bg-card)',
+                    borderColor: isSelected ? '#E8540A' : 'var(--border-color)',
+                    borderStyle: 'solid',
+                    borderWidth: '1.5px',
+                    borderRadius: '100px',
+                    fontSize: '0.75rem',
+                    fontWeight: 700,
+                    color: isSelected ? '#FFFFFF' : 'var(--text-primary)',
+                    padding: '0.3rem 0.8rem',
+                    cursor: 'pointer',
+                    transition: 'all 0.15s'
+                  }}
+                >
+                  {opt}
+                </button>
+              );
+            })}
+          </div>
+        ) : (
+          <div style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--text-primary)', marginTop: '0.4rem' }}>
+            📦 {product.weightOptions && product.weightOptions.length === 1 ? product.weightOptions[0] : product.weight}
+          </div>
+        )}
       </div>
 
 
