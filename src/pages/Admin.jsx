@@ -217,11 +217,49 @@ export default function Admin() {
     });
   };
 
-  const createWhatsAppLink = (phone, total, address) => {
+  const createWhatsAppLink = (order) => {
+    const phone = order.deliveryPhone;
     if (!phone) return '#';
     let cleanPhone = phone.replace(/\D/g, '');
     if (cleanPhone.startsWith('0')) cleanPhone = '88' + cleanPhone;
-    const message = `হ্যালো, Vertex Picks থেকে বলছি! আপনার ${total} টাকার অর্ডারটি কনফার্ম করার জন্য মেসেজ দিচ্ছি। আপনার ডেলিভারি ঠিকানা: ${address}। অর্ডারটি কি কনফার্ম করব?`;
+    
+    let itemsText = '';
+    if (order.items && order.items.length > 0) {
+      itemsText = order.items.map((item, index) => {
+        const itemName = item.name || 'Item';
+        const qty = item.quantity || 1;
+        const price = (item.discountPrice || item.price || 0) * qty;
+        return `${index + 1}. ${itemName} x${qty} - ৳${price}`;
+      }).join('\n');
+    }
+    
+    const subtotal = order.subtotal || Math.max(0, (order.total || 0) - (order.deliveryFee || 0) + (order.discount || 0));
+    
+    let fullAddress = order.deliveryAddress || 'N/A';
+    if (order.deliveryPostcode) {
+      fullAddress += `\n${order.deliveryPostcode}`;
+    }
+    
+    let message = `হ্যালো, Vertex Picks থেকে বলছি! আপনার অর্ডারটি কনফার্ম করার জন্য মেসেজ দিচ্ছি।\n\n`;
+    message += `Order Details:\n${itemsText}\n\n`;
+    message += `Subtotal: ৳${subtotal}\n`;
+    message += `Delivery: ৳${order.deliveryFee || 0}\n`;
+    if (order.discount > 0) {
+      message += `Discount: -৳${order.discount}\n`;
+    }
+    message += `Total: ৳${order.total || 0}\n\n`;
+    message += `আপনার ডেলিভারি ঠিকানা: ${fullAddress}।\n\n`;
+    message += `অর্ডারটি কি কনফার্ম করব?`;
+    
+    const isAndroid = /Android/i.test(navigator.userAgent);
+    const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
+    
+    if (isAndroid) {
+      return `intent://send?phone=${cleanPhone}&text=${encodeURIComponent(message)}#Intent;package=com.whatsapp.w4b;scheme=whatsapp;end`;
+    } else if (isIOS) {
+      return `whatsapp-business://send?phone=${cleanPhone}&text=${encodeURIComponent(message)}`;
+    }
+    
     return `https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`;
   };
 
@@ -234,13 +272,10 @@ export default function Admin() {
   const [footerDesc, setFooterDesc] = useState('Hand-picked, tree-bagged, and delivered flawlessly. Premium Rajshahi mangoes, direct from farm to your door.');
   const [contactPhone, setContactPhone] = useState('+880 1581-221084');
   const [contactAddress, setContactAddress] = useState('Rajshahi, Bangladesh');
-  const [enableFreeDelivery, setEnableFreeDelivery] = useState(true);
-  const [freeDeliveryMin, setFreeDeliveryMin] = useState(1500);
   const [floatingWhatsappPhone, setFloatingWhatsappPhone] = useState('8801581221084');
 
   // Homepage Customizer states
   const [marqueeItems, setMarqueeItems] = useState([
-    '🚚 Free delivery on ৳1,500+',
     '🌿 100% tree-bagged & chemical-free',
     '⚡ Same-day dispatch before 12pm',
     '🎁 Eid gift boxes available',
@@ -250,7 +285,7 @@ export default function Admin() {
   const [newMarqueeText, setNewMarqueeText] = useState('');
   const [editingMarqueeIndex, setEditingMarqueeIndex] = useState(null);
   const [editingMarqueeText, setEditingMarqueeText] = useState('');
-  const [topBarText, setTopBarText] = useState('🚚 Free delivery on orders above ৳1,500 | Season 2025 Open!');
+  const [topBarText, setTopBarText] = useState('Season 2026 Open!');
 
   // Hero Copy States
   const [heroBadge1, setHeroBadge1] = useState('🥭 Season 2026');
@@ -283,20 +318,7 @@ export default function Admin() {
   const [promiseFeature4Icon, setPromiseFeature4Icon] = useState('🔄');
 
 
-  // Dynamic Delivery Zones States
-  const [deliveryZones, setDeliveryZones] = useState([
-    { zone: 'Dhaka Metro', areas: 'Mirpur, Gulshan, Banani, Uttara, Dhanmondi', fee: 60, time: 'Same Day' },
-    { zone: 'Dhaka Suburbs', areas: 'Savar, Gazipur, Narayanganj', fee: 100, time: 'Next Day' },
-    { zone: 'Chattogram', areas: 'Chittagong City, Halishahar, Agrabad', fee: 120, time: '1–2 Days' },
-    { zone: 'Sylhet', areas: 'Sylhet City, Sunamganj', fee: 150, time: '1–2 Days' },
-    { zone: 'Rajshahi Local', areas: 'Rajshahi City — Free Pickup', fee: 0, time: 'Same Day' }
-  ]);
-  const [showZoneModal, setShowZoneModal] = useState(false);
-  const [zoneName, setZoneName] = useState('');
-  const [zoneAreas, setZoneAreas] = useState('');
-  const [zoneFee, setZoneFee] = useState(60);
-  const [zoneTime, setZoneTime] = useState('Same Day');
-  const [editZoneIndex, setEditZoneIndex] = useState(null);
+
 
   // --- CRUD SEARCH / FILTER STATES ---
   const [productSearch, setProductSearch] = useState('');
@@ -317,24 +339,26 @@ export default function Admin() {
   const [customerSearch, setCustomerSearch] = useState('');
   const [selectedCustomerDetails, setSelectedCustomerDetails] = useState(null);
 
+  const [expandProductSales, setExpandProductSales] = useState(false);
+
   // Analytics Live States derived via useMemo
   const {
     analyticsOrdersByCity,
-    analyticsRevenueByVariety,
+    analyticsRevenueByProduct,
     analyticsMonthlyRevenue,
     analyticsLoading
   } = useMemo(() => {
     if (!orders || orders.length === 0) {
       return {
         analyticsOrdersByCity: [],
-        analyticsRevenueByVariety: [],
+        analyticsRevenueByProduct: [],
         analyticsMonthlyRevenue: [],
         analyticsLoading: false
       };
     }
 
     const cityMap = {};
-    const varietyMap = {};
+    const productMap = {};
     const monthMap = {};
     
     orders.filter(o => o.status !== 'Cancelled').forEach(o => {
@@ -356,9 +380,9 @@ export default function Admin() {
       cityMap[city] = (cityMap[city] || 0) + 1;
       
       (o.items || []).forEach(item => {
-        const variety = item.variety || item.section || 'Unknown';
+        const product = item.name || item.title || 'Unknown Product';
         const itemRevenue = (Number(item.discountPrice) || Number(item.price) || 0) * (Number(item.quantity) || 1);
-        varietyMap[variety] = (varietyMap[variety] || 0) + itemRevenue;
+        productMap[product] = (productMap[product] || 0) + itemRevenue;
       });
       
       if (o.createdAt) {
@@ -374,9 +398,9 @@ export default function Admin() {
       .slice(0, 5)
       .map(([city, count]) => ({ city, val: count, fill: `${((count / totalValidOrders) * 100).toFixed(0)}%` }));
 
-    const sortedVars = Object.entries(varietyMap).sort((a, b) => b[1] - a[1]).slice(0, 5);
-    const maxVar = sortedVars.length > 0 ? sortedVars[0][1] : 1;
-    const revenueByVariety = sortedVars.map(([name, revenue]) => ({ name, revenue, fill: `${((revenue / maxVar) * 100).toFixed(0)}%` }));
+    const sortedProductsList = Object.entries(productMap).sort((a, b) => b[1] - a[1]);
+    const maxProduct = sortedProductsList.length > 0 ? sortedProductsList[0][1] : 1;
+    const revenueByProduct = sortedProductsList.map(([name, revenue]) => ({ name, revenue, fill: `${((revenue / maxProduct) * 100).toFixed(0)}%` }));
 
     const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
     const sortedMonths = Object.entries(monthMap).sort((a, b) => monthNames.indexOf(a[0]) - monthNames.indexOf(b[0]));
@@ -384,7 +408,7 @@ export default function Admin() {
 
     return {
       analyticsOrdersByCity: ordersByCity,
-      analyticsRevenueByVariety: revenueByVariety,
+      analyticsRevenueByProduct: revenueByProduct,
       analyticsMonthlyRevenue: monthlyRevenue,
       analyticsLoading: false
     };
@@ -435,14 +459,42 @@ export default function Admin() {
     'Packed in eco-friendly boxes and dispatched same morning'
   ]);
 
-  // 2. Add Coupon Modal
+  // 2. Add Promo Modal
   const [showCouponModal, setShowCouponModal] = useState(false);
+  const [editPromoId, setEditPromoId] = useState(null);
+  const [editPromoUsedCount, setEditPromoUsedCount] = useState(0);
+  const [editPromoCreatedAt, setEditPromoCreatedAt] = useState(null);
   const [coupCode, setCoupCode] = useState('');
   const [coupType, setCoupType] = useState('percent');
   const [coupValue, setCoupValue] = useState(10);
   const [coupMinOrder, setCoupMinOrder] = useState(500);
   const [coupLimit, setCoupLimit] = useState(100);
   const [coupExpires, setCoupExpires] = useState('');
+
+  const openPromoModal = (promo = null) => {
+    if (promo) {
+      setEditPromoId(promo.id);
+      setCoupCode(promo.code);
+      setCoupType(promo.type);
+      setCoupValue(promo.value);
+      setCoupMinOrder(promo.minOrder);
+      setCoupLimit(promo.limit);
+      setCoupExpires(promo.expires);
+      setEditPromoUsedCount(promo.usedCount || 0);
+      setEditPromoCreatedAt(promo.createdAt || null);
+    } else {
+      setEditPromoId(null);
+      setCoupCode('');
+      setCoupType('percent');
+      setCoupValue(10);
+      setCoupMinOrder(500);
+      setCoupLimit(100);
+      setCoupExpires('');
+      setEditPromoUsedCount(0);
+      setEditPromoCreatedAt(null);
+    }
+    setShowCouponModal(true);
+  };
 
   // 3. View Order Details Modal
   const [showOrderDetailModal, setShowOrderDetailModal] = useState(false);
@@ -531,12 +583,8 @@ export default function Admin() {
         setFooterDesc(cData.footerDesc || 'Hand-picked, tree-bagged, and delivered flawlessly. Premium Rajshahi mangoes, direct from farm to your door.');
         setContactPhone(cData.contactPhone || '+880 1581-221084');
         setContactAddress(cData.contactAddress || 'Rajshahi, Bangladesh');
-        setEnableFreeDelivery(cData.enableFreeDelivery ?? true);
-        setFreeDeliveryMin(cData.freeDeliveryMin ?? 1500);
         setFloatingWhatsappPhone(cData.floatingWhatsappPhone || '8801581221084');
-        if (cData.deliveryZones && Array.isArray(cData.deliveryZones)) {
-          setDeliveryZones(cData.deliveryZones);
-        }
+
 
         // Fetch customizer text settings if they exist
         if (cData.marqueeItems && Array.isArray(cData.marqueeItems)) setMarqueeItems(cData.marqueeItems);
@@ -820,37 +868,42 @@ export default function Admin() {
     ]);
   };
 
-  // Coupon Creation
+  // Promo Creation / Update
   const handleCreateCoupon = async (e) => {
     e.preventDefault();
     try {
+      const upperCode = coupCode.toUpperCase();
       const cData = {
-        code: coupCode.toUpperCase(),
+        code: upperCode,
         type: coupType,
         value: Number(coupValue),
         minOrder: Number(coupMinOrder),
         limit: Number(coupLimit),
-        usedCount: 0,
+        usedCount: editPromoId ? editPromoUsedCount : 0,
         expires: coupExpires || '2026-12-31',
-        createdAt: new Date()
+        createdAt: editPromoId && editPromoCreatedAt ? editPromoCreatedAt : new Date()
       };
       
-      await setDoc(doc(db, 'promos', coupCode.toUpperCase()), cData);
-      toast.success(`Coupon ${coupCode.toUpperCase()} active!`);
+      if (editPromoId && editPromoId !== upperCode) {
+        await deleteDoc(doc(db, 'promos', editPromoId));
+      }
+
+      await setDoc(doc(db, 'promos', upperCode), cData);
+      toast.success(editPromoId ? `Promo Code ${upperCode} updated!` : `Promo Code ${upperCode} active!`);
       setShowCouponModal(false);
-      setCoupCode('');
+      openPromoModal(null);
       fetchData();
     } catch (err) {
       console.error(err);
-      toast.error('Failed to create coupon.');
+      toast.error('Failed to save promo code.');
     }
   };
 
   const handleDeleteCoupon = async (cId) => {
-    if (window.confirm(`Delete coupon code ${cId}?`)) {
+    if (window.confirm(`Delete promo code ${cId}?`)) {
       try {
         await deleteDoc(doc(db, 'promos', cId));
-        toast.success(`Coupon ${cId} deleted.`);
+        toast.success(`Promo code ${cId} deleted.`);
         fetchData();
       } catch (err) {
         console.error(err);
@@ -893,8 +946,6 @@ export default function Admin() {
       await setDoc(doc(db, 'mangoes', 'STORE_SETTINGS'), {
         storeName,
         contactEmail,
-        enableFreeDelivery,
-        freeDeliveryMin: Number(freeDeliveryMin),
         floatingWhatsappPhone: floatingWhatsappPhone.trim()
       }, { merge: true });
       toast.success('General store configurations updated!');
@@ -1059,76 +1110,6 @@ export default function Admin() {
     }, 5200);
   };
 
-  // Dynamic Delivery Zone Actions
-  const handleSaveZone = async (e) => {
-    e.preventDefault();
-    try {
-      let updated;
-      const zoneData = {
-        zone: zoneName,
-        areas: zoneAreas,
-        fee: Number(zoneFee),
-        time: zoneTime
-      };
-
-      if (editZoneIndex !== null) {
-        updated = [...deliveryZones];
-        updated[editZoneIndex] = zoneData;
-      } else {
-        updated = [...deliveryZones, zoneData];
-      }
-
-      await setDoc(doc(db, 'mangoes', 'STORE_SETTINGS'), {
-        deliveryZones: updated
-      }, { merge: true });
-
-      setDeliveryZones(updated);
-      setShowZoneModal(false);
-      clearZoneForm();
-      toast.success(editZoneIndex !== null ? 'Delivery zone updated!' : 'New delivery zone registered!');
-    } catch (err) {
-      console.error(err);
-      toast.error('Failed to save delivery zone.');
-    }
-  };
-
-  const handleDeleteZone = async (idx) => {
-    if (window.confirm("Remove this delivery zone?")) {
-      try {
-        const updated = deliveryZones.filter((_, i) => i !== idx);
-        await setDoc(doc(db, 'mangoes', 'STORE_SETTINGS'), {
-          deliveryZones: updated
-        }, { merge: true });
-
-        setDeliveryZones(updated);
-        toast.success('Delivery zone removed!');
-      } catch (err) {
-        console.error(err);
-        toast.error('Failed to remove delivery zone.');
-      }
-    }
-  };
-
-  const openZoneModal = (z = null, idx = null) => {
-    if (z) {
-      setZoneName(z.zone);
-      setZoneAreas(z.areas);
-      setZoneFee(z.fee);
-      setZoneTime(z.time);
-      setEditZoneIndex(idx);
-    } else {
-      clearZoneForm();
-      setEditZoneIndex(null);
-    }
-    setShowZoneModal(true);
-  };
-
-  const clearZoneForm = () => {
-    setZoneName('');
-    setZoneAreas('');
-    setZoneFee(60);
-    setZoneTime('Same Day');
-  };
 
   if (authLoading || loading) {
     return (
@@ -1163,11 +1144,12 @@ export default function Admin() {
   const repeatCustomersCount = Object.values(customerCounts).filter(count => count > 1).length;
   const repeatCustomersRate = uniqueOrderingCustomers > 0 ? ((repeatCustomersCount / uniqueOrderingCustomers) * 100).toFixed(0) : '0';
 
-  const donutColors = ['#E8540A', '#F5A623', '#2A9445', '#7C3AED', '#2563EB'];
-  const totalVarietyRevenue = analyticsRevenueByVariety.reduce((sum, v) => sum + v.revenue, 0);
+  const donutColors = ['#E8540A', '#F5A623', '#2A9445', '#7C3AED', '#2563EB', '#EC4899', '#14B8A6', '#8B5CF6', '#F43F5E', '#10B981'];
+  const totalProductRevenue = analyticsRevenueByProduct.reduce((sum, v) => sum + v.revenue, 0);
+  const displayProducts = analyticsRevenueByProduct.slice(0, 5);
   let currentOffset = 25;
-  const dynamicDonutSegments = analyticsRevenueByVariety.map((v, i) => {
-    const percentage = totalVarietyRevenue > 0 ? (v.revenue / totalVarietyRevenue) * 100 : 0;
+  const dynamicDonutSegments = displayProducts.map((v, i) => {
+    const percentage = totalProductRevenue > 0 ? (v.revenue / totalProductRevenue) * 100 : 0;
     const dashLength = percentage;
     const gapLength = 100 - percentage;
     const offset = currentOffset;
@@ -1747,14 +1729,14 @@ export default function Admin() {
         </div>
       )}
 
-      {/* 2. COUPON CREATION MODAL */}
+      {/* 2. PROMO CREATION MODAL */}
       {showCouponModal && (
         <div className="fixed inset-0 z-[300] flex items-center justify-center p-4 backdrop-blur-md animate-in fade-in duration-300" style={{ background: 'rgba(0,0,0,0.6)' }}>
           <div className="max-w-sm w-full overflow-hidden flex flex-col animate-in scale-in duration-300" style={{ background: 'var(--bg-card)', border: '1.5px solid var(--border-color)', borderRadius: '14px', boxShadow: '0 20px 60px var(--shadow-color)' }}>
             {/* Modal Header */}
             <div className="p-6 text-white flex justify-between items-center shrink-0 shadow-md" style={{ background: '#121212' }}>
               <div>
-                <h3 className="font-['Fraunces'] font-black text-lg uppercase tracking-wide text-white">🎟️ Create New Coupon</h3>
+                <h3 className="font-['Fraunces'] font-black text-lg uppercase tracking-wide text-white">🎟️ {editPromoId ? 'Edit Promo Code' : 'Create Promo Code'}</h3>
                 <p className="text-[10px] uppercase font-bold tracking-wider text-purple-100 mt-1">VIP Discounts & Campaigns</p>
               </div>
               <button 
@@ -1769,7 +1751,7 @@ export default function Admin() {
             <form onSubmit={handleCreateCoupon} className="flex flex-col">
               <div className="p-6 space-y-4 overflow-y-auto max-h-[60vh] scrollbar-thin">
                 <div className="form-group">
-                  <label className="form-label">Coupon Code (Uppercase)</label>
+                  <label className="form-label">Promo Code (Uppercase)</label>
                   <input 
                     type="text" 
                     value={coupCode} 
@@ -1845,7 +1827,7 @@ export default function Admin() {
                   type="submit" 
                   className="btn-primary shiny-btn uppercase text-xs font-bold py-3 px-6 rounded-full shadow-lg shadow-orange-500/20 transition-all duration-200 hover:-translate-y-0.5 active:translate-y-0"
                 >
-                  Create Coupon
+                  {editPromoId ? 'Update Promo Code' : 'Create Promo Code'}
                 </button>
               </div>
             </form>
@@ -2035,7 +2017,7 @@ export default function Admin() {
 
         <div className="admin-nav-section">
           <span className="admin-nav-label">Manage</span>
-          {[{ id: 'coupons', icon: '🎟️', label: 'Coupons' }, { id: 'reviews', icon: '⭐', label: 'Reviews', badge: pendingReviewsCount }, { id: 'leads', icon: '📧', label: 'Leads', badge: leads.length }, { id: 'analytics', icon: '📈', label: 'Analytics' }, { id: 'customizer', icon: '🎨', label: 'UI Customizer' }].map(item => (
+          {[{ id: 'coupons', icon: '🎟️', label: 'Promo Codes' }, { id: 'reviews', icon: '⭐', label: 'Reviews', badge: pendingReviewsCount }, { id: 'leads', icon: '📧', label: 'Leads', badge: leads.length }, { id: 'analytics', icon: '📈', label: 'Analytics' }, { id: 'customizer', icon: '🎨', label: 'UI Customizer' }].map(item => (
             <button key={item.id} className={`admin-nav-item${activeAdminTab === item.id ? ' active' : ''}`} onClick={() => { setActiveAdminTab(item.id); setIsSidebarOpen(false); }}>
               <span className="ani-icon">{item.icon}</span>
               {item.label}
@@ -2218,9 +2200,19 @@ export default function Admin() {
                 </div>
               </div>
 
-              {/* Variety Sales donut legend */}
+              {/* Product Sales donut legend */}
               <div className="admin-card">
-                <div className="admin-card-head"><div className="ach-title">🥭 Sales by Variety</div></div>
+                <div className="admin-card-head" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div className="ach-title">🥭 Sales by Product</div>
+                  <button 
+                    type="button"
+                    onClick={() => setExpandProductSales(true)}
+                    style={{ background: 'var(--primary-pale)', color: 'var(--primary)', border: 'none', cursor: 'pointer', fontSize: '1.2rem', padding: '0.4rem', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                    title="View Detailed Breakdown"
+                  >
+                    ↗️
+                  </button>
+                </div>
                 <div className="donut-wrap">
                   <svg className="donut-svg" viewBox="0 0 36 36" id="donutChart">
                     {dynamicDonutSegments.map((seg, idx) => (
@@ -2291,28 +2283,7 @@ export default function Admin() {
                       required 
                     />
                   </div>
-                  <div className="form-group" style={{ display: 'flex', alignItems: 'center', gap: '.75rem', marginTop: '1rem' }}>
-                    <input 
-                      type="checkbox" 
-                      id="enableFreeDelivery"
-                      checked={enableFreeDelivery}
-                      onChange={e => setEnableFreeDelivery(e.target.checked)}
-                      style={{ width: '1.2rem', height: '1.2rem', accentColor: 'var(--primary)', cursor: 'pointer' }}
-                    />
-                    <label htmlFor="enableFreeDelivery" className="form-label" style={{ margin: 0, cursor: 'pointer' }}>Enable Free Delivery Feature</label>
-                  </div>
-                  {enableFreeDelivery && (
-                    <div className="form-group">
-                      <label className="form-label">Free Delivery Threshold (৳)</label>
-                      <input 
-                        type="number" 
-                        className="form-input" 
-                        value={freeDeliveryMin} 
-                        onChange={e => setFreeDeliveryMin(Number(e.target.value))}
-                        required 
-                      />
-                    </div>
-                  )}
+
                   <button type="submit" className="btn-primary shiny-btn !rounded-full shadow-lg shadow-orange-500/10 font-bold uppercase tracking-wider text-[10px] px-6 py-2.5">Save Changes</button>
                 </form>
               </div>
@@ -2407,15 +2378,15 @@ export default function Admin() {
 
               <div className="admin-card" style={{ padding: '1.5rem' }}>
                 <div className="admin-card-head" style={{ borderBottom: 'none', padding: '0 0 1rem 0' }}>
-                  <div className="ach-title">🥭 Revenue by Variety</div>
+                  <div className="ach-title">🥭 Revenue by Product</div>
                 </div>
                 <div className="space-y-4">
                   {analyticsLoading ? (
                     <div className="text-center p-4 text-xs font-bold text-gray-400">Calculating...</div>
-                  ) : analyticsRevenueByVariety.length === 0 ? (
+                  ) : analyticsRevenueByProduct.length === 0 ? (
                     <div className="text-center p-4 text-xs font-bold text-gray-400">No data available</div>
                   ) : (
-                    analyticsRevenueByVariety.map((v) => (
+                    analyticsRevenueByProduct.slice(0, 5).map((v) => (
                       <div key={v.name} className="flex items-center gap-3">
                         <span className="font-bold text-xs text-gray-700 w-24 shrink-0 truncate" title={v.name}>{v.name}</span>
                         <div className="flex-1 bg-gray-200 rounded-full h-2 overflow-hidden">
@@ -2721,12 +2692,12 @@ export default function Admin() {
           </div>
         )}
 
-        {/* TAB 4: COUPONS & OFFERS TAB */}
+        {/* TAB 4: PROMO CODES & OFFERS TAB */}
         {activeAdminTab === 'coupons' && (
           <div className="admin-tab active" id="atab-coupons">
             <div className="admin-header">
-              <div className="admin-title">🎟️ Coupons & Offers</div>
-              <button className="add-btn" onClick={() => setShowCouponModal(true)}>+ Create Coupon</button>
+              <div className="admin-title">🎟️ Promo Codes & Offers</div>
+              <button className="add-btn" onClick={() => openPromoModal(null)}>+ Create Promo Code</button>
             </div>
             
             <div className="admin-card">
@@ -2734,7 +2705,7 @@ export default function Admin() {
                 <table className="admin-table">
                   <thead>
                     <tr>
-                      <th>Code</th>
+                      <th>Promo Code</th>
                       <th>Type</th>
                       <th>Value</th>
                       <th>Min. Order</th>
@@ -2766,7 +2737,8 @@ export default function Admin() {
                           </td>
                           <td>
                             <div className="at-actions">
-                              <button onClick={() => handleDeleteCoupon(c.id)} className="at-action-btn danger" title="Delete Coupon">🗑️</button>
+                              <button onClick={() => openPromoModal(c)} className="at-action-btn" title="Edit Promo Code">✏️</button>
+                              <button onClick={() => handleDeleteCoupon(c.id)} className="at-action-btn danger" title="Delete Promo Code">🗑️</button>
                             </div>
                           </td>
                         </tr>
@@ -3377,6 +3349,15 @@ export default function Admin() {
                                             </button>
                                           </div>
                                         </div>
+                                        {order.deliveryPostcode && (
+                                          <>
+                                            <div style={{ height:1,background:'var(--border-color)' }}></div>
+                                            <div style={{ display:'flex',justifyContent:'space-between',alignItems:'flex-start',gap:'.5rem' }}>
+                                              <span style={{ fontFamily:'var(--ff)',fontSize:'.75rem',color:'var(--text-muted)',fontWeight:700,flexShrink:0 }}>Postal Code</span>
+                                              <span style={{ fontFamily:'var(--ff)',fontWeight:700,fontSize:'.8rem',color:'var(--text-primary)',textAlign:'right' }}>{order.deliveryPostcode}</span>
+                                            </div>
+                                          </>
+                                        )}
                                         {order.deliveryCoords && (
                                           <a href={`https://www.google.com/maps?q=${order.deliveryCoords.lat},${order.deliveryCoords.lng}`} target="_blank" rel="noreferrer"
                                             style={{ display:'inline-flex',alignItems:'center',gap:'.3rem',background:'rgba(232,84,10,.08)',color:'#E8540A',border:'1.5px solid rgba(232,84,10,.2)',borderRadius:100,padding:'.25rem .7rem',fontFamily:'var(--ff)',fontSize:'.65rem',fontWeight:800,textTransform:'uppercase',letterSpacing:'.06em',textDecoration:'none',transition:'all .18s' }}
@@ -3443,7 +3424,7 @@ export default function Admin() {
                                   {/* Action buttons */}
                                   <div style={{ display:'flex',flexWrap:'wrap',gap:'.5rem',paddingTop:'.85rem',borderTop:'1.5px solid #EEEEEE' }}>
                                     {order.deliveryPhone && order.status !== 'Cancelled' && (
-                                      <a href={createWhatsAppLink(order.deliveryPhone,order.total,order.deliveryAddress)} target="_blank" rel="noreferrer" className="order-action-pill wa">
+                                      <a href={createWhatsAppLink(order)} target="_blank" rel="noreferrer" className="order-action-pill wa">
                                         <svg width="13" height="13" fill="currentColor" viewBox="0 0 24 24"><path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981zm11.387-5.464c-.074-.124-.272-.198-.57-.347-.297-.149-1.758-.868-2.031-.967-.272-.099-.47-.149-.669.149-.198.297-.768.967-.941 1.165-.173.198-.347.223-.644.074-.297-.149-1.255-.462-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.521.151-.172.2-.296.3-.495.099-.198.05-.372-.025-.521-.075-.148-.669-1.611-.916-2.206-.242-.579-.487-.501-.669-.51l-.57-.01c-.198 0-.52.074-.792.347-.272.297-1.04 1.016-1.04 2.479 0 1.463 1.065 2.876 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.299 1.263.478 1.694.611.712.22 1.36.189 1.872.114.576-.084 1.758-.719 2.006-1.413.248-.695.248-1.29.173-1.414z"/></svg>
                                         WA Confirm
                                       </a>
@@ -4728,134 +4709,7 @@ export default function Admin() {
           </div>
         )}
 
-        {/* TAB 9: DELIVERY ZONES TAB */}
-        {activeAdminTab === 'delivery' && (
-          <div className="admin-tab active" id="atab-delivery">
-            <div className="admin-header">
-              <div className="admin-title">🚚 Delivery Zones Directory</div>
-              <button className="add-btn shiny-btn !rounded-full shadow-md hover:-translate-y-0.5" onClick={() => openZoneModal()}>+ Add Zone</button>
-            </div>
-            
-            <div className="admin-card">
-              <div style={{ overflowX: 'auto' }}>
-                <table className="admin-table">
-                  <thead>
-                    <tr>
-                      <th>Zone</th>
-                      <th>Covered Areas</th>
-                      <th>Delivery Fee</th>
-                      <th>Est. Time</th>
-                      <th>Status</th>
-                      <th>Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {deliveryZones.map((z, idx) => (
-                      <tr key={idx}>
-                        <td><strong>{z.zone}</strong></td>
-                        <td className="text-xs font-semibold text-gray4 leading-relaxed">{z.areas}</td>
-                        <td className="font-display font-extrabold text-sm text-primary">৳{z.fee}</td>
-                        <td className="text-xs font-bold">{z.time}</td>
-                        <td><span className="badge badge-green">● Active</span></td>
-                        <td>
-                          <div className="at-actions">
-                            <button onClick={() => openZoneModal(z, idx)} className="at-action-btn" title="Edit">✏️</button>
-                            <button onClick={() => handleDeleteZone(idx)} className="at-action-btn danger" title="Delete">🗑️</button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
 
-            {/* Dynamic Delivery Zone Creation Modal */}
-            {showZoneModal && (
-              <div className="fixed inset-0 z-[300] flex items-center justify-center p-4 backdrop-blur-md animate-in fade-in duration-300" style={{ background: 'rgba(0,0,0,0.6)' }}>
-                <div className="max-w-sm w-full overflow-hidden flex flex-col animate-in scale-in duration-300" style={{ background: 'var(--bg-card)', border: '1.5px solid var(--border-color)', borderRadius: '14px', boxShadow: '0 20px 60px var(--shadow-color)' }}>
-                  <div className="p-6 text-white flex justify-between items-center shrink-0 shadow-md" style={{ background: '#121212' }}>
-                    <div>
-                      <h3 className="font-['Fraunces'] font-black text-lg uppercase tracking-wide text-white">{editZoneIndex !== null ? '✏️ Edit Delivery Zone' : '🚚 Add Delivery Zone'}</h3>
-                      <p className="text-[10px] uppercase font-bold tracking-wider text-green-100 mt-1">Logistics Coverage Registry</p>
-                    </div>
-                    <button 
-                      onClick={() => setShowZoneModal(false)} 
-                      className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center text-white hover:bg-white/20 transition-all font-black text-sm"
-                    >
-                      ✕
-                    </button>
-                  </div>
-
-                  <form onSubmit={handleSaveZone} className="flex flex-col">
-                    <div className="p-6 space-y-4 overflow-y-auto max-h-[60vh] scrollbar-thin">
-                      <div>
-                        <label className="block text-[10px] font-black uppercase tracking-widest text-[var(--gray4)] mb-1.5 font-['Sora']">Zone Title</label>
-                        <input 
-                          type="text" 
-                          value={zoneName} 
-                          onChange={e => setZoneName(e.target.value)} 
-                          placeholder="Dhaka Metro" 
-                          required 
-                          className="form-input font-bold text-xs" 
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-[10px] font-black uppercase tracking-widest text-[var(--gray4)] mb-1.5 font-['Sora']">Covered Areas (comma separated)</label>
-                        <input 
-                          type="text" 
-                          value={zoneAreas} 
-                          onChange={e => setZoneAreas(e.target.value)} 
-                          placeholder="Mirpur, Gulshan, Dhanmondi" 
-                          required 
-                          className="form-input font-bold text-xs" 
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-[10px] font-black uppercase tracking-widest text-[var(--gray4)] mb-1.5 font-['Sora']">Delivery Fee (৳)</label>
-                        <input 
-                          type="number" 
-                          value={zoneFee} 
-                          onChange={e => setZoneFee(e.target.value)} 
-                          required 
-                          className="form-input font-bold text-xs" 
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-[10px] font-black uppercase tracking-widest text-[var(--gray4)] mb-1.5 font-['Sora']">Estimated Time</label>
-                        <input 
-                          type="text" 
-                          value={zoneTime} 
-                          onChange={e => setZoneTime(e.target.value)} 
-                          placeholder="Same Day" 
-                          required 
-                          className="form-input font-bold text-xs" 
-                        />
-                      </div>
-                    </div>
-
-                    <div style={{ padding: '1.5rem', background: 'var(--bg-card)', borderTop: '1.5px solid var(--border-color)', display: 'flex', justifyContent: 'flex-end', gap: '0.75rem' }}>
-                      <button 
-                        type="button" 
-                        onClick={() => setShowZoneModal(false)} 
-                        style={{ background: 'var(--bg-card)', border: '1.5px solid var(--border-color)', color: 'var(--text-primary)', cursor: 'pointer' }}
-                        className="btn-secondary uppercase text-xs font-bold py-3 px-6 rounded-full shadow-sm transition-all duration-200 active:scale-95"
-                      >
-                        Cancel
-                      </button>
-                      <button 
-                        type="submit" 
-                        className="btn-primary shiny-btn uppercase text-xs font-bold py-3 px-6 rounded-full shadow-lg shadow-orange-500/20 transition-all duration-200 hover:-translate-y-0.5 active:translate-y-0"
-                      >
-                        {editZoneIndex !== null ? 'Update Zone' : 'Register Zone'}
-                      </button>
-                    </div>
-                  </form>
-                </div>
-              </div>
-            )}
-          </div>
-        )}
 
       </main>
         {/* CRM Customer Modal */}
@@ -4913,6 +4767,46 @@ export default function Admin() {
                 ) : (
                   <div className="text-center py-6 text-[var(--gray4)] font-semibold text-sm">No orders placed yet.</div>
                 )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Detailed Product Sales Modal */}
+        {expandProductSales && (
+          <div className="fixed inset-0 z-[500] flex items-center justify-center p-4 backdrop-blur-md animate-in fade-in duration-300" style={{ background: 'rgba(0,0,0,0.6)' }} onClick={() => setExpandProductSales(false)}>
+            <div className="max-w-2xl w-full max-h-[85vh] overflow-hidden flex flex-col animate-in scale-in duration-300" style={{ background: 'var(--bg-card)', borderRadius: '14px', border: '1.5px solid var(--border-color)', boxShadow: '0 20px 60px var(--shadow-color)' }} onClick={e => e.stopPropagation()}>
+              <div style={{ background: '#121212', padding: '1rem 1.4rem', borderRadius: '14px 14px 0 0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0 }}>
+                <h3 style={{ fontFamily: "'Fraunces', serif", fontWeight: 900, color: '#FFFFFF', fontSize: '1.1rem', margin: 0 }}>
+                  🥭 Detailed Sales by Product
+                </h3>
+                <button onClick={() => setExpandProductSales(false)} style={{ width: '32px', height: '32px', borderRadius: '50%', background: 'rgba(255,255,255,0.1)', color: '#FFFFFF', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>✕</button>
+              </div>
+              <div className="p-6 overflow-y-auto custom-scrollbar">
+                <div style={{ overflowX: 'auto' }}>
+                  <table className="admin-table w-full text-left border-collapse">
+                    <thead>
+                      <tr>
+                        <th className="p-3 border-b border-gray-200">Product Name</th>
+                        <th className="p-3 border-b border-gray-200">Total Revenue</th>
+                        <th className="p-3 border-b border-gray-200">% of Total</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {analyticsRevenueByProduct.map((p, idx) => {
+                        const totalProductRevenue = analyticsRevenueByProduct.reduce((sum, v) => sum + v.revenue, 0);
+                        const percentage = totalProductRevenue > 0 ? (p.revenue / totalProductRevenue) * 100 : 0;
+                        return (
+                          <tr key={idx} className="border-b border-gray-100 last:border-0 hover:bg-gray-50">
+                            <td className="p-3"><strong className="text-gray-800">{p.name}</strong></td>
+                            <td className="p-3 font-black text-primary">৳{p.revenue.toLocaleString()}</td>
+                            <td className="p-3 font-bold text-gray-500">{percentage.toFixed(1)}%</td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             </div>
           </div>

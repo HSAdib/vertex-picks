@@ -14,7 +14,7 @@ export default function Navbar() {
   const [categories, setCategories] = useState([]);
   const [searchVal, setSearchVal] = useState('');
   const [isScrolled, setIsScrolled] = useState(false);
-  const [topBarText, setTopBarText] = useState('🚚 Free delivery on orders above ৳1,500 | Season 2025 Open!');
+  const [topBarText, setTopBarText] = useState('Season 2026 Open!');
   const [contactPhone, setContactPhone] = useState('+880 1581-221084');
   
   const { storeName } = useStore();

@@ -14,7 +14,7 @@ function generateUniqueId() {
 }
 
 export default function Checkout() {
-  const { cart, removeFromCart, updateQuantity, toggleSelection, clearCart } = useCart();
+  const { cart, setCart, removeFromCart, updateQuantity, toggleSelection, clearCart } = useCart();
   const [liveProducts, setLiveProducts] = useState([]);
   const [livePromos, setLivePromos] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -25,6 +25,7 @@ export default function Checkout() {
   const [promoMessage, setPromoMessage] = useState({ text: '', type: '' });
   
   const [customerName, setCustomerName] = useState('');
+  const [userProfileName, setUserProfileName] = useState('');
   const [deliveryAddress, setDeliveryAddress] = useState('');
   const [deliveryPhone, setDeliveryPhone] = useState('');
   const [deliveryCoords, setDeliveryCoords] = useState(null);
@@ -33,15 +34,7 @@ export default function Checkout() {
   const [highlightDelivery, setHighlightDelivery] = useState(false);
   const [phoneError, setPhoneError] = useState(false);
   const [locating, setLocating] = useState(false);
-  const [storeConfig, setStoreConfig] = useState({ baseDeliveryFee: 110, perKgFee: 21, freeDeliveryMin: 1500, enableFreeDelivery: true });
-  const [deliveryZones, setDeliveryZones] = useState([
-    { zone: 'Dhaka Metro', areas: 'Mirpur, Gulshan, Banani, Uttara, Dhanmondi', fee: 60, time: 'Same Day' },
-    { zone: 'Dhaka Suburbs', areas: 'Savar, Gazipur, Narayanganj', fee: 100, time: 'Next Day' },
-    { zone: 'Chattogram', areas: 'Chittagong City, Halishahar, Agrabad', fee: 120, time: '1–2 Days' },
-    { zone: 'Sylhet', areas: 'Sylhet City, Sunamganj', fee: 150, time: '1–2 Days' },
-    { zone: 'Rajshahi Local', areas: 'Rajshahi City — Free Pickup', fee: 0, time: 'Same Day' }
-  ]);
-  const [selectedZone, setSelectedZone] = useState(null);
+  const [storeConfig, setStoreConfig] = useState({ baseDeliveryFee: 110, perKgFee: 21 });
 
   const [deliveryHouseNumber, setDeliveryHouseNumber] = useState('');
   const [deliveryPostcode, setDeliveryPostcode] = useState('Postal Code: ');
@@ -158,23 +151,17 @@ export default function Checkout() {
           setStoreConfig({
             baseDeliveryFee: cData.baseDeliveryFee ?? 110,
             perKgFee: cData.perKgFee ?? 21,
-            freeDeliveryMin: cData.freeDeliveryMin ?? 1500,
-            enableFreeDelivery: cData.enableFreeDelivery ?? true,
           });
-          if (cData.deliveryZones && Array.isArray(cData.deliveryZones) && cData.deliveryZones.length > 0) {
-            setDeliveryZones(cData.deliveryZones);
-            setSelectedZone(cData.deliveryZones[0]);
-          } else {
-            setSelectedZone({ zone: 'Dhaka Metro', areas: 'Mirpur, Gulshan, Banani, Uttara, Dhanmondi', fee: 60, time: 'Same Day' });
-          }
         }
         
         // B8 fix: use the resolved currentUser from onAuthStateChanged
         if (currentUser) {
           const userDoc = await getDoc(doc(db, 'users', currentUser.uid));
+          let mainName = '';
           if (userDoc.exists()) {
             const data = userDoc.data();
-            setCustomerName(data.name || currentUser.displayName || '');
+            mainName = data.name || currentUser.displayName || '';
+            setUserProfileName(mainName);
             
             if (data.addresses && data.addresses.length > 0) {
               setSavedAddresses(data.addresses);
@@ -184,14 +171,20 @@ export default function Checkout() {
               setDeliveryPhone(defaultAddr.phone);
               setDeliveryCoords(defaultAddr.coords || null);
               setDeliveryPostcode(defaultAddr.postcode || '');
-            } else if (data.address) {
-              setDeliveryAddress(data.address);
-              setDeliveryPhone(data.phone || '');
-              setDeliveryCoords(null);
-              setDeliveryPostcode(data.postcode || '');
+              setCustomerName(defaultAddr.recipientName || mainName);
+            } else {
+              setCustomerName(mainName);
+              if (data.address) {
+                setDeliveryAddress(data.address);
+                setDeliveryPhone(data.phone || '');
+                setDeliveryCoords(null);
+                setDeliveryPostcode(data.postcode || '');
+              }
             }
           } else {
-            setCustomerName(currentUser.displayName || '');
+            mainName = currentUser.displayName || '';
+            setUserProfileName(mainName);
+            setCustomerName(mainName);
           }
         } else {
           const guestAddrs = JSON.parse(localStorage.getItem('vertex_guest_addresses') || '[]');
@@ -223,6 +216,64 @@ export default function Checkout() {
     return () => unsubscribeAuth();
   }, []);
 
+  // Automatic cart deduplication / normalization sweep
+  useEffect(() => {
+    if (liveProducts.length > 0 && cart.length > 0 && setCart) {
+      let cartChanged = false;
+      const mergedCart = [];
+
+      cart.forEach(cartItem => {
+        const product = liveProducts.find(p => p.id === cartItem.id);
+        if (!product) {
+          mergedCart.push(cartItem);
+          return;
+        }
+
+        const hasMultipleWeights = product.weightOptions && product.weightOptions.length > 1;
+        const getNormW = (w) => {
+          if (!w) return '';
+          return w.toString().trim().toUpperCase().replace(/\s+/g, '').replace(/BOX|BAG|PACK|PCS/gi, '');
+        };
+
+        const targetNormW = getNormW(cartItem.selectedWeight);
+
+        const existingIndex = mergedCart.findIndex(item => {
+          if (item.id !== cartItem.id) return false;
+          if (!hasMultipleWeights) return true; // Merge if product only has 1 or no weight option
+          return getNormW(item.selectedWeight) === targetNormW;
+        });
+
+        if (existingIndex > -1) {
+          mergedCart[existingIndex].quantity += cartItem.quantity;
+          if (!mergedCart[existingIndex].selectedWeight && cartItem.selectedWeight) {
+            mergedCart[existingIndex].selectedWeight = cartItem.selectedWeight;
+          }
+          cartChanged = true;
+        } else {
+          let resolvedWeight = cartItem.selectedWeight;
+          if (!resolvedWeight) {
+            if (product.weightOptions && product.weightOptions.length > 0) {
+              resolvedWeight = product.weightOptions[0];
+              cartChanged = true;
+            } else if (product.fixedWeight) {
+              resolvedWeight = `${product.fixedWeight}kg Box`;
+              cartChanged = true;
+            }
+          }
+          mergedCart.push({
+            ...cartItem,
+            selectedWeight: resolvedWeight,
+            selected: cartItem.selected !== false
+          });
+        }
+      });
+
+      if (cartChanged) {
+        setCart(mergedCart);
+      }
+    }
+  }, [liveProducts, cart, setCart]);
+
   const handleAddressSelect = (addrId) => {
     setSelectedAddressId(addrId);
     if (addrId === 'new') {
@@ -230,13 +281,20 @@ export default function Checkout() {
       setDeliveryPhone('');
       setDeliveryCoords(null);
       setDeliveryPostcode('');
+      setDeliveryHouseNumber('');
+      setCustomerName(userProfileName);
     } else {
       const addr = savedAddresses.find(a => a.id === addrId);
       if (addr) {
-        setDeliveryAddress(addr.address);
+        const mergedAddress = addr.houseNumber ? `${addr.houseNumber}, ${addr.address}` : addr.address;
+        setDeliveryAddress(mergedAddress);
         setDeliveryPhone(addr.phone);
         setDeliveryCoords(addr.coords || null);
         setDeliveryPostcode(addr.postcode || '');
+        setDeliveryHouseNumber(addr.houseNumber || '');
+        if (addr.recipientName) {
+          setCustomerName(addr.recipientName);
+        }
       }
     }
   };
@@ -250,16 +308,49 @@ export default function Checkout() {
     return fallbackWeight;
   };
 
-  const cartItemsWithPrice = cart.map(cartItem => {
+  const cartItemsWithPrice = [];
+  cart.forEach(cartItem => {
     const product = liveProducts.find(p => p.id === cartItem.id);
-    return product ? { 
-      ...product, 
-      quantity: cartItem.quantity, 
-      weight: Number(product.fixedWeight) || 1, 
-      selected: cartItem.selected !== false,
-      selectedWeight: cartItem.selectedWeight || null
-    } : null;
-  }).filter(item => item !== null);
+    if (!product) return;
+
+    const hasMultipleWeights = product.weightOptions && product.weightOptions.length > 1;
+    const getNormW = (w) => {
+      if (!w) return '';
+      return w.toString().trim().toUpperCase().replace(/\s+/g, '').replace(/BOX|BAG|PACK|PCS/gi, '');
+    };
+
+    let resolvedWeight = cartItem.selectedWeight;
+    if (!resolvedWeight) {
+      if (product.weightOptions && product.weightOptions.length > 0) {
+        resolvedWeight = product.weightOptions[0];
+      } else if (product.fixedWeight) {
+        resolvedWeight = `${product.fixedWeight}kg Box`;
+      }
+    }
+
+    const targetNormW = getNormW(resolvedWeight);
+
+    const existing = cartItemsWithPrice.find(item => {
+      if (item.id !== cartItem.id) return false;
+      if (!hasMultipleWeights) return true;
+      return getNormW(item.selectedWeight) === targetNormW;
+    });
+
+    if (existing) {
+      existing.quantity += cartItem.quantity;
+      if (!existing.selectedWeight && resolvedWeight) {
+        existing.selectedWeight = resolvedWeight;
+      }
+    } else {
+      cartItemsWithPrice.push({
+        ...product,
+        quantity: cartItem.quantity,
+        weight: Number(product.fixedWeight) || 1,
+        selected: cartItem.selected !== false,
+        selectedWeight: resolvedWeight || null
+      });
+    }
+  });
 
   const activeItems = cartItemsWithPrice.filter(item => item.selected);
 
@@ -272,18 +363,15 @@ export default function Checkout() {
     const w = parseWeight(item.selectedWeight, Number(item.fixedWeight) || 1);
     return sum + (w * item.quantity);
   }, 0);
-  // B6 fix: apply free delivery threshold
-  const zoneBaseFee = selectedZone ? Number(selectedZone.fee) : storeConfig.baseDeliveryFee;
-  const rawDeliveryFee = totalWeight > 0 ? zoneBaseFee + ((totalWeight - 1) * storeConfig.perKgFee) : 0;
-  const deliveryFee = (storeConfig.enableFreeDelivery && subtotal >= storeConfig.freeDeliveryMin) ? 0 : rawDeliveryFee;
+  const deliveryFee = totalWeight > 0 ? storeConfig.baseDeliveryFee + ((totalWeight - 1) * storeConfig.perKgFee) : 0;
 
   // B5 fix: support both flat and percentage discounts
   let discountAmount = 0;
   if (appliedPromo) {
-    if (appliedPromo.discountType === 'flat') {
-      discountAmount = appliedPromo.discountValue || 0;
+    if (appliedPromo.type === 'flat') {
+      discountAmount = appliedPromo.value || 0;
     } else {
-      discountAmount = Math.round(subtotal * ((appliedPromo.discountPercent || appliedPromo.discountValue || 0) / 100));
+      discountAmount = Math.round(subtotal * ((appliedPromo.value || 0) / 100));
     }
   }
 
@@ -295,37 +383,39 @@ export default function Checkout() {
     if (!foundPromo) {
       setAppliedPromo(null);
       setPromoMessage({ text: 'Invalid or expired code.', type: 'error' });
-      toast.error('Invalid coupon code');
+      toast.error('Invalid promo code');
       return;
     }
     // B5 fix: check expiry
-    if (foundPromo.expiresAt) {
-      const expiry = foundPromo.expiresAt.toDate ? foundPromo.expiresAt.toDate() : new Date(foundPromo.expiresAt);
+    if (foundPromo.expires) {
+      const expiry = new Date(foundPromo.expires);
+      // To be safe and treat expires as end of day
+      expiry.setHours(23, 59, 59, 999);
       if (expiry < new Date()) {
         setAppliedPromo(null);
-        setPromoMessage({ text: 'This coupon has expired.', type: 'error' });
-        toast.error('Coupon has expired');
+        setPromoMessage({ text: 'This promo code has expired.', type: 'error' });
+        toast.error('Promo code has expired');
         return;
       }
     }
     // B5 fix: check usage limit
-    if (foundPromo.usageLimit && (foundPromo.usedCount || 0) >= foundPromo.usageLimit) {
+    if (foundPromo.limit && (foundPromo.usedCount || 0) >= foundPromo.limit) {
       setAppliedPromo(null);
-      setPromoMessage({ text: 'This coupon has reached its usage limit.', type: 'error' });
-      toast.error('Coupon usage limit reached');
+      setPromoMessage({ text: 'This promo code has reached its usage limit.', type: 'error' });
+      toast.error('Promo code usage limit reached');
       return;
     }
     // B5 fix: check minimum order amount
-    if (foundPromo.minOrderAmount && subtotal < foundPromo.minOrderAmount) {
+    if (foundPromo.minOrder && subtotal < foundPromo.minOrder) {
       setAppliedPromo(null);
-      setPromoMessage({ text: `Min. order of ৳${foundPromo.minOrderAmount} required.`, type: 'error' });
-      toast.error(`Min. order ৳${foundPromo.minOrderAmount} required`);
+      setPromoMessage({ text: `Min. order of ৳${foundPromo.minOrder} required.`, type: 'error' });
+      toast.error(`Min. order ৳${foundPromo.minOrder} required`);
       return;
     }
     setAppliedPromo(foundPromo);
-    const label = foundPromo.discountType === 'flat'
-      ? `৳${foundPromo.discountValue} OFF Applied!`
-      : `${foundPromo.discountPercent || foundPromo.discountValue}% Discount Applied!`;
+    const label = foundPromo.type === 'flat'
+      ? `৳${foundPromo.value} OFF Applied!`
+      : `${foundPromo.value}% Discount Applied!`;
     setPromoMessage({ text: label, type: 'success' });
     toast.success('Promo code applied!');
   };
@@ -333,7 +423,8 @@ export default function Checkout() {
   const handleConfirmOrder = async () => {
     if (activeItems.length === 0) return toast.error("Select at least one item to checkout!");
     
-    if (!customerName || !deliveryPhone || !deliveryAddress) {
+    const isNewAddress = selectedAddressId === 'new' || savedAddresses.length === 0;
+    if (!customerName || !deliveryPhone || !deliveryAddress || (isNewAddress && !deliveryHouseNumber)) {
       setHighlightDelivery(true);
       setTimeout(() => setHighlightDelivery(false), 3000);
       return toast.error("Please fill out all delivery details!");
@@ -345,7 +436,9 @@ export default function Checkout() {
     }
 
     try {
-      const finalAddress = deliveryHouseNumber.trim() ? `${deliveryHouseNumber.trim()}, ${deliveryAddress}` : deliveryAddress;
+      const finalAddress = isNewAddress
+        ? (deliveryHouseNumber.trim() ? `${deliveryHouseNumber.trim()}, ${deliveryAddress}` : deliveryAddress)
+        : deliveryAddress;
 
       const orderData = {
         customerEmail: auth.currentUser?.email ? auth.currentUser.email : 'guest@vertexpicks.com',
@@ -354,7 +447,6 @@ export default function Checkout() {
         deliveryPhone: deliveryPhone,
         deliveryCoords: deliveryCoords,
         deliveryPostcode: deliveryPostcode,
-        deliveryZone: selectedZone ? selectedZone.zone : 'None',
         items: activeItems,
         subtotal: subtotal,
         totalWeight: totalWeight,
@@ -409,7 +501,9 @@ export default function Checkout() {
         }
       }
 
-      clearCart();
+      activeItems.forEach(item => {
+        removeFromCart(item.id, item.selectedWeight);
+      });
       
       toast.success("Order Placed Successfully!");
       setTimeout(() => {
@@ -440,23 +534,22 @@ export default function Checkout() {
 
   return (
     <div style={{ background: 'var(--bg-primary)', minHeight: '100vh', fontFamily: "'Sora', sans-serif" }}>
-      <div className="max-w-6xl mx-auto px-4 py-8" style={{ boxSizing: 'border-box', paddingTop: '168px' }}>
+      <div className="checkout-container px-4 py-8" style={{ boxSizing: 'border-box', paddingTop: '168px' }}>
         
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem', flexWrap: 'wrap', gap: '1rem', paddingTop: '1rem' }}>
           <h1 style={{ fontFamily: "'Fraunces', serif", fontWeight: 900, color: 'var(--text-primary)', fontSize: '1.5rem', textTransform: 'uppercase' }}>
             Checkout Summary
           </h1>
         </div>
-        
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
+        <div className="checkout-grid-container">
           
-          <div className="lg:col-span-2 space-y-5">
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
             {cartItemsWithPrice.length === 0 ? (
               <div style={{ background: 'var(--bg-card)', borderRadius: '14px', border: '1.5px solid var(--border-color)', boxShadow: '0 2px 8px var(--shadow-color)', padding: '1.4rem', textAlign: 'center', height: '20rem', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 <p style={{ fontFamily: "'Sora', sans-serif", fontWeight: 700, color: 'var(--text-muted)', fontSize: '0.9rem' }}>Your cart is empty.</p>
               </div>
             ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.2rem' }}>
                   <h3 style={{ fontFamily: "'Fraunces', serif", fontWeight: 900, fontSize: '1.1rem', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '0.625rem' }}>
                     🛒 Cart Items
@@ -466,43 +559,50 @@ export default function Checkout() {
                   </span>
                 </div>
               
-              <div style={{
-                      border: '1.5px solid var(--border-color)',
-                      background: 'var(--bg-primary)',
-                      borderRadius: '14px',
-                      padding: '1.4rem'
-                    }}>
-                {activeItems.map(item => {
-                  const displayPrice = item.discountPrice || item.price;
-                  return (
-                    <div key={`${item.id}-${item.selectedWeight || ''}`} style={{ display: 'flex', alignItems: 'center', gap: '1rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '1rem', marginBottom: '1rem', flexWrap: 'wrap' }}>
-                      <input 
-                        type="checkbox"
-                        checked={item.selected !== false}
-                        onChange={() => toggleSelection(item.id, item.selectedWeight)}
-                        style={{ accentColor: 'var(--primary)', width: '1.2rem', height: '1.2rem', cursor: 'pointer', margin: 0 }}
-                      />
-                      <img 
-                        src={item.image || (item.images && item.images[0]) || 'placeholder.jpg'} 
-                        alt={item.name} 
-                        style={{ width: '4rem', height: '4rem', objectFit: 'cover', borderRadius: '8px', border: '1.5px solid var(--border-color)', background: 'var(--bg-card)' }}
-                      />
-                      <div style={{ flex: 1, minWidth: '120px', textAlign: 'left' }}>
-                        <h4 style={{ fontWeight: 600, color: 'var(--text-primary)', margin: '0 0 0.3rem 0', fontSize: '1rem', lineHeight: 1.2 }}>
-                          {item.name} {item.selectedWeight && <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 'normal' }}>({item.selectedWeight})</span>}
-                        </h4>
-                        <p style={{ fontFamily: "'Fraunces', serif", fontWeight: 800, fontSize: '1.1rem', color: 'var(--primary)', margin: 0 }}>
-                          ৳{displayPrice.toLocaleString()}
-                        </p>
-                      </div>
-                      <div style={{ display: 'flex', alignItems: 'center', border: '1.5px solid var(--border-color)', borderRadius: '100px', background: 'var(--bg-card)', padding: '0.1rem' }}>
-                        <button 
-                          onClick={() => updateQuantity(item.id, item.quantity - 1, item.selectedWeight)}
-                          style={{ width: '2rem', height: '2rem', borderRadius: '50%', background: 'var(--bg-card)', color: 'var(--text-muted)', border: 'none', fontWeight: 800, cursor: 'pointer' }}
-                        >
-                          −
-                        </button>
-                        <span style={{ width: '2rem', textAlign: 'center', fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+                  {cartItemsWithPrice.map(item => {
+                    const displayPrice = item.discountPrice || item.price;
+                    return (
+                      <div 
+                        key={`${item.id}-${item.selectedWeight || ''}`} 
+                        className="checkout-cart-card"
+                        style={{ opacity: item.selected ? 1 : 0.6 }}
+                      >
+                        <input 
+                          type="checkbox"
+                          checked={item.selected !== false}
+                          onChange={() => toggleSelection(item.id, item.selectedWeight)}
+                          style={{ accentColor: 'var(--primary)', width: '1.25rem', height: '1.25rem', cursor: 'pointer', margin: 0 }}
+                        />
+                        <div className="checkout-cart-img-wrap">
+                          <img 
+                            src={item.image || (item.images && item.images[0]) || 'placeholder.jpg'} 
+                            alt={item.name} 
+                            className="checkout-cart-img"
+                          />
+                        </div>
+                        <div className="checkout-cart-info">
+                          <h4 className="checkout-cart-title">
+                            {item.name}
+                          </h4>
+                          {item.selectedWeight && (
+                            <div style={{ marginTop: '0.25rem', marginBottom: '0.25rem' }}>
+                              <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 700, background: 'var(--bg-primary)', padding: '0.2rem 0.6rem', borderRadius: '100px', display: 'inline-block' }}>
+                                {item.selectedWeight}
+                              </span>
+                            </div>
+                          )}
+                          <p className="checkout-cart-price">
+                            ৳{displayPrice.toLocaleString()}
+                          </p>
+                        </div>
+                        <div className="checkout-qty-selector">
+                          <button 
+                            onClick={() => updateQuantity(item.id, item.quantity - 1, item.selectedWeight)}
+                            className="checkout-qty-btn"
+                          >
+                            −
+                          </button>
                           <input
                             type="number"
                             value={item.quantity}
@@ -516,32 +616,31 @@ export default function Checkout() {
                                 updateQuantity(item.id, 1, item.selectedWeight);
                               }
                             }}
-                            style={{ width: '100%', textAlign: 'center', border: 'none', background: 'transparent', outline: 'none', padding: 0, fontWeight: 'inherit', color: 'inherit' }}
+                            className="checkout-qty-input"
                           />
-                        </span>
+                          <button 
+                            onClick={() => updateQuantity(item.id, item.quantity + 1, item.selectedWeight)} 
+                            className="checkout-qty-btn"
+                          >
+                            +
+                          </button>
+                        </div>
                         <button 
-                          onClick={() => updateQuantity(item.id, item.quantity + 1, item.selectedWeight)} 
-                          style={{ width: '2rem', height: '2rem', borderRadius: '50%', background: 'var(--bg-card)', color: 'var(--text-muted)', border: 'none', fontWeight: 800, cursor: 'pointer' }}
+                          onClick={() => removeFromCart(item.id, item.selectedWeight)} 
+                          className="checkout-delete-btn"
+                          title="Remove Item"
                         >
-                          +
+                          🗑️
                         </button>
                       </div>
-                      <button 
-                        onClick={() => removeFromCart(item.id, item.selectedWeight)} 
-                        style={{ color: 'var(--text-muted)', background: 'transparent', border: 'none', cursor: 'pointer', fontSize: '1.1rem' }}
-                        title="Remove Item"
-                      >
-                        🗑️
-                      </button>
-                    </div>
-                  );
-                })}
+                    );
+                  })}
+                </div>
               </div>
-            </div>
-          )}
-        </div>
+            )}
+          </div>
 
-        <div className="lg:col-span-1 w-full flex justify-center lg:block">
+        <div className="w-full flex justify-center lg:block">
           <div 
             style={{background: 'var(--bg-card)', borderRadius: '14px', border: '1.5px solid var(--border-color)', boxShadow: '0 2px 8px var(--shadow-color)', padding: '1.4rem', maxWidth: 420, width: '100%', margin: '0 auto'}}
           >
@@ -563,43 +662,13 @@ export default function Checkout() {
                 transition: 'border-color 0.3s ease, padding 0.3s ease'
               }}
             >
-              <div>
-                <label style={{ fontFamily: "'Sora', sans-serif", fontSize: '0.72rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--text-muted)', marginBottom: '0.4rem', display: 'block' }}>Recipient Name</label>
-                <input 
-                  type="text" 
-                  value={customerName} 
-                  onChange={e => setCustomerName(e.target.value)} 
-                  required 
-                  placeholder="E.g. Adnan Rahman" 
-                  style={{ background: 'var(--input-bg)', border: '1.5px solid var(--border-color)', borderRadius: '8px', padding: '0.65rem 1rem', fontFamily: "'Sora', sans-serif", fontSize: '0.875rem', color: 'var(--text-primary)', width: '100%', outline: 'none' }}
-                  onFocus={e => e.target.style.borderColor = 'var(--primary)'}
-                  onBlur={e => e.target.style.borderColor = 'var(--border-color)'}
-                />
-              </div>
-
-              <div>
-                <label style={{ fontFamily: "'Sora', sans-serif", fontSize: '0.72rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--text-muted)', marginBottom: '0.4rem', display: 'block' }}>Delivery Zone</label>
-                <select
-                  value={selectedZone ? selectedZone.zone : ''}
-                  onChange={e => {
-                    const zoneObj = deliveryZones.find(z => z.zone === e.target.value);
-                    setSelectedZone(zoneObj || null);
-                  }}
-                  style={{ background: 'var(--input-bg)', border: '1.5px solid var(--border-color)', borderRadius: '8px', padding: '0.65rem 1rem', fontFamily: "'Sora', sans-serif", fontSize: '0.875rem', color: 'var(--text-primary)', width: '100%', outline: 'none', cursor: 'pointer' }}
-                >
-                  {deliveryZones.map(z => (
-                    <option key={z.zone} value={z.zone}>
-                      {z.zone} (৳{z.fee} - {z.time})
-                    </option>
-                  ))}
-                </select>
-              </div>
-              
               {savedAddresses.length > 0 && (
                 <div style={{ paddingTop: '0.25rem' }}>
                   <label style={{ fontFamily: "'Sora', sans-serif", fontSize: '0.72rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--text-muted)', marginBottom: '0.4rem', display: 'block' }}>Address Book</label>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem', maxHeight: '220px', overflowY: 'auto' }}>
-                    {savedAddresses.map(addr => (
+                    {[...savedAddresses]
+                      .sort((a, b) => (a.isDefault === b.isDefault ? 0 : a.isDefault ? -1 : 1))
+                      .map(addr => (
                       <label 
                         key={addr.id} 
                         style={{ display: 'flex', alignItems: 'flex-start', gap: '0.75rem', padding: '0.8rem', borderRadius: '8px', cursor: 'pointer', background: selectedAddressId === addr.id ? 'var(--primary-pale)' : 'var(--bg-card)', border: selectedAddressId === addr.id ? '1.5px solid var(--primary)' : '1.5px solid var(--border-color)' }}
@@ -615,7 +684,14 @@ export default function Checkout() {
                           <span style={{ display: 'inline-block', textTransform: 'uppercase', letterSpacing: '0.06em', fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 700, background: 'var(--bg-primary)', padding: '0.3rem 0.7rem', borderRadius: '100px' }}>
                             {addr.label} {addr.isDefault && '• Default'}
                           </span>
-                          <p style={{ color: 'var(--text-primary)', fontWeight: 600, fontSize: '0.85rem', marginTop: '0.4rem', whiteSpace: 'normal', wordBreak: 'break-word', lineHeight: 1.5, fontFamily: "'Sora', sans-serif" }}>{addr.address}</p>
+                          {addr.recipientName && (
+                            <p style={{ color: 'var(--text-primary)', fontWeight: 700, fontSize: '0.85rem', marginTop: '0.4rem', fontFamily: "'Sora', sans-serif" }}>
+                              👤 {addr.recipientName}
+                            </p>
+                          )}
+                          <p style={{ color: 'var(--text-primary)', fontWeight: 600, fontSize: '0.85rem', marginTop: addr.recipientName ? '0.2rem' : '0.4rem', whiteSpace: 'normal', wordBreak: 'break-word', lineHeight: 1.5, fontFamily: "'Sora', sans-serif" }}>
+                            {addr.houseNumber ? `${addr.houseNumber}, ` : ''}{addr.address}{addr.postcode ? `, ${addr.postcode}` : ''}
+                          </p>
                           <p style={{ color: 'var(--text-muted)', fontSize: '0.75rem', fontWeight: 600, marginTop: '0.2rem', fontFamily: "'Sora', sans-serif" }}>{addr.phone}</p>
                         </div>
                       </label>
@@ -639,6 +715,19 @@ export default function Checkout() {
               {(selectedAddressId === 'new' || savedAddresses.length === 0) && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', paddingTop: '0.25rem' }}>
                   <div>
+                    <label style={{ fontFamily: "'Sora', sans-serif", fontSize: '0.72rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--text-muted)', marginBottom: '0.4rem', display: 'block' }}>Recipient Name</label>
+                    <input 
+                      type="text" 
+                      value={customerName} 
+                      onChange={e => setCustomerName(e.target.value)} 
+                      required 
+                      placeholder="E.g. Adnan Rahman" 
+                      style={{ background: 'var(--input-bg)', border: (highlightDelivery && !customerName) ? '1.5px solid var(--red)' : '1.5px solid var(--border-color)', boxShadow: (highlightDelivery && !customerName) ? '0 0 0 4px rgba(239, 68, 68, 0.15)' : 'none', borderRadius: '8px', padding: '0.65rem 1rem', fontFamily: "'Sora', sans-serif", fontSize: '0.875rem', color: 'var(--text-primary)', width: '100%', outline: 'none', transition: 'all 0.3s ease' }}
+                      onFocus={e => e.target.style.borderColor = 'var(--primary)'}
+                      onBlur={e => e.target.style.borderColor = 'var(--border-color)'}
+                    />
+                  </div>
+                  <div>
                     <label style={{ fontFamily: "'Sora', sans-serif", fontSize: '0.72rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--text-muted)', marginBottom: '0.4rem', display: 'block' }}>BD Phone Number</label>
                     <input 
                       type="tel" 
@@ -646,7 +735,7 @@ export default function Checkout() {
                       onChange={e => setDeliveryPhone(e.target.value)} 
                       required 
                       placeholder="E.g. 01712345678" 
-                      style={{ background: 'var(--input-bg)', border: phoneError ? '1.5px solid var(--red)' : '1.5px solid var(--border-color)', borderRadius: '8px', padding: '0.65rem 1rem', fontFamily: "'Sora', sans-serif", fontSize: '0.875rem', color: 'var(--text-primary)', width: '100%', outline: 'none' }}
+                      style={{ background: 'var(--input-bg)', border: (phoneError || (highlightDelivery && !deliveryPhone)) ? '1.5px solid var(--red)' : '1.5px solid var(--border-color)', boxShadow: (phoneError || (highlightDelivery && !deliveryPhone)) ? '0 0 0 4px rgba(239, 68, 68, 0.15)' : 'none', borderRadius: '8px', padding: '0.65rem 1rem', fontFamily: "'Sora', sans-serif", fontSize: '0.875rem', color: 'var(--text-primary)', width: '100%', outline: 'none', transition: 'all 0.3s ease' }}
                       onFocus={e => e.target.style.borderColor = 'var(--primary)'}
                       onBlur={e => e.target.style.borderColor = 'var(--border-color)'}
                     />
@@ -677,7 +766,7 @@ export default function Checkout() {
                       onChange={e => { setDeliveryAddress(e.target.value); setDeliveryCoords(null); }} 
                       required 
                       placeholder="House, Road, Apartment, Area, City..." 
-                      style={{ background: 'var(--input-bg)', border: '1.5px solid var(--border-color)', borderRadius: '8px', padding: '0.65rem 1rem', fontFamily: "'Sora', sans-serif", fontSize: '0.875rem', color: 'var(--text-primary)', width: '100%', outline: 'none', height: '80px', resize: 'none' }}
+                      style={{ background: 'var(--input-bg)', border: (highlightDelivery && !deliveryAddress) ? '1.5px solid var(--red)' : '1.5px solid var(--border-color)', boxShadow: (highlightDelivery && !deliveryAddress) ? '0 0 0 4px rgba(239, 68, 68, 0.15)' : 'none', borderRadius: '8px', padding: '0.65rem 1rem', fontFamily: "'Sora', sans-serif", fontSize: '0.875rem', color: 'var(--text-primary)', width: '100%', outline: 'none', height: '80px', resize: 'none', transition: 'all 0.3s ease' }}
                       onFocus={e => e.target.style.borderColor = 'var(--primary)'}
                       onBlur={e => e.target.style.borderColor = 'var(--border-color)'}
                     />
@@ -689,7 +778,8 @@ export default function Checkout() {
                       value={deliveryHouseNumber} 
                       onChange={e => setDeliveryHouseNumber(e.target.value)} 
                       placeholder="E.g. House 12, Road 4, Apt 3B" 
-                      style={{ background: 'var(--input-bg)', border: '1.5px solid var(--border-color)', borderRadius: '8px', padding: '0.65rem 1rem', fontFamily: "'Sora', sans-serif", fontSize: '0.875rem', color: 'var(--text-primary)', width: '100%', outline: 'none' }}
+                      required
+                      style={{ background: 'var(--input-bg)', border: (highlightDelivery && !deliveryHouseNumber) ? '1.5px solid var(--red)' : '1.5px solid var(--border-color)', boxShadow: (highlightDelivery && !deliveryHouseNumber) ? '0 0 0 4px rgba(239, 68, 68, 0.15)' : 'none', borderRadius: '8px', padding: '0.65rem 1rem', fontFamily: "'Sora', sans-serif", fontSize: '0.875rem', color: 'var(--text-primary)', width: '100%', outline: 'none', transition: 'all 0.3s ease' }}
                       onFocus={e => e.target.style.borderColor = 'var(--primary)'}
                       onBlur={e => e.target.style.borderColor = 'var(--border-color)'}
                     />
@@ -709,9 +799,21 @@ export default function Checkout() {
                 </div>
               )}
             </div>
+          </div>
+        </div>
 
-            {/* GIFT CARD OR PROMO CODE SECTION */}
-            <div style={{ marginTop: '1.25rem', paddingTop: '1.25rem', borderTop: '1px solid var(--border-color)' }}>
+          <div className="w-full flex justify-center lg:block">
+            <div 
+              style={{background: 'var(--bg-card)', borderRadius: '14px', border: '1.5px solid var(--border-color)', boxShadow: '0 2px 8px var(--shadow-color)', padding: '1.4rem', maxWidth: 420, width: '100%', margin: '0 auto'}}
+            >
+              <div style={{marginBottom:'1.5rem',borderBottom:'1px solid var(--border-color)',paddingBottom:'1.25rem'}}>
+                <h3 style={{fontFamily: "'Fraunces', serif", fontWeight: 900, fontSize: '1.1rem', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '0.5rem'}}>
+                  <span style={{fontSize:'1.25rem'}}>📝</span> Order Summary
+                </h3>
+              </div>
+
+              {/* GIFT CARD OR PROMO CODE SECTION */}
+              <div style={{ marginTop: '0', paddingTop: '0' }}>
               <label style={{ fontFamily: "'Sora', sans-serif", fontSize: '0.72rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--text-muted)', marginBottom: '0.4rem', display: 'block' }}>Promo Code</label>
               <div style={{ display: 'flex', alignItems: 'center', background: 'var(--input-bg)', border: '1.5px solid var(--border-color)', borderRadius: '8px', padding: '0.2rem', overflow: 'hidden' }}>
                 <input 

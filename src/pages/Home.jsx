@@ -33,7 +33,6 @@ export default function Home() {
   const [uiSettings, setUiSettings] = useState({
     // Marquee
     marqueeItems: [
-      '🚚 Free delivery on ৳1,500+',
       '🌿 100% tree-bagged & chemical-free',
       '⚡ Same-day dispatch before 12pm',
       '🎁 Eid gift boxes available',

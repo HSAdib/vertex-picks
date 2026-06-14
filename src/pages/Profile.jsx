@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { signOut, updateProfile, sendPasswordResetEmail } from 'firebase/auth';
 import { doc, getDoc, setDoc, collection, query, where, getDocs, updateDoc } from 'firebase/firestore';
 import { auth, db } from '../firebaseConfig';
@@ -93,6 +93,12 @@ export default function Profile() {
   const [newPhone, setNewPhone] = useState('');
   const [newAddress, setNewAddress] = useState('');
   const [newCoords, setNewCoords] = useState(null);
+  const [newHouseNumber, setNewHouseNumber] = useState('');
+  const [newPostcode, setNewPostcode] = useState('');
+  const [newRecipientName, setNewRecipientName] = useState('');
+  const [showMapModal, setShowMapModal] = useState(false);
+  const [pinnedCoords, setPinnedCoords] = useState({ lat: 23.6850, lng: 90.3563 });
+  const mapRef = useRef(null);
   const [phoneError, setPhoneError] = useState(false);
   const [locating, setLocating] = useState(false);
 
@@ -108,6 +114,97 @@ export default function Profile() {
   const { wishlist, toggleWishlist } = useWishlist();
   const [wishlistProducts, setWishlistProducts] = useState([]);
   const [contactPhone, setContactPhone] = useState('+880 1581-221084');
+
+  useEffect(() => {
+    if (showMapModal) {
+      const linkId = 'leaflet-css';
+      if (!document.getElementById(linkId)) {
+        const link = document.createElement('link');
+        link.id = linkId;
+        link.rel = 'stylesheet';
+        link.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
+        document.head.appendChild(link);
+      }
+      
+      const scriptId = 'leaflet-js';
+      let script = document.getElementById(scriptId);
+      if (!script) {
+        script = document.createElement('script');
+        script.id = scriptId;
+        script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
+        script.async = false;
+        document.head.appendChild(script);
+      }
+
+      const initMap = () => {
+        if (!window.L || mapRef.current) return;
+        const container = document.getElementById('profile-leaflet-map-container');
+        if (!container) return;
+
+        const startLat = newCoords ? newCoords.lat : 23.6850;
+        const startLng = newCoords ? newCoords.lng : 90.3563;
+        setPinnedCoords({ lat: startLat, lng: startLng });
+
+        mapRef.current = window.L.map(container).setView([startLat, startLng], newCoords ? 15 : 7);
+        window.L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+          attribution: '© OpenStreetMap contributors'
+        }).addTo(mapRef.current);
+
+        mapRef.current.on('move', function () {
+          const center = mapRef.current.getCenter();
+          setPinnedCoords({ lat: center.lat, lng: center.lng });
+        });
+      };
+
+      if (window.L) {
+        initMap();
+      } else {
+        script.addEventListener('load', initMap);
+      }
+
+      return () => {
+        if (script) script.removeEventListener('load', initMap);
+        if (mapRef.current) {
+          mapRef.current.remove();
+          mapRef.current = null;
+        }
+      };
+    }
+  }, [showMapModal, newCoords]);
+
+  const handleConfirmProfileMapPin = async () => {
+    setNewCoords({ lat: pinnedCoords.lat, lng: pinnedCoords.lng });
+    
+    try {
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/reverse?format=json&lat=${pinnedCoords.lat}&lon=${pinnedCoords.lng}&accept-language=en`,
+        { headers: { 'User-Agent': 'VertexPicks/1.0' } }
+      );
+      if (!response.ok) throw new Error("Geocoding failed");
+      const data = await response.json();
+      
+      let formattedAddress = "";
+      if (data.address) {
+        const { road, neighbourhood, town, city, state_district, state, postcode, country } = data.address;
+        const parts = [road, neighbourhood, city || town, state_district, state, postcode, country];
+        formattedAddress = Array.from(new Set(parts)).filter(Boolean).join(', ');
+        if (postcode) {
+          setNewPostcode('Postal Code: ' + postcode);
+        } else {
+          setNewPostcode('');
+        }
+      } else {
+        formattedAddress = data.display_name || '';
+      }
+      
+      setNewAddress(formattedAddress.trim());
+      setShowMapModal(false);
+      toast.success('📍 Location pinned! Please add your house/flat number above.');
+    } catch {
+      toast.error('Failed to resolve address. Please try again or type manually.');
+      setShowMapModal(false);
+    }
+  };
 
   useEffect(() => {
     const fetchSettings = async () => {
@@ -213,24 +310,40 @@ export default function Profile() {
     }
     let updated;
     if (editAddressId) {
-      updated = addresses.map(a => a.id === editAddressId ? { ...a, label: newLabel, phone: newPhone, address: newAddress, coords: newCoords } : a);
+      updated = addresses.map(a => a.id === editAddressId ? { ...a, label: newLabel, phone: newPhone, address: newAddress, coords: newCoords, houseNumber: newHouseNumber, postcode: newPostcode, recipientName: newRecipientName } : a);
     } else {
-      updated = [...addresses, { id: generateUniqueId(), label: newLabel, phone: newPhone, address: newAddress, coords: newCoords, isDefault: addresses.length === 0 }];
+      updated = [...addresses, { id: generateUniqueId(), label: newLabel, phone: newPhone, address: newAddress, coords: newCoords, houseNumber: newHouseNumber, postcode: newPostcode, recipientName: newRecipientName, isDefault: addresses.length === 0 }];
     }
     await saveAddresses(updated);
     setShowAddressModal(false);
     setEditAddressId(null);
-    setNewLabel('Home'); setNewPhone(''); setNewAddress(''); setNewCoords(null);
+    setNewLabel('Home'); setNewPhone(''); setNewAddress(''); setNewCoords(null); setNewHouseNumber(''); setNewPostcode(''); setNewRecipientName('');
   };
 
   const handleEditAddress = (addr) => {
     setEditAddressId(addr.id); setNewLabel(addr.label); setNewPhone(addr.phone);
-    setNewAddress(addr.address); setNewCoords(addr.coords || null); setShowAddressModal(true);
+    setNewAddress(addr.address); setNewCoords(addr.coords || null);
+    setNewHouseNumber(addr.houseNumber || ''); setNewPostcode(addr.postcode || '');
+    setNewRecipientName(addr.recipientName || displayName || name || '');
+    setShowAddressModal(true);
   };
 
   const closeAddressModal = () => {
     setShowAddressModal(false); setEditAddressId(null);
     setNewLabel('Home'); setNewPhone(''); setNewAddress(''); setNewCoords(null);
+    setNewHouseNumber(''); setNewPostcode(''); setNewRecipientName('');
+  };
+
+  const handleCreateAddress = () => {
+    setEditAddressId(null);
+    setNewLabel('Home');
+    setNewPhone(phone || '');
+    setNewAddress('');
+    setNewCoords(null);
+    setNewHouseNumber('');
+    setNewPostcode('');
+    setNewRecipientName(displayName || name || '');
+    setShowAddressModal(true);
   };
 
   const handleSetDefault = async (id) => saveAddresses(addresses.map(a => ({ ...a, isDefault: a.id === id })));
@@ -267,7 +380,7 @@ export default function Profile() {
           // Fix #2: use inStock flag (consistent with the rest of the app).
           // productData.stock may be undefined for many products, making
           // `undefined <= 0` === false — silently allowing out-of-stock items through.
-          addToCart(item.id, item.quantity || 1, { inStock: productData.inStock !== false });
+          addToCart(item.id, item.quantity || 1, productData, item.selectedWeight || null);
           addedCount++;
         } catch {
           skippedCount++;
@@ -395,20 +508,162 @@ export default function Profile() {
           <div style={{ background: 'var(--bg-card)', borderRadius: 20, padding: '2rem', maxWidth: 440, width: '100%', boxShadow: 'var(--shadow-lg)' }}>
             <h3 style={{ fontSize: '1.1rem', fontWeight: 900, color: 'var(--dark)', marginBottom: '1.5rem' }}>{editAddressId ? 'Edit Address' : 'Add New Address'}</h3>
             <form onSubmit={handleSaveAddressModal} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-              <div><label className="form-label">Label (e.g. Home, Office)</label><input type="text" className="form-input" value={newLabel} onChange={e => setNewLabel(e.target.value)} required /></div>
+              <div>
+                <label className="form-label" style={{ marginBottom: '0.4rem', display: 'block' }}>Label</label>
+                <div style={{ display: 'flex', gap: '0.75rem' }}>
+                  <button
+                    type="button"
+                    onClick={() => setNewLabel('Home')}
+                    style={{
+                      flex: 1,
+                      padding: '0.65rem 1rem',
+                      borderRadius: '8px',
+                      border: newLabel === 'Home' ? '1.5px solid var(--primary)' : '1.5px solid var(--border-color)',
+                      background: newLabel === 'Home' ? 'var(--primary-pale)' : 'var(--input-bg)',
+                      color: newLabel === 'Home' ? 'var(--primary)' : 'var(--text-primary)',
+                      fontWeight: 700,
+                      fontFamily: "'Sora', sans-serif",
+                      fontSize: '0.85rem',
+                      cursor: 'pointer',
+                      transition: 'all 0.2s ease',
+                      textAlign: 'center',
+                      outline: 'none'
+                    }}
+                  >
+                    🏠 Home
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setNewLabel('Office')}
+                    style={{
+                      flex: 1,
+                      padding: '0.65rem 1rem',
+                      borderRadius: '8px',
+                      border: newLabel === 'Office' ? '1.5px solid var(--primary)' : '1.5px solid var(--border-color)',
+                      background: newLabel === 'Office' ? 'var(--primary-pale)' : 'var(--input-bg)',
+                      color: newLabel === 'Office' ? 'var(--primary)' : 'var(--text-primary)',
+                      fontWeight: 700,
+                      fontFamily: "'Sora', sans-serif",
+                      fontSize: '0.85rem',
+                      cursor: 'pointer',
+                      transition: 'all 0.2s ease',
+                      textAlign: 'center',
+                      outline: 'none'
+                    }}
+                  >
+                    🏢 Office
+                  </button>
+                </div>
+              </div>
+              <div>
+                <label className="form-label">Recipient Name</label>
+                <input
+                  type="text"
+                  className="form-input"
+                  value={newRecipientName}
+                  onChange={e => setNewRecipientName(e.target.value)}
+                  placeholder="E.g. Adnan Rahman"
+                  required
+                />
+              </div>
               <div><label className="form-label">Phone Number</label><input type="tel" className="form-input" value={newPhone} onChange={e => setNewPhone(e.target.value)} required placeholder="017..." style={phoneError ? { borderColor: 'var(--red)', background: 'var(--red-pale)' } : {}} /></div>
               <div>
-                <label className="form-label">Full Shipping Address</label>
-                <div style={{ position: 'relative' }}>
-                  <textarea className="form-input" value={newAddress} onChange={e => { setNewAddress(e.target.value); setNewCoords(null); }} required placeholder="House, Road, Area, City" style={{ height: 80, resize: 'none', paddingRight: '2.5rem' }} />
-                  <button type="button" onClick={() => fetchCurrentLocation(setNewAddress, setLocating, setNewCoords)} disabled={locating} style={{ position: 'absolute', top: 8, right: 8, width: 28, height: 28, background: 'var(--primary)', color: '#fff', borderRadius: '50%', border: 'none', cursor: 'pointer', fontSize: 12, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{locating ? '⏳' : '📍'}</button>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.4rem' }}>
+                  <label className="form-label" style={{ margin: 0 }}>Full Shipping Address</label>
+                  <div style={{ display: 'flex', gap: '0.75rem' }}>
+                    <button
+                      type="button"
+                      onClick={() => setShowMapModal(true)}
+                      style={{ color: 'var(--primary)', border: 'none', background: 'none', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 700, outline: 'none', padding: 0 }}
+                    >
+                      🗺️ Pin on Map
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => fetchCurrentLocation(setNewAddress, setLocating, setNewCoords, setNewPostcode)}
+                      disabled={locating}
+                      style={{ color: 'var(--primary)', border: 'none', background: 'none', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 700, outline: 'none', padding: 0 }}
+                    >
+                      {locating ? '⏳ Detecting...' : '📍 Auto-fill'}
+                    </button>
+                  </div>
                 </div>
+                <textarea className="form-input" value={newAddress} onChange={e => { setNewAddress(e.target.value); setNewCoords(null); }} required placeholder="House, Road, Area, City" style={{ height: 80, resize: 'none' }} />
+              </div>
+              <div>
+                <label className="form-label">House / Flat / Road Number</label>
+                <input
+                  type="text"
+                  className="form-input"
+                  value={newHouseNumber}
+                  onChange={e => setNewHouseNumber(e.target.value)}
+                  placeholder="E.g. House 12, Road 4, Apt 3B"
+                  required
+                />
+              </div>
+              <div>
+                <label className="form-label">Postal Code</label>
+                <input
+                  type="text"
+                  className="form-input"
+                  value={newPostcode}
+                  onChange={e => setNewPostcode(e.target.value)}
+                  placeholder="Auto-filled or enter manually"
+                />
               </div>
               <div style={{ display: 'flex', gap: '.75rem', marginTop: '.5rem' }}>
                 <button type="button" className="btn-secondary" style={{ flex: 1, justifyContent: 'center' }} onClick={closeAddressModal}>Cancel</button>
                 <button type="submit" className="btn-primary" style={{ flex: 1, justifyContent: 'center', borderRadius: 'var(--radius-sm)' }}>Save Address</button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* MAP PIN MODAL */}
+      {showMapModal && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ background: 'var(--bg-card)', borderRadius: '14px', width: '90%', maxWidth: '600px', overflow: 'hidden', boxShadow: '0 20px 60px var(--shadow-color)' }}>
+            <div style={{ background: 'var(--navbar-bg)', padding: '1rem 1.4rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <h3 style={{ fontFamily: "'Fraunces', serif", fontWeight: 900, color: '#FFFFFF', fontSize: '1rem', margin: 0 }}>Pin Your Location</h3>
+              <button 
+                onClick={() => setShowMapModal(false)}
+                style={{ width: '32px', height: '32px', borderRadius: '50%', background: 'rgba(255,255,255,0.1)', color: 'white', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.2rem', padding: 0 }}
+              >
+                ✕
+              </button>
+            </div>
+            
+            <div style={{ padding: '0', position: 'relative' }}>
+              <div id="profile-leaflet-map-container" style={{ width: '100%', height: '380px' }}></div>
+              <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -100%)', zIndex: 1000, pointerEvents: 'none', fontSize: '2rem', content: "'📍'" }}>📍</div>
+            </div>
+            
+            <div style={{ padding: '1.4rem' }}>
+              <div style={{ margin: '0 0 1rem 0' }}>
+                <p style={{ fontFamily: "'Sora', sans-serif", fontSize: '0.78rem', color: 'var(--text-muted)', margin: '0 0 0.3rem 0' }}>
+                  Drag the pin to your exact location. Then click Confirm.
+                </p>
+                <p style={{ fontFamily: "'Sora', sans-serif", fontSize: '0.72rem', color: '#E8540A', fontWeight: 600, margin: 0 }}>
+                  📌 Current coordinates will be saved with your address for precise delivery.
+                </p>
+              </div>
+              
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem' }}>
+                <button 
+                  onClick={() => setShowMapModal(false)}
+                  style={{ background: 'var(--bg-card)', border: '1.5px solid var(--border-color)', borderRadius: '100px', color: 'var(--text-primary)', fontWeight: 700, padding: '0.6rem 1.4rem', fontFamily: "'Sora', sans-serif", cursor: 'pointer' }}
+                >
+                  CANCEL
+                </button>
+                <button 
+                  onClick={handleConfirmProfileMapPin}
+                  style={{ background: '#E8540A', color: '#FFFFFF', border: 'none', borderRadius: '100px', fontWeight: 700, padding: '0.6rem 1.4rem', fontFamily: "'Sora', sans-serif", boxShadow: '0 6px 24px rgba(232,84,10,0.3)', cursor: 'pointer' }}
+                >
+                  CONFIRM LOCATION
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}
@@ -683,13 +938,15 @@ export default function Profile() {
               <div className="dash-card">
                 <div className="dash-card-head">
                   <div className="dch-title">Address Directory</div>
-                  <button className="btn-primary" style={{ borderRadius: 'var(--radius-sm)', fontSize: '.8rem', padding: '.5rem 1rem' }} onClick={() => setShowAddressModal(true)}>+ Add Address</button>
+                  <button className="btn-primary" style={{ borderRadius: 'var(--radius-sm)', fontSize: '.8rem', padding: '.5rem 1rem' }} onClick={handleCreateAddress}>+ Add Address</button>
                 </div>
                 {addresses.length === 0 ? (
                   <div style={{ padding: '2rem', textAlign: 'center', fontSize: '.85rem', color: 'var(--gray4)' }}>No addresses saved yet.</div>
                 ) : (
                   <div className="address-grid">
-                    {addresses.map(addr => (
+                    {[...addresses]
+                      .sort((a, b) => (a.isDefault === b.isDefault ? 0 : a.isDefault ? -1 : 1))
+                      .map(addr => (
                       <div key={addr.id} className={`address-card${addr.isDefault ? ' default-addr' : ''}`}>
                         {addr.isDefault && <span className="addr-default-badge">Default</span>}
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '.5rem' }}>
@@ -699,11 +956,17 @@ export default function Profile() {
                             <button onClick={() => handleDeleteAddress(addr.id)} style={{ fontSize: '.85rem', background: 'none', border: 'none', cursor: 'pointer' }}>🗑️</button>
                           </div>
                         </div>
-                        <p className="addr-text">📞 {addr.phone}<br />📍 {addr.address}</p>
+                        <p className="addr-text">
+                          👤 {addr.recipientName || displayName || name || 'N/A'}<br />
+                          📞 {addr.phone}<br />
+                          {addr.houseNumber && <>🏠 {addr.houseNumber}<br /></>}
+                          📍 {addr.address}
+                          {addr.postcode && <><br />📮 {addr.postcode}</>}
+                        </p>
                         {!addr.isDefault && <div className="addr-actions"><button className="addr-btn" onClick={() => handleSetDefault(addr.id)}>Set as Default</button></div>}
                       </div>
                     ))}
-                    <div className="addr-add" onClick={() => setShowAddressModal(true)}><span className="addr-add-icon">➕</span><span className="addr-add-text">Add Location</span></div>
+                    <div className="addr-add" onClick={handleCreateAddress}><span className="addr-add-icon">➕</span><span className="addr-add-text">Add Location</span></div>
                   </div>
                 )}
               </div>
