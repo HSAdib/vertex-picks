@@ -148,6 +148,34 @@ img{display:block;max-width:100%}
 .topbar-links a{color:rgba(255,255,255,.55);transition:color .2s}
 .topbar-links a:hover{color:#fff}
 
+/* ══ LIQUID GLASS NAVBAR AESTHETIC ══ */
+.liquid-glass-nav {
+  position: relative;
+  width: 100%;
+  z-index: 50; /* Ensure it floats above page content */
+  background: rgba(255, 255, 255, 0.1) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+.liquid-glass-nav::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -2;
+  box-shadow: inset 2px 2px 0px -2px rgba(255, 255, 255, 0.7), inset 0 0 3px 1px rgba(255, 255, 255, 0.7);
+  border-radius: inherit;
+}
+.liquid-glass-nav::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  backdrop-filter: blur(8px); /* Fallback blur */
+  filter: url(#container-glass); /* The SVG liquid displacement */
+  isolation: isolate;
+  border-radius: inherit;
+}
+
 /* ══ NAVBAR ══ */
 .navbar {
   position: fixed;
