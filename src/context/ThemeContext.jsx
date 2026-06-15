@@ -1,5 +1,5 @@
-import { createContext, useContext, useEffect, useState } from 'react';
-const ThemeContext = createContext();
+import { useEffect, useState } from 'react';
+import { ThemeContext } from './ThemeContextValue';
 export function ThemeProvider({ children }) {
   const [isDark, setIsDark] = useState(() => {
     const stored = localStorage.getItem('vp-theme');
@@ -13,4 +13,3 @@ export function ThemeProvider({ children }) {
   }, [isDark]);
   return <ThemeContext.Provider value={{ isDark, setIsDark }}>{children}</ThemeContext.Provider>;
 }
-export const useTheme = () => useContext(ThemeContext);

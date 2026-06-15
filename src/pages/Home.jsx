@@ -261,6 +261,7 @@ export default function Home() {
             <div className="hero-float-card c3">🏅 A-Grade Only</div>
           </div>
         </div>
+        <div className="hero-bottom-fade" />
       </section>
 
       {/* CATEGORY PILLS */}

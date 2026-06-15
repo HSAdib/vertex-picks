@@ -12,7 +12,7 @@ import {
 import { useNavigate } from 'react-router-dom';
 import { auth } from '../firebaseConfig';
 import { useAuth } from '../context/AuthContext';
-import { useStore } from '../context/StoreContext';
+import { useStore } from '../context/useStore';
 import { isValidBDPhoneNumber } from '../utils/phoneValidation';
 import { toast } from 'react-hot-toast';
 

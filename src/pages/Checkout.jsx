@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { collection, getDocs, addDoc, doc, getDoc, setDoc, arrayUnion } from 'firebase/firestore';
+import { collection, getDocs, doc, getDoc, setDoc, arrayUnion, runTransaction, increment } from 'firebase/firestore';
 import { db, auth } from '../firebaseConfig'; 
 import { onAuthStateChanged } from 'firebase/auth';
 import { useCart } from '../context/CartContext';
@@ -14,7 +14,7 @@ function generateUniqueId() {
 }
 
 export default function Checkout() {
-  const { cart, setCart, removeFromCart, updateQuantity, toggleSelection, clearCart } = useCart();
+  const { cart, setCart, removeFromCart, updateQuantity, toggleSelection } = useCart();
   const [liveProducts, setLiveProducts] = useState([]);
   const [livePromos, setLivePromos] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -135,17 +135,21 @@ export default function Checkout() {
   };
 
   useEffect(() => {
-    const fetchCheckoutData = async (currentUser) => {
+    let loadId = 0;
+    const fetchCheckoutData = async (currentUser, requestId) => {
       try {
         const productSnap = await getDocs(collection(db, 'mangoes'));
+        if (requestId !== loadId) return;
         setLiveProducts(productSnap.docs
           .filter(d => !['STORE_SECTIONS', 'STORE_SETTINGS', 'NAVBAR_TABS', 'CATEGORIES', 'FILTERS', 'VARIETIES'].includes(d.id))
           .map(doc => ({ id: doc.id, ...doc.data() })));
         
         const promoSnap = await getDocs(collection(db, 'promos'));
+        if (requestId !== loadId) return;
         setLivePromos(promoSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
 
         const configSnap = await getDoc(doc(db, 'mangoes', 'STORE_SETTINGS'));
+        if (requestId !== loadId) return;
         if (configSnap.exists()) {
           const cData = configSnap.data();
           setStoreConfig({
@@ -157,6 +161,7 @@ export default function Checkout() {
         // B8 fix: use the resolved currentUser from onAuthStateChanged
         if (currentUser) {
           const userDoc = await getDoc(doc(db, 'users', currentUser.uid));
+          if (requestId !== loadId) return;
           let mainName = '';
           if (userDoc.exists()) {
             const data = userDoc.data();
@@ -201,17 +206,16 @@ export default function Checkout() {
       } catch (err) {
         console.error("Error fetching checkout data:", err);
       } finally {
-        setLoading(false);
+        if (requestId === loadId) setLoading(false);
       }
     };
-    // Fix #11: onAuthStateChanged can fire twice (null → user) on mount.
-    // Use a `loaded` flag so we only call fetchCheckoutData once.
-    let loaded = false;
+    // Auth can fire guest first, then the real user. Load once per resolved user key.
+    let loadedUserKey;
     const unsubscribeAuth = onAuthStateChanged(auth, (currentUser) => {
-      if (!loaded) {
-        loaded = true;
-        fetchCheckoutData(currentUser);
-      }
+      const userKey = currentUser?.uid || 'guest';
+      if (loadedUserKey === userKey) return;
+      loadedUserKey = userKey;
+      fetchCheckoutData(currentUser, ++loadId);
     });
     return () => unsubscribeAuth();
   }, []);
@@ -459,17 +463,25 @@ export default function Checkout() {
         createdAt: new Date()
       };
       
-      const docRef = await addDoc(collection(db, 'orders'), orderData);
-
-      if (appliedPromo) {
-        const promoRef = doc(db, 'promos', appliedPromo.id);
-        await setDoc(promoRef, { usedCount: (appliedPromo.usedCount || 0) + 1 }, { merge: true });
-      }
+      const orderRef = doc(collection(db, 'orders'));
+      await runTransaction(db, async (transaction) => {
+        if (appliedPromo) {
+          const promoRef = doc(db, 'promos', appliedPromo.id);
+          const promoSnap = await transaction.get(promoRef);
+          if (!promoSnap.exists()) throw new Error('Promo code no longer exists');
+          const promoData = promoSnap.data();
+          if (promoData.limit && (promoData.usedCount || 0) >= promoData.limit) {
+            throw new Error('Promo code usage limit reached');
+          }
+          transaction.update(promoRef, { usedCount: increment(1) });
+        }
+        transaction.set(orderRef, orderData);
+      });
       
       // Local backup caching for guest purchases
       if (!auth.currentUser?.email) {
         const localOrders = JSON.parse(localStorage.getItem('vertex_guest_orders') || '[]');
-        localStorage.setItem('vertex_guest_orders', JSON.stringify([{ id: docRef.id, ...orderData }, ...localOrders]));
+        localStorage.setItem('vertex_guest_orders', JSON.stringify([{ id: orderRef.id, ...orderData }, ...localOrders]));
       }
 
       // Automatically store address if users use custom profiles

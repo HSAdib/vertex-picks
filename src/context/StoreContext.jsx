@@ -1,8 +1,7 @@
-import { createContext, useContext, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { doc, onSnapshot } from 'firebase/firestore';
 import { db } from '../firebaseConfig';
-
-const StoreContext = createContext({ storeName: 'Vertex Picks' });
+import { StoreContext } from './StoreContextValue';
 
 export function StoreProvider({ children }) {
   const [storeName, setStoreName] = useState('Vertex Picks');
@@ -28,5 +27,3 @@ export function StoreProvider({ children }) {
     </StoreContext.Provider>
   );
 }
-
-export const useStore = () => useContext(StoreContext);

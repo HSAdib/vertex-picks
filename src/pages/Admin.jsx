@@ -9,6 +9,7 @@ import { toast } from 'react-hot-toast';
 import CategoriesTab from '../components/admin/CategoriesTab';
 import FiltersTab from '../components/admin/FiltersTab';
 import { ResponsiveContainer, BarChart, CartesianGrid, XAxis, YAxis, Tooltip, Bar } from 'recharts';
+import { sanitizeHTML } from '../utils/sanitizeHTML';
 
 const exportToCSV = (filename, rows, headers) => {
   const escapeCsvField = (field) => {
@@ -4572,9 +4573,9 @@ export default function Admin() {
                         lineHeight: 1.2,
                         margin: 0
                       }}>
-                        {heroTitleLine1 && (heroTitleLine1.includes('<em>') ? <span dangerouslySetInnerHTML={{ __html: heroTitleLine1 }} /> : heroTitleLine1)}
-                        {heroTitleLine2 && <><br />{heroTitleLine2.includes('<em>') ? <span dangerouslySetInnerHTML={{ __html: heroTitleLine2 }} /> : heroTitleLine2}</>}
-                        {heroTitleLine3 && <><br />{heroTitleLine3.includes('<em>') ? <span dangerouslySetInnerHTML={{ __html: heroTitleLine3 }} /> : heroTitleLine3}</>}
+                        {heroTitleLine1 && (heroTitleLine1.includes('<em>') ? <span dangerouslySetInnerHTML={{ __html: sanitizeHTML(heroTitleLine1) }} /> : heroTitleLine1)}
+                        {heroTitleLine2 && <><br />{heroTitleLine2.includes('<em>') ? <span dangerouslySetInnerHTML={{ __html: sanitizeHTML(heroTitleLine2) }} /> : heroTitleLine2}</>}
+                        {heroTitleLine3 && <><br />{heroTitleLine3.includes('<em>') ? <span dangerouslySetInnerHTML={{ __html: sanitizeHTML(heroTitleLine3) }} /> : heroTitleLine3}</>}
                       </h1>
                       
                       {/* Hero Subtitle */}
@@ -4603,9 +4604,9 @@ export default function Admin() {
                         paddingTop: '.75rem',
                         borderTop: '1px solid var(--gray2)'
                       }}>
-                        {heroTrust1 && <div style={{ fontSize: '.62rem', fontWeight: 600, color: 'var(--gray4)' }} dangerouslySetInnerHTML={{ __html: heroTrust1 }} />}
-                        {heroTrust2 && <div style={{ fontSize: '.62rem', fontWeight: 600, color: 'var(--gray4)' }} dangerouslySetInnerHTML={{ __html: heroTrust2 }} />}
-                        {heroTrust3 && <div style={{ fontSize: '.62rem', fontWeight: 600, color: 'var(--gray4)' }} dangerouslySetInnerHTML={{ __html: heroTrust3 }} />}
+                        {heroTrust1 && <div style={{ fontSize: '.62rem', fontWeight: 600, color: 'var(--gray4)' }} dangerouslySetInnerHTML={{ __html: sanitizeHTML(heroTrust1) }} />}
+                        {heroTrust2 && <div style={{ fontSize: '.62rem', fontWeight: 600, color: 'var(--gray4)' }} dangerouslySetInnerHTML={{ __html: sanitizeHTML(heroTrust2) }} />}
+                        {heroTrust3 && <div style={{ fontSize: '.62rem', fontWeight: 600, color: 'var(--gray4)' }} dangerouslySetInnerHTML={{ __html: sanitizeHTML(heroTrust3) }} />}
                       </div>
                     </div>
                     

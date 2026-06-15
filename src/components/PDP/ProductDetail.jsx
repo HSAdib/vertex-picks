@@ -22,15 +22,6 @@ export default function ProductDetail() {
   const [productData, setProductData] = useState(null);
   const [selectedWeight, setSelectedWeight] = useState('');
 
-  useEffect(() => {
-    if (productData) {
-      const initialWeight = productData.weightOptions && productData.weightOptions.length > 0
-        ? productData.weightOptions[0]
-        : `${productData.fixedWeight || 1} Kg`;
-      setSelectedWeight(initialWeight);
-    }
-  }, [productData]);
-
   const [relatedProducts, setRelatedProducts] = useState([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [hasPurchased, setHasPurchased] = useState(false);
@@ -45,6 +36,9 @@ export default function ProductDetail() {
         if (docSnap.exists()) {
           const data = docSnap.data();
           setProductData({ id: docSnap.id, ...data });
+          setSelectedWeight(data.weightOptions && data.weightOptions.length > 0
+            ? data.weightOptions[0]
+            : `${data.fixedWeight || 1} Kg`);
 
           const allSnap = await getDocs(collection(db, 'mangoes'));
           const allProducts = allSnap.docs

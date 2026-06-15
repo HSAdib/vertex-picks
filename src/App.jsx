@@ -1,11 +1,12 @@
-import { useState, useEffect } from 'react';
+import { Suspense, lazy, useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { motion } from 'framer-motion';
 import { AuthProvider } from './context/AuthContext';
 import { CartProvider } from './context/CartContext';
 import { ThemeProvider } from './context/ThemeContext';
-import { StoreProvider, useStore } from './context/StoreContext';
+import { StoreProvider } from './context/StoreContext';
+import { useStore } from './context/useStore';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from './firebaseConfig';
 import AdminRoute from './components/AdminRoute';
@@ -13,11 +14,18 @@ import Profile from './pages/Profile';
 import Navbar from './components/Navbar';
 import Home from './pages/Home';
 import Shop from './pages/Shop';
-import Checkout from './pages/Checkout';
-import Admin from './pages/Admin';
 import Login from './pages/Login';
-import ProductDetail from './components/PDP/ProductDetail';
 import { Analytics } from "@vercel/analytics/react"
+
+const Admin = lazy(() => import('./pages/Admin'));
+const Checkout = lazy(() => import('./pages/Checkout'));
+const ProductDetail = lazy(() => import('./components/PDP/ProductDetail'));
+
+const RouteFallback = () => (
+  <div className="min-h-[70vh] flex items-center justify-center font-black text-orange-500 uppercase tracking-widest">
+    Loading...
+  </div>
+);
 
 const FloatingWhatsApp = () => {
   const { storeName } = useStore();
@@ -72,13 +80,13 @@ function App() {
               <Navbar />
               <main className="flex-grow">
                 <Routes>
-                 <Route path="/product/:id" element={<ProductDetail />} />
+                 <Route path="/product/:id" element={<Suspense fallback={<RouteFallback />}><ProductDetail /></Suspense>} />
                   <Route path="/profile" element={<Profile />} />
                   <Route path="/login" element={<Login />} />
-                  <Route path="/admin" element={<AdminRoute><Admin /></AdminRoute>} />
+                  <Route path="/admin" element={<Suspense fallback={<RouteFallback />}><AdminRoute><Admin /></AdminRoute></Suspense>} />
                   <Route path="/" element={<Home />} />
                   <Route path="/shop" element={<Shop />} />
-                  <Route path="/checkout" element={<Checkout />} />
+                  <Route path="/checkout" element={<Suspense fallback={<RouteFallback />}><Checkout /></Suspense>} />
                   {/* Fix #8: catch-all 404 — renders instead of a blank page */}
                   <Route path="*" element={
                     <div style={{ paddingTop: 'var(--nav-height)', minHeight: '80vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', gap: '1rem' }}>
