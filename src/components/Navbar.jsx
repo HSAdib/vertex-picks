@@ -176,7 +176,8 @@ export default function Navbar() {
       </div>
 
       {/* NAVBAR */}
-      <nav className={`navbar liquid-glass-nav relative ${isScrolled ? 'scrolled' : ''}`}>
+      <nav className={`navbar relative z-50 ${isScrolled ? 'scrolled' : ''}`}>
+        <div className="nav-content-wrapper">
         <Link 
           to="/" 
           onClick={(e) => {
@@ -521,6 +522,7 @@ export default function Navbar() {
             </>
           )}
         </div>
+        </div>{/* /nav-content-wrapper */}
       </nav>
     </div>
   );

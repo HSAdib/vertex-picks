@@ -148,35 +148,6 @@ img{display:block;max-width:100%}
 .topbar-links a{color:rgba(255,255,255,.55);transition:color .2s}
 .topbar-links a:hover{color:#fff}
 
-/* ══ LIQUID GLASS NAVBAR AESTHETIC ══ */
-.liquid-glass-nav {
-  position: relative;
-  width: 100%;
-  z-index: 50; /* Ensure it floats above page content */
-  background: rgba(255, 255, 255, 0.1) !important;
-  backdrop-filter: none !important;
-  -webkit-backdrop-filter: none !important;
-}
-.liquid-glass-nav::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  z-index: -2;
-  box-shadow: inset 2px 2px 0px -2px rgba(255, 255, 255, 0.7), inset 0 0 3px 1px rgba(255, 255, 255, 0.7);
-  border-radius: inherit;
-}
-.liquid-glass-nav::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  z-index: -1;
-  backdrop-filter: blur(8px); /* Fallback blur */
-  filter: url(#container-glass); /* The SVG liquid displacement */
-  isolation: isolate;
-  border-radius: inherit;
-}
-
-/* ══ NAVBAR ══ */
 .navbar {
   position: fixed;
   top: 52px;
@@ -186,24 +157,47 @@ img{display:block;max-width:100%}
   max-width: 1240px;
   margin: 0 auto;
   z-index: 250;
-  background: rgba(255, 240, 232, 0.25);
-  backdrop-filter: blur(10px) saturate(180%);
-  -webkit-backdrop-filter: blur(10px) saturate(180%);
-  border: 1.5px solid rgba(255, 210, 180, 0.25);
   border-radius: 100px;
   padding: .65rem 1.6rem;
   display: flex;
   align-items: center;
   gap: 1.5rem;
-  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.04), 0 1px 3px rgba(0, 0, 0, 0.01);
   transition: all 0.4s var(--ease);
 }
 
 .navbar.scrolled {
   top: 16px;
-  background: rgba(255, 240, 232, 0.45);
-  box-shadow: 0 20px 48px rgba(232, 84, 10, 0.06), 0 2px 8px rgba(232, 84, 10, 0.02);
-  border-color: rgba(255, 210, 180, 0.35);
+}
+
+.navbar {
+  background: transparent !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  border: 1px solid transparent !important;
+  box-shadow: none !important;
+}
+
+.navbar.scrolled {
+  background: rgba(255, 255, 255, 0.35) !important;
+  backdrop-filter: blur(12px) !important;
+  -webkit-backdrop-filter: blur(12px) !important;
+  border: 1px solid rgba(255, 255, 255, 0.4) !important;
+  box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.04) !important;
+}
+
+html[data-theme="dark"] .navbar.scrolled {
+  background: rgba(26, 26, 26, 0.35) !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+}
+.nav-content-wrapper {
+  position: relative;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.5rem;
+  width: 100%;
+  height: 100%;
 }
 .nav-logo{font-family:var(--ff-display);font-size:1.6rem;font-weight:900;color:var(--dark);white-space:nowrap;cursor:pointer;text-decoration:none;display:inline-flex;align-items:center}
 .nav-logo-full{display:inline}
@@ -968,6 +962,8 @@ input[type="number"] {
   .nav-logo-short{display:inline}
   .navbar{top:46px; width:94%; left:3%; right:3%; padding:.55rem 1.1rem; gap:.5rem; border-radius:30px}
   .navbar.scrolled{top:10px}
+  .glass-mask-parent{border-radius:30px;}
+  .glass-border-highlight{border-radius:30px}
   .nav-actions .nav-icon-btn[title="Wishlist"]{display:none}
   .nav-actions .nav-order-btn{display:none}
   .banner-grid{grid-template-columns:1fr}
