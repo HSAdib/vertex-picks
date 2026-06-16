@@ -63,7 +63,30 @@ export default function Home() {
     promiseFeature3Icon: '🏅',
     promiseFeature4Title: 'Full Refund',
     promiseFeature4Text: 'Not happy? 100% refund, no questions asked. That\'s our commitment.',
-    promiseFeature4Icon: '🔄'
+    promiseFeature4Icon: '🔄',
+    // Promo Banners
+    promoBanners: [
+      {
+        id: '1',
+        label: 'Limited Stock',
+        title: 'Himsagar<br />Pre-Order Open',
+        btnText: 'Order Now →',
+        btnLink: '/shop',
+        emoji: '🥭',
+        color1: '#FF7A35',
+        color2: '#E8540A'
+      },
+      {
+        id: '2',
+        label: 'Perfect for Gifting',
+        title: 'Eid Gift<br />Boxes 2026',
+        btnText: 'Explore →',
+        btnLink: '/shop',
+        emoji: '🎁',
+        color1: '#2A9445',
+        color2: '#1B6B2F'
+      }
+    ]
   });
 
   // Fetch footer settings from Firestore
@@ -107,7 +130,8 @@ export default function Home() {
             promiseFeature3Icon: data.promiseFeature3Icon !== undefined ? data.promiseFeature3Icon : prev.promiseFeature3Icon,
             promiseFeature4Title: data.promiseFeature4Title !== undefined ? data.promiseFeature4Title : prev.promiseFeature4Title,
             promiseFeature4Text: data.promiseFeature4Text !== undefined ? data.promiseFeature4Text : prev.promiseFeature4Text,
-            promiseFeature4Icon: data.promiseFeature4Icon !== undefined ? data.promiseFeature4Icon : prev.promiseFeature4Icon
+            promiseFeature4Icon: data.promiseFeature4Icon !== undefined ? data.promiseFeature4Icon : prev.promiseFeature4Icon,
+            promoBanners: data.promoBanners !== undefined ? data.promoBanners : prev.promoBanners
           }));
         }
 
@@ -382,22 +406,30 @@ export default function Home() {
       </div>
 
       {/* PROMO BANNERS */}
-      <div className="home-section bg-light" style={{ background: 'var(--bg-primary)' }}>
-        <div className="banner-grid">
-          <div className="banner-card bc-orange">
-            <div className="bc-label">Limited Stock</div>
-            <div className="bc-title">Himsagar<br />Pre-Order Open</div>
-            <button className="bc-btn" style={{ background: 'rgba(255,255,255,.2)', color: '#fff' }} onClick={() => navigate('/shop')}>Order Now →</button>
-            <div className="bc-emoji">🥭</div>
-          </div>
-          <div className="banner-card bc-green">
-            <div className="bc-label">Perfect for Gifting</div>
-            <div className="bc-title">Eid Gift<br />Boxes 2026</div>
-            <button className="bc-btn" style={{ background: 'rgba(255,255,255,.15)', color: '#fff' }} onClick={() => navigate('/shop')}>Explore →</button>
-            <div className="bc-emoji">🎁</div>
+      {uiSettings.promoBanners && uiSettings.promoBanners.length > 0 && (
+        <div className="home-section bg-light" style={{ background: 'var(--bg-primary)' }}>
+          <div className="banner-grid">
+            {uiSettings.promoBanners.map((banner, idx) => (
+              <div 
+                key={banner.id || idx} 
+                className="banner-card" 
+                style={{ background: `linear-gradient(135deg, ${banner.color1}, ${banner.color2})`, color: '#fff' }}
+              >
+                <div className="bc-label">{banner.label}</div>
+                <div className="bc-title" dangerouslySetInnerHTML={{ __html: sanitizeHTML(banner.title) }} />
+                <button 
+                  className="bc-btn" 
+                  style={{ background: 'rgba(255,255,255,.2)', color: '#fff' }} 
+                  onClick={() => navigate(banner.btnLink || '/shop')}
+                >
+                  {banner.btnText}
+                </button>
+                <div className="bc-emoji">{banner.emoji}</div>
+              </div>
+            ))}
           </div>
         </div>
-      </div>
+      )}
 
       {/* FEATURES / PROMISE */}
       <div className="home-section bg-light" id="why-section" style={{ background: 'var(--bg-primary)' }}>

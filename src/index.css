@@ -24,7 +24,7 @@
   --blue:#2563EB;--blue-pale:#EFF6FF;
   --red:#DC2626;--red-pale:#FEF2F2;
   --purple:#7C3AED;--purple-pale:#F5F3FF;
-  --nav-height:144px;
+  --nav-height:96px;
 
   --bg-primary: #F7F7F7;
   --bg-secondary: #FFFFFF;
@@ -141,16 +141,10 @@ a{text-decoration:none;color:inherit}
 button{font-family:var(--ff);cursor:pointer;border:none;outline:none}
 img{display:block;max-width:100%}
 
-/* ══ TOPBAR ══ */
-.topbar{background:var(--topbar-bg);color:rgba(255,255,255,.75);font-size:.75rem;font-weight:500;padding:.5rem 5%;display:flex;justify-content:space-between;align-items:center}
-.topbar span{display:flex;align-items:center;gap:.4rem}
-.topbar-links{display:flex;gap:1.5rem}
-.topbar-links a{color:rgba(255,255,255,.55);transition:color .2s}
-.topbar-links a:hover{color:#fff}
 
 .navbar {
   position: fixed;
-  top: 52px;
+  top: 20px;
   left: 4%;
   right: 4%;
   width: 92%;
@@ -169,25 +163,19 @@ img{display:block;max-width:100%}
   top: 16px;
 }
 
-.navbar {
-  background: transparent !important;
-  backdrop-filter: none !important;
-  -webkit-backdrop-filter: none !important;
-  border: 1px solid transparent !important;
-  box-shadow: none !important;
-}
-
-.navbar.scrolled {
-  background: rgba(255, 255, 255, 0.35) !important;
+.navbar, .navbar.scrolled {
+  background: rgba(255, 240, 232, 0.65) !important;
   backdrop-filter: blur(12px) !important;
   -webkit-backdrop-filter: blur(12px) !important;
-  border: 1px solid rgba(255, 255, 255, 0.4) !important;
-  box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.04) !important;
+  border: 1px solid rgba(232, 84, 10, 0.15) !important;
+  box-shadow: 0 8px 32px 0 rgba(232, 84, 10, 0.06) !important;
 }
 
+html[data-theme="dark"] .navbar,
 html[data-theme="dark"] .navbar.scrolled {
-  background: rgba(26, 26, 26, 0.35) !important;
-  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  background: rgba(45, 20, 5, 0.45) !important;
+  border: 1px solid rgba(232, 84, 10, 0.2) !important;
+  box-shadow: 0 8px 32px 0 rgba(232, 84, 10, 0.08) !important;
 }
 .nav-content-wrapper {
   position: relative;
@@ -960,8 +948,8 @@ input[type="number"] {
   /* Switch to short VP logo on phone */
   .nav-logo-full{display:none}
   .nav-logo-short{display:inline}
-  .navbar{top:46px; width:94%; left:3%; right:3%; padding:.55rem 1.1rem; gap:.5rem; border-radius:30px}
-  .navbar.scrolled{top:10px}
+  .navbar{top:16px; width:94%; left:3%; right:3%; padding:.55rem 1.1rem; gap:.5rem; border-radius:30px}
+  .navbar.scrolled{top:8px}
   .glass-mask-parent{border-radius:30px;}
   .glass-border-highlight{border-radius:30px}
   .nav-actions .nav-icon-btn[title="Wishlist"]{display:none}

@@ -249,7 +249,7 @@ export default function ProductDetail() {
   };
 
   return (
-    <div className="page active" id="page-product-detail" style={{ paddingTop: 'var(--nav-height)' }}>
+    <div className="page active" id="page-product-detail" style={{ paddingTop: 'var(--nav-height)', paddingBottom: '120px' }}>
       <div className="pdp-breadcrumb">
         <Link to="/">🏠 Home</Link>
         <span className="sep">›</span>

@@ -13,8 +13,6 @@ export default function Navbar() {
   const [categories, setCategories] = useState([]);
   const [searchVal, setSearchVal] = useState('');
   const [isScrolled, setIsScrolled] = useState(false);
-  const [topBarText, setTopBarText] = useState('Season 2026 Open!');
-  const [contactPhone, setContactPhone] = useState('+880 1581-221084');
   
   const { storeName } = useStore();
   const { cart } = useCart();
@@ -60,15 +58,6 @@ export default function Navbar() {
         }
 
         const settingsSnap = await getDoc(doc(db, 'mangoes', 'STORE_SETTINGS'));
-        if (settingsSnap.exists()) {
-          const sData = settingsSnap.data();
-          if (sData.topBarText !== undefined) {
-            setTopBarText(sData.topBarText);
-          }
-          if (sData.contactPhone) {
-            setContactPhone(sData.contactPhone);
-          }
-        }
       } catch (err) {
         console.error("Error loading navbar data", err);
       }
@@ -92,10 +81,6 @@ export default function Navbar() {
   const firstWord = storeName.split(' ')[0] || '';
   const restWord = storeName.split(' ').slice(1).join(' ') || '';
   const shortLogo = storeName.split(' ').map(w => w.charAt(0)).join('').toUpperCase() || '';
-
-  const cleanPhone = contactPhone.replace(/\D/g, '');
-  const waPhone = cleanPhone.startsWith('0') ? '88' + cleanPhone : cleanPhone;
-  const whatsappUrl = `https://wa.me/${waPhone}?text=${encodeURIComponent(`Hello! I need help with my ${storeName} order.`)}`;
 
   return (
     <div className="absolute top-0 left-0 w-full z-50 print:hidden">
@@ -160,23 +145,9 @@ export default function Navbar() {
           }
         }
       `}</style>
-      {/* TOPBAR */}
-      <div className="topbar">
-        <span>{topBarText}</span>
-        <div className="topbar-links">
-          <Link to="/profile">Track Order</Link>
-          <a href={whatsappUrl} target="_blank" rel="noreferrer">Help</a>
-          <button 
-            className="bg-transparent text-inherit p-0 font-medium hover:text-white border-none cursor-pointer outline-none" 
-            onClick={() => alert("বাংলা সংস্করণ শীঘ্রই আসছে!")}
-          >
-            বাংলা
-          </button>
-        </div>
-      </div>
 
       {/* NAVBAR */}
-      <nav className={`navbar relative z-50 ${isScrolled ? 'scrolled' : ''}`}>
+      <nav className={`navbar relative z-50 ${(isScrolled || location.pathname === '/login') ? 'scrolled' : ''}`}>
         <div className="nav-content-wrapper">
         <Link 
           to="/" 

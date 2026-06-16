@@ -241,18 +241,18 @@ export default function Shop() {
     );
   }
 
-  const titleRaw = urlCategory ? `${urlCategory}` : 'All Categories';
+  const titleRaw = urlCategory ? `${urlCategory}` : 'Mango Baba';
   const subtitleRaw = urlCategory ? `Browse our fresh selection of ${urlCategory}.` : 'Fresh from the orchards of Rajshahi. Hand-picked for excellence.';
   const showTitle = true;
   const showSubtitle = true;
   const showHeader = true;
 
   return (
-    <div style={{ paddingTop: 'var(--nav-height)', background: 'var(--bg-primary)', minHeight: '100vh' }}>
+    <div style={{ paddingTop: 'var(--nav-height)', background: '#fff6ec', minHeight: '100vh' }}>
 
       {/* HERO HEADER */}
       {showHeader && (
-        <section style={{ background: 'var(--peach-gradient)', padding: '3rem 5% 2.5rem', textAlign: 'center', borderBottom: '1px solid var(--gray2)' }}>
+        <section style={{ padding: '1rem 5% 1rem', textAlign: 'center' }}>
           {showTitle && (
             <h1 className="hero-h1" style={{ fontSize: 'clamp(1.8rem,3vw,2.6rem)', marginBottom: '.5rem' }}>
               {titleRaw !== undefined ? renderTwoToneTitle(titleRaw) : <>Premium <span style={{ color: 'var(--primary)' }}>Selection</span></>}

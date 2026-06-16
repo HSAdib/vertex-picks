@@ -141,7 +141,7 @@ export default function Login() {
 
   if (showPortal) {
     return (
-      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', background: 'var(--bg-primary)', padding: '2rem 0', fontFamily: "'Sora', sans-serif", boxSizing: 'border-box' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', background: 'var(--bg-primary)', paddingTop: 'calc(var(--nav-height, 88px) + 2rem)', paddingBottom: '2rem', fontFamily: "'Sora', sans-serif", boxSizing: 'border-box' }}>
         <div style={{ maxWidth: '420px', width: '90%', margin: 'auto', background: 'var(--bg-card)', borderRadius: '14px', border: '1.5px solid var(--border-color)', boxShadow: '0 20px 60px var(--shadow-color)', padding: '2rem 2rem', boxSizing: 'border-box', textAlign: 'center' }}>
           <h2 style={{ fontFamily: "'Fraunces', serif", fontWeight: 900, fontSize: '1.6rem', color: 'var(--text-primary)', margin: '0 0 0.5rem 0', textTransform: 'uppercase' }}>Access Granted</h2>
           <p style={{ fontFamily: "'Sora', sans-serif", fontSize: '0.82rem', color: 'var(--text-muted)', margin: '0 0 2rem 0' }}>Administrative session recognized. Route dynamically.</p>
@@ -212,7 +212,7 @@ export default function Login() {
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', background: 'var(--bg-primary)', padding: '2rem 0', fontFamily: "'Sora', sans-serif", boxSizing: 'border-box' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', background: 'var(--bg-primary)', paddingTop: 'calc(var(--nav-height, 88px) + 2rem)', paddingBottom: '2rem', fontFamily: "'Sora', sans-serif", boxSizing: 'border-box' }}>
       <style>{`
         .login-input {
           background: var(--bg-card);

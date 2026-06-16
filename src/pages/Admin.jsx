@@ -286,7 +286,6 @@ export default function Admin() {
   const [newMarqueeText, setNewMarqueeText] = useState('');
   const [editingMarqueeIndex, setEditingMarqueeIndex] = useState(null);
   const [editingMarqueeText, setEditingMarqueeText] = useState('');
-  const [topBarText, setTopBarText] = useState('Season 2026 Open!');
 
   // Hero Copy States
   const [heroBadge1, setHeroBadge1] = useState('🥭 Season 2026');
@@ -318,7 +317,29 @@ export default function Admin() {
   const [promiseFeature4Text, setPromiseFeature4Text] = useState('Not happy? 100% refund, no questions asked. That\'s our commitment.');
   const [promiseFeature4Icon, setPromiseFeature4Icon] = useState('🔄');
 
-
+  // Promo Banners State
+  const [promoBanners, setPromoBanners] = useState([
+    {
+      id: '1',
+      label: 'Limited Stock',
+      title: 'Himsagar<br />Pre-Order Open',
+      btnText: 'Order Now →',
+      btnLink: '/shop',
+      emoji: '🥭',
+      color1: '#FF7A35',
+      color2: '#E8540A'
+    },
+    {
+      id: '2',
+      label: 'Perfect for Gifting',
+      title: 'Eid Gift<br />Boxes 2026',
+      btnText: 'Explore →',
+      btnLink: '/shop',
+      emoji: '🎁',
+      color1: '#2A9445',
+      color2: '#1B6B2F'
+    }
+  ]);
 
 
   // --- CRUD SEARCH / FILTER STATES ---
@@ -589,7 +610,6 @@ export default function Admin() {
 
         // Fetch customizer text settings if they exist
         if (cData.marqueeItems && Array.isArray(cData.marqueeItems)) setMarqueeItems(cData.marqueeItems);
-        if (cData.topBarText !== undefined) setTopBarText(cData.topBarText);
         if (cData.heroBadge1 !== undefined) setHeroBadge1(cData.heroBadge1);
         if (cData.heroBadge2 !== undefined) setHeroBadge2(cData.heroBadge2);
         if (cData.heroBadge3 !== undefined) setHeroBadge3(cData.heroBadge3);
@@ -613,6 +633,10 @@ export default function Admin() {
         if (cData.promiseFeature4Title !== undefined) setPromiseFeature4Title(cData.promiseFeature4Title);
         if (cData.promiseFeature4Text !== undefined) setPromiseFeature4Text(cData.promiseFeature4Text);
         if (cData.promiseFeature4Icon !== undefined) setPromiseFeature4Icon(cData.promiseFeature4Icon);
+        
+        if (cData.promoBanners && Array.isArray(cData.promoBanners)) {
+          setPromoBanners(cData.promoBanners);
+        }
       }
 
       setLoading(false);
@@ -963,7 +987,6 @@ export default function Admin() {
     if (e) e.preventDefault();
     try {
       await setDoc(doc(db, 'mangoes', 'STORE_SETTINGS'), {
-        topBarText,
         marqueeItems,
         heroBadge1,
         heroBadge2,
@@ -992,6 +1015,7 @@ export default function Admin() {
         contactPhone,
         contactAddress,
         contactEmail,
+        promoBanners,
       }, { merge: true });
       toast.success('🎉 Homepage & UI copy successfully published live!');
     } catch (err) {
@@ -4045,24 +4069,6 @@ export default function Admin() {
               {/* LEFT COLUMN: EDIT CONTROLS */}
               <div style={{ flex: '1 1 500px', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
                 
-                {/* 0. TOP BAR CARD */}
-                <div className="admin-card" style={{ padding: '1.75rem' }}>
-                  <div className="admin-card-head" style={{ padding: '0 0 1rem 0', borderBottom: '1.5px solid var(--gray2)' }}>
-                    <div>
-                      <div className="ach-title" style={{ fontSize: '1rem', display: 'flex', alignItems: 'center', gap: '.5rem' }}>📢 Global Top Notification Bar</div>
-                      <div className="ach-sub">The static text bar at the very top of the website.</div>
-                    </div>
-                  </div>
-                  
-                  <div style={{ marginTop: '1.25rem' }}>
-                    <input 
-                      type="text" 
-                      className="form-input !rounded-[12px] font-bold" 
-                      value={topBarText} 
-                      onChange={e => setTopBarText(e.target.value)}
-                    />
-                  </div>
-                </div>
 
                 {/* 1. MARQUEE BADGES CARD */}
                 <div className="admin-card" style={{ padding: '1.75rem' }}>
@@ -4203,6 +4209,104 @@ export default function Admin() {
                     ))}
                     {marqueeItems.length === 0 && (
                       <p style={{ fontSize: '.78rem', color: 'var(--gray4)', fontWeight: 600, textAlign: 'center', padding: '1rem' }}>No scrolling badges listed. Add some above!</p>
+                    )}
+                  </div>
+                </div>
+
+                {/* PROMO BANNERS EDIT CARD */}
+                <div className="admin-card" style={{ padding: '1.75rem' }}>
+                  <div className="admin-card-head" style={{ padding: '0 0 1rem 0', borderBottom: '1.5px solid var(--gray2)' }}>
+                    <div>
+                      <div className="ach-title" style={{ fontSize: '1rem', display: 'flex', alignItems: 'center', gap: '.5rem' }}>🏷️ Promotional Banners</div>
+                      <div className="ach-sub">Manage the colorful promotion cards displayed on the homepage.</div>
+                    </div>
+                    <button 
+                      type="button" 
+                      onClick={() => {
+                        const newBanner = {
+                          id: Date.now().toString(),
+                          label: 'New Promo',
+                          title: 'Special<br />Offer',
+                          btnText: 'Shop Now →',
+                          btnLink: '/shop',
+                          emoji: '✨',
+                          color1: '#2563EB',
+                          color2: '#1D4ED8'
+                        };
+                        setPromoBanners([...promoBanners, newBanner]);
+                      }}
+                      className="btn-primary" 
+                      style={{ borderRadius: '12px', padding: '8px 14px', fontWeight: 800, fontSize: '.75rem', textTransform: 'uppercase' }}
+                    >
+                      + Add Banner
+                    </button>
+                  </div>
+                  
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', marginTop: '1.5rem' }}>
+                    {promoBanners.map((banner, idx) => (
+                      <div key={banner.id || idx} style={{ border: '1px solid var(--gray2)', borderRadius: '16px', padding: '1rem', background: 'var(--bg-secondary)', position: 'relative' }}>
+                        <button 
+                          type="button"
+                          onClick={() => setPromoBanners(promoBanners.filter((_, i) => i !== idx))}
+                          style={{ position: 'absolute', top: '.5rem', right: '.5rem', background: '#fee2e2', color: '#ef4444', border: 'none', borderRadius: '50%', width: '28px', height: '28px', cursor: 'pointer', fontWeight: 'bold' }}
+                          title="Remove Banner"
+                        >
+                          ✕
+                        </button>
+                        
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1rem', paddingRight: '2rem' }}>
+                          <div>
+                            <label className="form-label" style={{ fontSize: '.75rem' }}>Label (Small text)</label>
+                            <input className="form-input" style={{ fontSize: '.8rem', padding: '8px 12px' }} value={banner.label} onChange={e => { const up = [...promoBanners]; up[idx].label = e.target.value; setPromoBanners(up); }} />
+                          </div>
+                          <div>
+                            <label className="form-label" style={{ fontSize: '.75rem' }}>Title (Use &lt;br/&gt; for new line)</label>
+                            <input className="form-input" style={{ fontSize: '.8rem', padding: '8px 12px' }} value={banner.title} onChange={e => { const up = [...promoBanners]; up[idx].title = e.target.value; setPromoBanners(up); }} />
+                          </div>
+                          <div>
+                            <label className="form-label" style={{ fontSize: '.75rem' }}>Button Text</label>
+                            <input className="form-input" style={{ fontSize: '.8rem', padding: '8px 12px' }} value={banner.btnText} onChange={e => { const up = [...promoBanners]; up[idx].btnText = e.target.value; setPromoBanners(up); }} />
+                          </div>
+                          <div>
+                            <label className="form-label" style={{ fontSize: '.75rem' }}>Button Link</label>
+                            <input className="form-input" style={{ fontSize: '.8rem', padding: '8px 12px' }} value={banner.btnLink} onChange={e => { const up = [...promoBanners]; up[idx].btnLink = e.target.value; setPromoBanners(up); }} />
+                          </div>
+                          <div>
+                            <label className="form-label" style={{ fontSize: '.75rem' }}>Emoji</label>
+                            <input className="form-input" style={{ fontSize: '.8rem', padding: '8px 12px' }} value={banner.emoji} onChange={e => { const up = [...promoBanners]; up[idx].emoji = e.target.value; setPromoBanners(up); }} />
+                          </div>
+                          
+                          <div style={{ display: 'flex', gap: '.5rem' }}>
+                            <div style={{ flex: 1 }}>
+                              <label className="form-label" style={{ fontSize: '.75rem' }}>Gradient Start</label>
+                              <div style={{ display: 'flex', gap: '.25rem' }}>
+                                <input type="color" value={banner.color1} onChange={e => { const up = [...promoBanners]; up[idx].color1 = e.target.value; setPromoBanners(up); }} style={{ width: '32px', height: '32px', padding: 0, border: 'none', borderRadius: '4px', cursor: 'pointer' }} />
+                                <input className="form-input" style={{ fontSize: '.8rem', padding: '8px 8px', flex: 1 }} value={banner.color1} onChange={e => { const up = [...promoBanners]; up[idx].color1 = e.target.value; setPromoBanners(up); }} />
+                              </div>
+                            </div>
+                            <div style={{ flex: 1 }}>
+                              <label className="form-label" style={{ fontSize: '.75rem' }}>Gradient End</label>
+                              <div style={{ display: 'flex', gap: '.25rem' }}>
+                                <input type="color" value={banner.color2} onChange={e => { const up = [...promoBanners]; up[idx].color2 = e.target.value; setPromoBanners(up); }} style={{ width: '32px', height: '32px', padding: 0, border: 'none', borderRadius: '4px', cursor: 'pointer' }} />
+                                <input className="form-input" style={{ fontSize: '.8rem', padding: '8px 8px', flex: 1 }} value={banner.color2} onChange={e => { const up = [...promoBanners]; up[idx].color2 = e.target.value; setPromoBanners(up); }} />
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div style={{ borderTop: '1px dashed var(--gray2)', paddingTop: '1rem' }}>
+                          <span style={{ fontSize: '.7rem', color: 'var(--gray4)', fontWeight: 600, display: 'block', marginBottom: '.5rem', textTransform: 'uppercase' }}>Live Preview:</span>
+                          <div className="banner-card" style={{ background: `linear-gradient(135deg, ${banner.color1}, ${banner.color2})`, margin: 0, height: '140px', color: '#fff' }}>
+                            <div className="bc-label">{banner.label}</div>
+                            <div className="bc-title" dangerouslySetInnerHTML={{ __html: banner.title }} />
+                            <div className="bc-btn" style={{ background: 'rgba(255,255,255,.2)', color: '#fff', fontSize: '.7rem', padding: '.3rem .8rem' }}>{banner.btnText}</div>
+                            <div className="bc-emoji" style={{ fontSize: '4rem' }}>{banner.emoji}</div>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                    {promoBanners.length === 0 && (
+                      <p style={{ fontSize: '.78rem', color: 'var(--gray4)', fontWeight: 600, textAlign: 'center', padding: '1rem' }}>No promotional banners added.</p>
                     )}
                   </div>
                 </div>
@@ -4482,22 +4586,7 @@ export default function Admin() {
                     fontSize: '12px'
                   }} className="scrollbar-thin">
                     
-                    {/* Miniature Top Bar */}
-                    <div style={{ 
-                      background: '#121212', 
-                      color: 'var(--gray2)', 
-                      padding: '.35rem 1.25rem', 
-                      fontSize: '.5rem', 
-                      display: 'flex',
-                      justifyContent: 'space-between'
-                    }}>
-                      <span>{topBarText}</span>
-                      <div style={{ display: 'flex', gap: '.6rem' }}>
-                        <span>Track Order</span>
-                        <span>Help</span>
-                        <span>বাংলা</span>
-                      </div>
-                    </div>
+
 
                     {/* Micro Navigation */}
                     <div style={{ 
