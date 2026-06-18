@@ -1172,7 +1172,7 @@ html[data-theme="dark"] .glass-modal {
 
 @media (min-width: 1024px) {
   .checkout-grid-container {
-    grid-template-columns: 2.1fr 1.1fr 1.1fr; /* Make cart item section slightly wider for balanced look */
+    grid-template-columns: 1.8fr 1.2fr;
   }
 }
 
@@ -1381,5 +1381,257 @@ html[data-theme="dark"] .checkout-qty-btn:hover {
   background: var(--border-color);
   margin: 0.4rem 0.8rem;
 }
+
+/* ══════════════════════════════════════════
+   PREMIUM REDESIGN ADDITIONS
+   ══════════════════════════════════════════ */
+
+/* Stepper / Checkout sections */
+.checkout-section-wrap {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 20px;
+  padding: 1.75rem;
+  box-shadow: 0 4px 20px var(--shadow-color);
+  transition: transform 0.3s, box-shadow 0.3s;
+}
+.checkout-section-wrap:hover {
+  box-shadow: 0 8px 30px var(--shadow-color);
+}
+
+.checkout-step-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 1.5rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.checkout-step-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 50%;
+  background: var(--primary-pale);
+  color: var(--primary);
+  font-size: 1.1rem;
+  transition: all 0.3s var(--ease);
+}
+.checkout-section-wrap:hover .checkout-step-icon {
+  transform: scale(1.08) rotate(5deg);
+  background: var(--primary);
+  color: #FFFFFF;
+}
+
+/* Segmented Control address switcher */
+.segmented-control {
+  display: flex;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 100px;
+  padding: 0.25rem;
+  margin-bottom: 1.5rem;
+  position: relative;
+}
+.segmented-btn {
+  flex: 1;
+  border: none;
+  background: transparent;
+  padding: 0.6rem 1.2rem;
+  font-family: var(--ff);
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  cursor: pointer;
+  border-radius: 100px;
+  transition: all 0.25s var(--ease);
+  text-align: center;
+  outline: none;
+}
+.segmented-btn.active {
+  background: var(--bg-card);
+  color: var(--primary);
+  box-shadow: var(--shadow-sm), 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+/* Stripe-Style/Premium Radio Selection Cards */
+.premium-radio-grid {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+}
+.premium-radio-card {
+  display: flex;
+  gap: 0.85rem;
+  padding: 1.25rem;
+  border-radius: 16px;
+  cursor: pointer;
+  background: var(--bg-card);
+  border: 1.5px solid var(--border-color);
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  align-items: flex-start;
+  position: relative;
+}
+.premium-radio-card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(232, 84, 10, 0.3);
+  box-shadow: 0 10px 20px var(--shadow-color);
+}
+.premium-radio-card.selected {
+  background: rgba(232, 84, 10, 0.02) !important;
+  border-color: var(--primary) !important;
+  box-shadow: 0 8px 24px rgba(232, 84, 10, 0.08);
+}
+.premium-radio-circle {
+  width: 1.15rem;
+  height: 1.15rem;
+  border-radius: 50%;
+  border: 2px solid var(--border-color);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 0.15rem;
+  flex-shrink: 0;
+  transition: all 0.2s;
+}
+.premium-radio-card.selected .premium-radio-circle {
+  border-color: var(--primary);
+  background: var(--primary);
+}
+.premium-radio-circle::after {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #FFFFFF;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+.premium-radio-card.selected .premium-radio-circle::after {
+  opacity: 1;
+}
+
+/* Premium input controls */
+.checkout-input-group {
+  position: relative;
+}
+.checkout-input-field {
+  background: var(--input-bg);
+  border: 1.5px solid var(--border-color);
+  border-radius: 12px;
+  padding: 0.8rem 1.1rem;
+  font-family: var(--ff);
+  font-size: 0.85rem;
+  color: var(--text-primary);
+  width: 100%;
+  outline: none;
+  transition: all 0.25s var(--ease);
+}
+.checkout-input-field:focus {
+  border-color: var(--primary);
+  background: var(--bg-card);
+  box-shadow: 0 0 0 4px rgba(232, 84, 10, 0.12);
+}
+
+/* Glassmorphism Order Summary */
+.glassmorphic-summary-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 24px;
+  box-shadow: 0 12px 40px var(--shadow-color);
+  padding: 1.75rem;
+  position: relative;
+}
+
+/* Integrated Promo Input Widget */
+.promo-widget-container {
+  display: flex;
+  align-items: center;
+  background: var(--input-bg);
+  border: 1.5px solid var(--border-color);
+  border-radius: 100px;
+  padding: 0.2rem 0.2rem 0.2rem 0.8rem;
+  transition: all 0.25s var(--ease);
+}
+.promo-widget-container:focus-within {
+  border-color: var(--primary);
+  background: var(--bg-card);
+  box-shadow: 0 0 0 4px rgba(232, 84, 10, 0.12);
+}
+.promo-widget-input {
+  flex: 1;
+  min-width: 0;
+  background: transparent;
+  border: none;
+  outline: none;
+  font-family: var(--ff);
+  font-size: 0.85rem;
+  color: var(--text-primary);
+  padding: 0.5rem 0;
+}
+.promo-widget-btn {
+  background: var(--primary);
+  color: #FFFFFF;
+  border: none;
+  border-radius: 100px;
+  font-weight: 700;
+  font-size: 0.75rem;
+  padding: 0.6rem 1.2rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-family: var(--ff);
+  box-shadow: 0 4px 12px rgba(232, 84, 10, 0.2);
+}
+.promo-widget-btn:hover {
+  background: var(--dark);
+  transform: translateY(-1px);
+}
+
+/* Premium Place Order Button */
+.pulsing-confirm-btn {
+  background: linear-gradient(135deg, #FF6A1A, #E8540A);
+  color: #FFFFFF;
+  border-radius: 100px;
+  font-weight: 800;
+  font-size: 0.95rem;
+  font-family: var(--ff);
+  padding: 1rem 2rem;
+  width: 100%;
+  border: none;
+  box-shadow: 0 6px 20px rgba(232, 84, 10, 0.3);
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 0.5rem;
+  position: relative;
+  overflow: hidden;
+}
+.pulsing-confirm-btn:not(:disabled):hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 28px rgba(232, 84, 10, 0.45);
+  background: linear-gradient(135deg, #FF7B33, #FF5500);
+}
+.pulsing-confirm-btn:not(:disabled):active {
+  transform: translateY(0);
+}
+.pulsing-confirm-btn:disabled {
+  background: var(--border-color);
+  color: var(--text-muted);
+  box-shadow: none;
+  cursor: not-allowed;
+}
+
+/* Glassmorphism Modals styling */
+.backdrop-blur-modal {
+  backdrop-filter: blur(8px) saturate(140%);
+  background: rgba(0, 0, 0, 0.5);
+  transition: opacity 0.3s ease;
+}
+
 
 

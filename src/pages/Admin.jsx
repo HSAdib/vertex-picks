@@ -76,11 +76,57 @@ export default function Admin() {
   const [users, setUsers] = useState([]);
   const [promos, setPromos] = useState([]);
   const [leads, setLeads] = useState([]);
+  const [packagingOptions, setPackagingOptions] = useState([]);
+  const [deliveryOptions, setDeliveryOptions] = useState([]);
+  const [showPackagingModal, setShowPackagingModal] = useState(false);
+  const [editPackagingId, setEditPackagingId] = useState(null);
+  const [pkgLabel, setPkgLabel] = useState('');
+  const [pkgType, setPkgType] = useState('crate');
+  const [pkgQuality, setPkgQuality] = useState('normal');
+  const [pkgMinCapacity, setPkgMinCapacity] = useState(20);
+  const [pkgMaxCapacity, setPkgMaxCapacity] = useState(25);
+  const [pkgPrice, setPkgPrice] = useState(150);
+  const [pkgActive, setPkgActive] = useState(true);
+  const [showDeliveryModal, setShowDeliveryModal] = useState(false);
+  const [editDeliveryId, setEditDeliveryId] = useState(null);
+  const [dlvLabel, setDlvLabel] = useState('');
+  const [dlvDescription, setDlvDescription] = useState('');
+  const [dlvPricingType, setDlvPricingType] = useState('per_kg');
+  const [dlvPerKgRate, setDlvPerKgRate] = useState(13);
+  const [dlvFirstKgPrice, setDlvFirstKgPrice] = useState(125);
+  const [dlvExtraKgRate, setDlvExtraKgRate] = useState(22);
+  const [dlvActive, setDlvActive] = useState(true);
   const [selectedOrders, setSelectedOrders] = useState(new Set());
   const [batchUpdating, setBatchUpdating] = useState(false);
   const [expandedOrder, setExpandedOrder] = useState(null);
   const [editAddressModal, setEditAddressModal] = useState({ isOpen: false, orderId: null, address: '' });
   const [editFinancialsModal, setEditFinancialsModal] = useState({ isOpen: false, orderId: null, total: '', deliveryFee: '' });
+
+  // Edit Order Steps Modal States
+  const [editOrderStepsModal, setEditOrderStepsModal] = useState({ isOpen: false, orderId: null });
+  const [editOrderStepsActiveTab, setEditOrderStepsActiveTab] = useState('items');
+  const [editOrderItems, setEditOrderItems] = useState([]);
+  const [editOrderPackagingId, setEditOrderPackagingId] = useState('');
+  const [editOrderDeliveryId, setEditOrderDeliveryId] = useState('');
+  const [editOrderRecipientName, setEditOrderRecipientName] = useState('');
+  const [editOrderRecipientPhone, setEditOrderRecipientPhone] = useState('');
+  const [editOrderAddress, setEditOrderAddress] = useState('');
+  const [editOrderPostcode, setEditOrderPostcode] = useState('');
+  const [editOrderCoords, setEditOrderCoords] = useState(null);
+  const [editOrderDiscount, setEditOrderDiscount] = useState(0);
+  const [editOrderPromoUsed, setEditOrderPromoUsed] = useState('None');
+  const [editOrderDeliveryFee, setEditOrderDeliveryFee] = useState(0);
+
+  // Map Modal & Geolocation States/Refs
+  const [showMapModal, setShowMapModal] = useState(false);
+  const [locating, setLocating] = useState(false);
+  const [pinnedCoords, setPinnedCoords] = useState({ lat: 23.6850, lng: 90.3563 });
+  const mapRef = useRef(null);
+
+  // New item states inside the editor
+  const [addItemProductId, setAddItemProductId] = useState('');
+  const [addItemWeight, setAddItemWeight] = useState('');
+  const [addItemQuantity, setAddItemQuantity] = useState(1);
   const [trackingModal, setTrackingModal] = useState({ isOpen: false, orderId: null, value: '' });
   const [confirmModal, setConfirmModal] = useState({ isOpen: false, title: '', message: '', action: null });
   const [promptModal, setPromptModal] = useState({ isOpen: false, title: '', placeholder: '', value: '', action: null });
@@ -119,30 +165,311 @@ export default function Admin() {
     }
   };
 
-  const handleUpdateAddress = async () => {
-    if (!editAddressModal.address.trim()) return;
+
+
+  const parseWeight = (selectedWeightStr, fallbackWeight) => {
+    if (!selectedWeightStr) return fallbackWeight;
+    const kgMatch = selectedWeightStr.match(/(\d+(?:\.\d+)?)\s*k?g/i);
+    if (kgMatch) return Number(kgMatch[1]);
+    const gMatch = selectedWeightStr.match(/(\d+(?:\.\d+)?)\s*g/i);
+    if (gMatch) return Number(gMatch[1]) / 1000;
+    return fallbackWeight;
+  };
+
+  const handleCoordsChange = (key, val) => {
+    setEditOrderCoords(prev => {
+      const base = prev || { lat: 0, lng: 0 };
+      return {
+        ...base,
+        [key]: val === '' ? '' : Number(val)
+      };
+    });
+  };
+
+  const handleOpenEditOrderSteps = (order) => {
+    setEditOrderStepsModal({ isOpen: true, orderId: order.id });
+    setEditOrderStepsActiveTab('items');
+    setEditOrderItems(order.items ? JSON.parse(JSON.stringify(order.items)) : []);
+    setEditOrderPackagingId(order.packagingOption?.id || '');
+    setEditOrderDeliveryId(order.deliveryMethod?.id || '');
+    setEditOrderRecipientName(order.deliveryName || order.customerName || '');
+    setEditOrderRecipientPhone(order.deliveryPhone || '');
+    setEditOrderAddress(order.deliveryAddress || '');
+    setEditOrderPostcode(order.deliveryPostcode || '');
+    setEditOrderCoords(order.deliveryCoords || null);
+    setEditOrderDiscount(0);
+    setEditOrderPromoUsed(order.promoUsed || 'None');
+    setEditOrderDeliveryFee(Number(order.deliveryFee) || 0);
+    setAddItemProductId('');
+    setAddItemWeight('');
+    setAddItemQuantity(1);
+  };
+
+  const editedTotalWeight = useMemo(() => {
+    return editOrderItems.reduce((sum, item) => {
+      const product = mangoes.find(p => p.id === item.id);
+      const fallbackW = Number(product?.fixedWeight) || 1;
+      const w = parseWeight(item.selectedWeight, fallbackW);
+      return sum + (w * (Number(item.quantity) || 0));
+    }, 0);
+  }, [editOrderItems, mangoes]);
+
+  const editedSubtotal = useMemo(() => {
+    return editOrderItems.reduce((sum, item) => {
+      const activePrice = Number(item.discountPrice) || Number(item.price) || 0;
+      return sum + (activePrice * (Number(item.quantity) || 0));
+    }, 0);
+  }, [editOrderItems]);
+
+  const editedPackagingCostInfo = useMemo(() => {
+    const pkg = packagingOptions.find(p => p.id === editOrderPackagingId);
+    if (!pkg || editedTotalWeight <= 0) return { units: 0, cost: 0, label: '', type: '' };
+    const units = Math.ceil(editedTotalWeight / pkg.maxCapacity);
+    return {
+      units,
+      cost: units * pkg.price,
+      label: pkg.label,
+      type: pkg.type,
+      price: pkg.price
+    };
+  }, [editOrderPackagingId, editedTotalWeight, packagingOptions]);
+
+  // Update delivery fee automatically based on chosen courier and weight
+  useEffect(() => {
+    if (editOrderStepsModal.isOpen) {
+      const dlv = deliveryOptions.find(d => d.id === editOrderDeliveryId);
+      if (dlv && editedTotalWeight > 0) {
+        const fee = dlv.pricingType === 'per_kg'
+          ? dlv.perKgRate * editedTotalWeight
+          : dlv.firstKgPrice + (dlv.extraKgRate * Math.max(0, editedTotalWeight - 1));
+        setEditOrderDeliveryFee(fee);
+      } else if (!editOrderDeliveryId) {
+        setEditOrderDeliveryFee(0);
+      }
+    }
+  }, [editOrderDeliveryId, editedTotalWeight, deliveryOptions, editOrderStepsModal.isOpen]);
+
+  const editedTotal = useMemo(() => {
+    return Math.max(0, editedSubtotal + editedPackagingCostInfo.cost + editOrderDeliveryFee - editOrderDiscount);
+  }, [editedSubtotal, editedPackagingCostInfo.cost, editOrderDeliveryFee, editOrderDiscount]);
+
+  // Leaflet script/css loader & initialization for order shipping location pin map
+  useEffect(() => {
+    if (showMapModal) {
+      const linkId = 'leaflet-css';
+      if (!document.getElementById(linkId)) {
+        const link = document.createElement('link');
+        link.id = linkId;
+        link.rel = 'stylesheet';
+        link.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
+        document.head.appendChild(link);
+      }
+      
+      const scriptId = 'leaflet-js';
+      let script = document.getElementById(scriptId);
+      if (!script) {
+        script = document.createElement('script');
+        script.id = scriptId;
+        script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
+        script.async = false;
+        document.head.appendChild(script);
+      }
+
+      const initMap = () => {
+        if (!window.L || mapRef.current) return;
+        const container = document.getElementById('leaflet-map-container');
+        if (!container) return;
+
+        const startLat = editOrderCoords ? editOrderCoords.lat : 23.6850;
+        const startLng = editOrderCoords ? editOrderCoords.lng : 90.3563;
+        setPinnedCoords({ lat: startLat, lng: startLng });
+
+        mapRef.current = window.L.map(container).setView([startLat, startLng], editOrderCoords ? 15 : 7);
+        window.L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+          attribution: '© OpenStreetMap contributors'
+        }).addTo(mapRef.current);
+
+        mapRef.current.on('move', function () {
+          const center = mapRef.current.getCenter();
+          setPinnedCoords({ lat: center.lat, lng: center.lng });
+        });
+      };
+
+      if (window.L) {
+        initMap();
+      } else {
+        script.addEventListener('load', initMap);
+      }
+
+      return () => {
+        if (script) script.removeEventListener('load', initMap);
+        if (mapRef.current) {
+          mapRef.current.remove();
+          mapRef.current = null;
+        }
+      };
+    }
+  }, [showMapModal, editOrderCoords]);
+
+  const handleConfirmMapPin = async () => {
+    setEditOrderCoords({ lat: pinnedCoords.lat, lng: pinnedCoords.lng });
+    
+    // Reverse geocode to fill in address
+    const loadingToast = toast.loading("Resolving pinned address...");
     try {
-      await updateDoc(doc(db, 'orders', editAddressModal.orderId), { deliveryAddress: editAddressModal.address });
-      setOrders(orders.map(o => o.id === editAddressModal.orderId ? { ...o, deliveryAddress: editAddressModal.address } : o));
-      toast.success('Delivery address updated!');
-      setEditAddressModal({ isOpen: false, orderId: null, address: '' });
-    } catch {
-      toast.error('Failed to update address.');
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/reverse?format=json&lat=${pinnedCoords.lat}&lon=${pinnedCoords.lng}&accept-language=en`,
+        { headers: { 'User-Agent': 'VertexPicks/1.0' } }
+      );
+      if (!response.ok) throw new Error("Geocoding failed");
+      const data = await response.json();
+      let formattedAddress = "";
+      if (data.address) {
+        const { road, neighbourhood, town, city, state_district, state, postcode, country } = data.address;
+        const parts = [
+          road,
+          neighbourhood,
+          city || town,
+          state_district,
+          state,
+          postcode,
+          country
+        ];
+        formattedAddress = Array.from(new Set(parts)).filter(Boolean).join(', ');
+        if (postcode) {
+          setEditOrderPostcode(`Postal Code: ${postcode}`);
+        }
+      } else {
+        formattedAddress = data.display_name || '';
+      }
+      if (formattedAddress) {
+        setEditOrderAddress(formattedAddress.trim());
+        toast.success("Address resolved!", { id: loadingToast });
+      } else {
+        toast.error("Couldn't resolve address text. Coordinates saved.", { id: loadingToast });
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to resolve address. Coordinates saved.", { id: loadingToast });
+    } finally {
+      setShowMapModal(false);
     }
   };
 
-  const handleUpdateFinancials = async () => {
-    if (editFinancialsModal.total === '' || editFinancialsModal.deliveryFee === '') return;
+  const selectedProductForAdd = useMemo(() => {
+    return mangoes.find(p => p.id === addItemProductId);
+  }, [addItemProductId, mangoes]);
+
+  useEffect(() => {
+    if (selectedProductForAdd) {
+      if (selectedProductForAdd.weightOptions && selectedProductForAdd.weightOptions.length > 0) {
+        setAddItemWeight(selectedProductForAdd.weightOptions[0]);
+      } else if (selectedProductForAdd.fixedWeight) {
+        setAddItemWeight(`${selectedProductForAdd.fixedWeight}kg Box`);
+      } else {
+        setAddItemWeight('');
+      }
+    } else {
+      setAddItemWeight('');
+    }
+  }, [selectedProductForAdd]);
+
+  const handleAddItemToOrder = () => {
+    if (!addItemProductId) return toast.error("Please select a product!");
+    const prod = selectedProductForAdd;
+    if (!prod) return;
+
+    const existingIndex = editOrderItems.findIndex(item => 
+      item.id === prod.id && item.selectedWeight === addItemWeight
+    );
+
+    if (existingIndex > -1) {
+      const updated = [...editOrderItems];
+      updated[existingIndex].quantity = (Number(updated[existingIndex].quantity) || 0) + Number(addItemQuantity);
+      setEditOrderItems(updated);
+    } else {
+      setEditOrderItems([
+        ...editOrderItems,
+        {
+          id: prod.id,
+          name: prod.name,
+          price: Number(prod.price) || 0,
+          discountPrice: Number(prod.discountPrice) || 0,
+          quantity: Number(addItemQuantity) || 1,
+          selectedWeight: addItemWeight,
+          image: prod.image || (prod.images && prod.images[0]) || ''
+        }
+      ]);
+    }
+    toast.success(`${prod.name} added to order list.`);
+    setAddItemProductId('');
+    setAddItemQuantity(1);
+  };
+
+  const handleUpdateItemQty = (idx, qty) => {
+    const updated = [...editOrderItems];
+    updated[idx].quantity = qty === '' ? '' : Math.max(1, parseInt(qty) || 1);
+    setEditOrderItems(updated);
+  };
+
+  const handleUpdateItemWeight = (idx, weight) => {
+    const updated = [...editOrderItems];
+    updated[idx].selectedWeight = weight;
+    setEditOrderItems(updated);
+  };
+
+  const handleRemoveItem = (idx) => {
+    setEditOrderItems(editOrderItems.filter((_, i) => i !== idx));
+  };
+
+  const handleSaveOrderSteps = async (e) => {
+    e.preventDefault();
+    if (editOrderItems.length === 0) {
+      return toast.error("An order must have at least one item!");
+    }
+    if (!editOrderRecipientName.trim() || !editOrderRecipientPhone.trim() || !editOrderAddress.trim()) {
+      return toast.error("Recipient Name, Phone, and Address are required!");
+    }
+
     try {
-      await updateDoc(doc(db, 'orders', editFinancialsModal.orderId), {
-        total: Number(editFinancialsModal.total),
-        deliveryFee: Number(editFinancialsModal.deliveryFee)
-      });
-      setOrders(orders.map(o => o.id === editFinancialsModal.orderId ? { ...o, total: Number(editFinancialsModal.total), deliveryFee: Number(editFinancialsModal.deliveryFee) } : o));
-      toast.success('Financials updated!');
-      setEditFinancialsModal({ isOpen: false, orderId: null, total: '', deliveryFee: '' });
-    } catch {
-      toast.error('Failed to update financials.');
+      const orderRef = doc(db, 'orders', editOrderStepsModal.orderId);
+      const updatedData = {
+        deliveryName: editOrderRecipientName.trim(),
+        customerName: editOrderRecipientName.trim(),
+        deliveryPhone: editOrderRecipientPhone.trim(),
+        deliveryAddress: editOrderAddress.trim(),
+        deliveryPostcode: editOrderPostcode.trim(),
+        deliveryCoords: editOrderCoords,
+        items: editOrderItems,
+        subtotal: editedSubtotal,
+        totalWeight: editedTotalWeight,
+        packagingOption: editOrderPackagingId ? {
+          id: editOrderPackagingId,
+          label: editedPackagingCostInfo.label,
+          type: editedPackagingCostInfo.type,
+          unitsNeeded: editedPackagingCostInfo.units,
+          unitPrice: editedPackagingCostInfo.price,
+          totalCost: editedPackagingCostInfo.cost
+        } : null,
+        packagingCost: editedPackagingCostInfo.cost,
+        deliveryMethod: editOrderDeliveryId ? {
+          id: editOrderDeliveryId,
+          label: deliveryOptions.find(d => d.id === editOrderDeliveryId)?.label || '',
+          totalCost: editOrderDeliveryFee
+        } : null,
+        deliveryFee: editOrderDeliveryFee,
+        discount: editOrderDiscount,
+        promoUsed: editOrderPromoUsed,
+        total: editedTotal
+      };
+
+      await updateDoc(orderRef, updatedData);
+      setOrders(orders.map(o => o.id === editOrderStepsModal.orderId ? { ...o, ...updatedData } : o));
+      toast.success('Order steps updated successfully!');
+      setEditOrderStepsModal({ isOpen: false, orderId: null });
+    } catch (err) {
+      console.error(err);
+      toast.error('Failed to update order steps: ' + err.message);
     }
   };
 
@@ -588,6 +915,26 @@ export default function Admin() {
         setLeads(leadsList);
       } catch (err) {
         console.error('Failed to load leads:', err);
+      }
+
+      // 6. Fetch packaging options
+      try {
+        const pkgSnap = await getDoc(doc(db, 'mangoes', 'PACKAGING_OPTIONS'));
+        if (pkgSnap.exists() && Array.isArray(pkgSnap.data().options)) {
+          setPackagingOptions(pkgSnap.data().options);
+        }
+      } catch (err) {
+        console.error('Failed to load packaging options:', err);
+      }
+
+      // 7. Fetch delivery options
+      try {
+        const dlvSnap = await getDoc(doc(db, 'mangoes', 'DELIVERY_OPTIONS'));
+        if (dlvSnap.exists() && Array.isArray(dlvSnap.data().options)) {
+          setDeliveryOptions(dlvSnap.data().options);
+        }
+      } catch (err) {
+        console.error('Failed to load delivery options:', err);
       }
 
       // 5. Fetch settings
@@ -1059,6 +1406,174 @@ export default function Admin() {
     } catch (err) {
       console.error(err);
       toast.error('Failed to save templates.');
+    }
+  };
+
+  // --- PACKAGING & DELIVERY CRUD ---
+  const clearPackagingForm = () => {
+    setEditPackagingId(null);
+    setPkgLabel('');
+    setPkgType('crate');
+    setPkgQuality('normal');
+    setPkgMinCapacity(20);
+    setPkgMaxCapacity(25);
+    setPkgPrice(150);
+    setPkgActive(true);
+  };
+
+  const openPackagingModal = (pkg = null) => {
+    if (pkg) {
+      setEditPackagingId(pkg.id);
+      setPkgLabel(pkg.label || '');
+      setPkgType(pkg.type || 'crate');
+      setPkgQuality(pkg.quality || 'normal');
+      setPkgMinCapacity(pkg.minCapacity || 20);
+      setPkgMaxCapacity(pkg.maxCapacity || 25);
+      setPkgPrice(pkg.price || 150);
+      setPkgActive(pkg.active !== false);
+    } else {
+      clearPackagingForm();
+    }
+    setShowPackagingModal(true);
+  };
+
+  const handleSavePackaging = async (e) => {
+    e.preventDefault();
+    if (!pkgLabel.trim()) return toast.error('Label is required');
+    try {
+      const newPkg = {
+        id: editPackagingId || `pkg_${Date.now()}`,
+        label: pkgLabel.trim(),
+        type: pkgType,
+        quality: pkgQuality,
+        minCapacity: Number(pkgMinCapacity),
+        maxCapacity: Number(pkgMaxCapacity),
+        price: Number(pkgPrice),
+        active: pkgActive
+      };
+      let updated;
+      if (editPackagingId) {
+        updated = packagingOptions.map(p => p.id === editPackagingId ? newPkg : p);
+      } else {
+        updated = [...packagingOptions, newPkg];
+      }
+      await setDoc(doc(db, 'mangoes', 'PACKAGING_OPTIONS'), { options: updated });
+      setPackagingOptions(updated);
+      setShowPackagingModal(false);
+      clearPackagingForm();
+      toast.success(editPackagingId ? 'Packaging option updated!' : 'Packaging option created!');
+    } catch (err) {
+      console.error(err);
+      toast.error('Failed to save packaging option.');
+    }
+  };
+
+  const handleDeletePackaging = async (id) => {
+    if (!window.confirm('Delete this packaging option?')) return;
+    try {
+      const updated = packagingOptions.filter(p => p.id !== id);
+      await setDoc(doc(db, 'mangoes', 'PACKAGING_OPTIONS'), { options: updated });
+      setPackagingOptions(updated);
+      toast.success('Packaging option deleted.');
+    } catch (err) {
+      console.error(err);
+      toast.error('Failed to delete packaging option.');
+    }
+  };
+
+  const handleTogglePackaging = async (id) => {
+    try {
+      const updated = packagingOptions.map(p => p.id === id ? { ...p, active: !p.active } : p);
+      await setDoc(doc(db, 'mangoes', 'PACKAGING_OPTIONS'), { options: updated });
+      setPackagingOptions(updated);
+      toast.success('Packaging option toggled.');
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const clearDeliveryForm = () => {
+    setEditDeliveryId(null);
+    setDlvLabel('');
+    setDlvDescription('');
+    setDlvPricingType('per_kg');
+    setDlvPerKgRate(13);
+    setDlvFirstKgPrice(125);
+    setDlvExtraKgRate(22);
+    setDlvActive(true);
+  };
+
+  const openDeliveryModal = (dlv = null) => {
+    if (dlv) {
+      setEditDeliveryId(dlv.id);
+      setDlvLabel(dlv.label || '');
+      setDlvDescription(dlv.description || '');
+      setDlvPricingType(dlv.pricingType || 'per_kg');
+      setDlvPerKgRate(dlv.perKgRate || 13);
+      setDlvFirstKgPrice(dlv.firstKgPrice || 125);
+      setDlvExtraKgRate(dlv.extraKgRate || 22);
+      setDlvActive(dlv.active !== false);
+    } else {
+      clearDeliveryForm();
+    }
+    setShowDeliveryModal(true);
+  };
+
+  const handleSaveDelivery = async (e) => {
+    e.preventDefault();
+    if (!dlvLabel.trim()) return toast.error('Label is required');
+    try {
+      const newDlv = {
+        id: editDeliveryId || `dlv_${Date.now()}`,
+        label: dlvLabel.trim(),
+        description: dlvDescription.trim(),
+        pricingType: dlvPricingType,
+        active: dlvActive
+      };
+      if (dlvPricingType === 'per_kg') {
+        newDlv.perKgRate = Number(dlvPerKgRate);
+      } else {
+        newDlv.firstKgPrice = Number(dlvFirstKgPrice);
+        newDlv.extraKgRate = Number(dlvExtraKgRate);
+      }
+      let updated;
+      if (editDeliveryId) {
+        updated = deliveryOptions.map(d => d.id === editDeliveryId ? newDlv : d);
+      } else {
+        updated = [...deliveryOptions, newDlv];
+      }
+      await setDoc(doc(db, 'mangoes', 'DELIVERY_OPTIONS'), { options: updated });
+      setDeliveryOptions(updated);
+      setShowDeliveryModal(false);
+      clearDeliveryForm();
+      toast.success(editDeliveryId ? 'Delivery method updated!' : 'Delivery method created!');
+    } catch (err) {
+      console.error(err);
+      toast.error('Failed to save delivery method.');
+    }
+  };
+
+  const handleDeleteDelivery = async (id) => {
+    if (!window.confirm('Delete this delivery method?')) return;
+    try {
+      const updated = deliveryOptions.filter(d => d.id !== id);
+      await setDoc(doc(db, 'mangoes', 'DELIVERY_OPTIONS'), { options: updated });
+      setDeliveryOptions(updated);
+      toast.success('Delivery method deleted.');
+    } catch (err) {
+      console.error(err);
+      toast.error('Failed to delete delivery method.');
+    }
+  };
+
+  const handleToggleDelivery = async (id) => {
+    try {
+      const updated = deliveryOptions.map(d => d.id === id ? { ...d, active: !d.active } : d);
+      await setDoc(doc(db, 'mangoes', 'DELIVERY_OPTIONS'), { options: updated });
+      setDeliveryOptions(updated);
+      toast.success('Delivery method toggled.');
+    } catch (err) {
+      console.error(err);
     }
   };
 
@@ -1939,56 +2454,7 @@ export default function Admin() {
 
 
 
-      {/* EDIT ADDRESS MODAL */}
-      {editAddressModal.isOpen && (
-        <div className="fixed inset-0 z-[300] flex items-center justify-center p-4 backdrop-blur-md" style={{ background: 'rgba(0,0,0,0.6)' }}>
-          <div className="max-w-lg w-full overflow-hidden flex flex-col" style={{ background: 'var(--bg-card)', border: '1.5px solid var(--border-color)', borderRadius: '14px', boxShadow: '0 20px 60px var(--shadow-color)' }}>
-            <div style={{ background: '#121212', padding: '1.25rem 1.5rem', color: '#fff', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <h3 style={{ fontWeight: 900, fontSize: '1rem', textTransform: 'uppercase', letterSpacing: '.05em' }}>📍 Edit Delivery Address</h3>
-              <button onClick={() => setEditAddressModal({ isOpen: false, orderId: null, address: '' })} style={{ background: 'rgba(255,255,255,.15)', border: 'none', borderRadius: 8, color: '#fff', width: 32, height: 32, cursor: 'pointer', fontSize: '1rem', fontWeight: 900 }}>✕</button>
-            </div>
-            <div style={{ padding: '1.5rem' }}>
-              <textarea
-                value={editAddressModal.address}
-                onChange={(e) => setEditAddressModal({ ...editAddressModal, address: e.target.value })}
-                className="form-input"
-                style={{ minHeight: 120, resize: 'vertical', whiteSpace: 'pre-line' }}
-                placeholder="Enter new delivery address..."
-              />
-              <div style={{ display: 'flex', gap: '.75rem', marginTop: '1rem' }}>
-                <button onClick={() => setEditAddressModal({ isOpen: false, orderId: null, address: '' })} style={{ flex: 1, padding: '.75rem', borderRadius: '100px', textTransform: 'uppercase', fontSize: '.78rem', fontWeight: 800, background: 'var(--bg-card)', border: '1.5px solid var(--border-color)', color: 'var(--text-primary)', cursor: 'pointer' }}>Cancel</button>
-                <button onClick={handleUpdateAddress} className="btn-primary" style={{ flex: 1, padding: '.75rem', borderRadius: '100px', textTransform: 'uppercase', fontSize: '.78rem', fontWeight: 800, cursor: 'pointer' }}>Save Address</button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
 
-      {/* EDIT FINANCIALS MODAL */}
-      {editFinancialsModal.isOpen && (
-        <div className="fixed inset-0 z-[300] flex items-center justify-center p-4 backdrop-blur-md" style={{ background: 'rgba(0,0,0,0.6)' }}>
-          <div className="max-w-sm w-full overflow-hidden flex flex-col" style={{ background: 'var(--bg-card)', border: '1.5px solid var(--border-color)', borderRadius: '14px', boxShadow: '0 20px 60px var(--shadow-color)' }}>
-            <div style={{ background: '#121212', padding: '1.25rem 1.5rem', color: '#fff', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <h3 style={{ fontWeight: 900, fontSize: '1rem', textTransform: 'uppercase', letterSpacing: '.05em' }}>💰 Edit Financials</h3>
-              <button onClick={() => setEditFinancialsModal({ isOpen: false, orderId: null, total: '', deliveryFee: '' })} style={{ background: 'rgba(255,255,255,.15)', border: 'none', borderRadius: 8, color: '#fff', width: 32, height: 32, cursor: 'pointer', fontSize: '1rem', fontWeight: 900 }}>✕</button>
-            </div>
-            <div style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-              <div>
-                <label className="form-label">Delivery Fee (৳)</label>
-                <input type="number" value={editFinancialsModal.deliveryFee} onChange={(e) => setEditFinancialsModal({ ...editFinancialsModal, deliveryFee: e.target.value })} className="form-input" />
-              </div>
-              <div>
-                <label className="form-label">Grand Total (৳)</label>
-                <input type="number" value={editFinancialsModal.total} onChange={(e) => setEditFinancialsModal({ ...editFinancialsModal, total: e.target.value })} className="form-input" />
-              </div>
-              <div style={{ display: 'flex', gap: '.75rem', marginTop: '.5rem' }}>
-                <button onClick={() => setEditFinancialsModal({ isOpen: false, orderId: null, total: '', deliveryFee: '' })} style={{ flex: 1, padding: '.75rem', borderRadius: '100px', textTransform: 'uppercase', fontSize: '.78rem', fontWeight: 800, background: 'var(--bg-card)', border: '1.5px solid var(--border-color)', color: 'var(--text-primary)', cursor: 'pointer' }}>Cancel</button>
-                <button onClick={handleUpdateFinancials} className="btn-primary" style={{ flex: 1, padding: '.75rem', borderRadius: '100px', textTransform: 'uppercase', fontSize: '.78rem', fontWeight: 800, cursor: 'pointer' }}>Update</button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* ADD/EDIT TRACKING LINK MODAL */}
       {trackingModal.isOpen && (
@@ -2042,7 +2508,7 @@ export default function Admin() {
 
         <div className="admin-nav-section">
           <span className="admin-nav-label">Manage</span>
-          {[{ id: 'coupons', icon: '🎟️', label: 'Promo Codes' }, { id: 'reviews', icon: '⭐', label: 'Reviews', badge: pendingReviewsCount }, { id: 'leads', icon: '📧', label: 'Leads', badge: leads.length }, { id: 'analytics', icon: '📈', label: 'Analytics' }, { id: 'customizer', icon: '🎨', label: 'UI Customizer' }].map(item => (
+          {[{ id: 'coupons', icon: '🎟️', label: 'Promo Codes' }, { id: 'packaging', icon: '📦', label: 'Packaging & Delivery' }, { id: 'reviews', icon: '⭐', label: 'Reviews', badge: pendingReviewsCount }, { id: 'leads', icon: '📧', label: 'Leads', badge: leads.length }, { id: 'analytics', icon: '📈', label: 'Analytics' }, { id: 'customizer', icon: '🎨', label: 'UI Customizer' }].map(item => (
             <button key={item.id} className={`admin-nav-item${activeAdminTab === item.id ? ' active' : ''}`} onClick={() => { setActiveAdminTab(item.id); setIsSidebarOpen(false); }}>
               <span className="ani-icon">{item.icon}</span>
               {item.label}
@@ -2332,38 +2798,325 @@ export default function Admin() {
                 </div>
               </div>
 
-              {/* Baseline delivery parameters */}
+              {/* Delivery setup notice */}
               <div className="admin-card settings-full">
-                <div className="admin-card-head"><div className="ach-title">🚚 Baseline Delivery Fees</div></div>
-                <form onSubmit={handleSaveStoreConfig} className="settings-form">
-                  <div className="settings-grid">
-                    <div className="form-group">
-                      <label className="form-label">Baseline Shipping Fee (৳)</label>
-                      <input 
-                        type="number" 
-                        className="form-input" 
-                        value={storeConfig.baseDeliveryFee}
-                        onChange={e => setStoreConfig({ ...storeConfig, baseDeliveryFee: Number(e.target.value) })}
-                        required 
-                      />
-                    </div>
-                    <div className="form-group">
-                      <label className="form-label">Additional Rate Per Kg (৳)</label>
-                      <input 
-                        type="number" 
-                        className="form-input" 
-                        value={storeConfig.perKgFee}
-                        onChange={e => setStoreConfig({ ...storeConfig, perKgFee: Number(e.target.value) })}
-                        required 
-                      />
-                    </div>
-                  </div>
-                  <button type="submit" className="btn-primary shiny-btn !rounded-full shadow-lg shadow-orange-500/10 font-bold uppercase tracking-wider text-[10px] px-6 py-2.5">Apply Baseline</button>
-                </form>
+                <div className="admin-card-head"><div className="ach-title">🚚 Delivery & Packaging</div></div>
+                <div style={{ padding: '1rem 1.5rem' }}>
+                  <p style={{ fontSize: '.85rem', color: 'var(--gray4)', margin: 0 }}>Delivery methods and packaging options are now managed from the <strong>📦 Packaging & Delivery</strong> tab in the sidebar.</p>
+                  <button type="button" className="btn-primary shiny-btn !rounded-full shadow-lg shadow-orange-500/10 font-bold uppercase tracking-wider text-[10px] px-6 py-2.5" style={{ marginTop: '1rem' }} onClick={() => setActiveAdminTab('packaging')}>Go to Packaging & Delivery →</button>
+                </div>
               </div>
 
             
             </div>
+          </div>
+        )}
+
+        {/* TAB: PACKAGING & DELIVERY */}
+        {activeAdminTab === 'packaging' && (
+          <div className="admin-tab active" id="atab-packaging" style={{ animation: 'fadeIn 0.3s ease-in-out' }}>
+            <div className="admin-header" style={{ marginBottom: '2.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-color)', paddingBottom: '1.25rem' }}>
+              <div>
+                <div className="admin-title" style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', fontFamily: "'Fraunces', serif", fontWeight: 900 }}>
+                  <span>📦</span> Packaging & Delivery Settings
+                </div>
+                <div style={{ fontSize: '.8rem', color: 'var(--text-muted)', marginTop: '0.2rem' }}>Configure customer packing constraints and courier pricing calculations.</div>
+              </div>
+            </div>
+
+            {/* === PACKAGING OPTIONS SECTION === */}
+            <div style={{ marginBottom: '3rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+                <h3 style={{ fontFamily: "'Fraunces', serif", fontWeight: 900, fontSize: '1.25rem', color: 'var(--text-primary)', margin: 0, display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                  🪵 Packaging Configurations
+                </h3>
+                <button className="add-btn shiny-btn !rounded-full shadow-lg shadow-orange-500/10 font-bold uppercase tracking-wider text-[10px] px-5 py-2" onClick={() => openPackagingModal(null)}>+ Add Packaging</button>
+              </div>
+
+              {packagingOptions.length === 0 ? (
+                <div className="admin-card" style={{ textAlign: 'center', padding: '3rem 2rem' }}>
+                  <p style={{ color: 'var(--text-muted)', fontSize: '.9rem', fontWeight: 600, margin: 0 }}>No packaging options configured yet. Get started by clicking "+ Add Packaging".</p>
+                </div>
+              ) : (
+                <div className="premium-radio-grid">
+                  {packagingOptions.map(pkg => (
+                    <div 
+                      key={pkg.id} 
+                      className="admin-card" 
+                      style={{ 
+                        opacity: pkg.active ? 1 : 0.6, 
+                        transition: 'all .25s var(--ease)',
+                        transform: 'none',
+                        boxShadow: '0 4px 16px var(--shadow-color)',
+                        borderRadius: '16px',
+                        border: '1px solid var(--border-color)',
+                        background: 'var(--bg-card)'
+                      }}
+                      onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 8px 24px var(--shadow-color)'; }}
+                      onMouseLeave={e => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.boxShadow = '0 4px 16px var(--shadow-color)'; }}
+                    >
+                      <div style={{ padding: '1.5rem' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                          <div style={{ display: 'flex', gap: '0.35rem', flexWrap: 'wrap' }}>
+                            <span style={{ fontSize: '.58rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '.06em', background: pkg.type === 'crate' ? '#FEF3C7' : '#DBEAFE', color: pkg.type === 'crate' ? '#92400E' : '#1E40AF', padding: '.2rem .6rem', borderRadius: '100px' }}>{pkg.type}</span>
+                            <span style={{ fontSize: '.58rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '.06em', background: 'var(--bg-primary)', color: 'var(--text-muted)', padding: '.2rem .6rem', borderRadius: '100px', border: '1px solid var(--border-color)' }}>{pkg.quality}</span>
+                          </div>
+                          <label className="toggle-switch" style={{ transform: 'scale(0.85)' }}>
+                            <input type="checkbox" checked={pkg.active} onChange={() => handleTogglePackaging(pkg.id)} />
+                            <span className="toggle-slider" />
+                          </label>
+                        </div>
+                        
+                        <h4 style={{ fontWeight: 800, fontSize: '1.05rem', color: 'var(--text-primary)', margin: '0 0 .5rem 0' }}>{pkg.label}</h4>
+                        
+                        <div style={{ display: 'flex', gap: '1.25rem', marginBottom: '1.25rem', padding: '0.6rem 0.8rem', background: 'var(--bg-primary)', borderRadius: '10px', border: '1px solid var(--border-color)' }}>
+                          <div>
+                            <span style={{ fontSize: '.68rem', color: 'var(--text-muted)', display: 'block', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '.04em' }}>Capacity</span>
+                            <strong style={{ color: 'var(--text-primary)', fontSize: '0.85rem' }}>{pkg.minCapacity}–{pkg.maxCapacity} kg</strong>
+                          </div>
+                          <div style={{ width: '1px', background: 'var(--border-color)' }}></div>
+                          <div>
+                            <span style={{ fontSize: '.68rem', color: 'var(--text-muted)', display: 'block', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '.04em' }}>Price Per Box</span>
+                            <strong style={{ color: 'var(--primary)', fontSize: '0.85rem' }}>৳{pkg.price}</strong>
+                          </div>
+                        </div>
+
+                        <div style={{ display: 'flex', gap: '.5rem', borderTop: '1px solid var(--border-color)', paddingTop: '1rem' }}>
+                          <button 
+                            className="order-action-btn" 
+                            style={{ flex: 1, justifyContent: 'center' }} 
+                            onClick={() => openPackagingModal(pkg)}
+                          >
+                            ✏️ Edit
+                          </button>
+                          <button 
+                            className="order-action-btn"
+                            style={{ flex: 1, justifyContent: 'center', background: 'var(--red-pale)', color: 'var(--red)', borderColor: 'rgba(239, 68, 68, 0.15)' }} 
+                            onClick={() => handleDeletePackaging(pkg.id)}
+                          >
+                            🗑️ Delete
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* === DELIVERY METHODS SECTION === */}
+            <div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+                <h3 style={{ fontFamily: "'Fraunces', serif", fontWeight: 900, fontSize: '1.25rem', color: 'var(--text-primary)', margin: 0, display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                  🚚 Courier & Delivery Services
+                </h3>
+                <button className="add-btn shiny-btn !rounded-full shadow-lg shadow-orange-500/10 font-bold uppercase tracking-wider text-[10px] px-5 py-2" onClick={() => openDeliveryModal(null)}>+ Add Courier</button>
+              </div>
+
+              {deliveryOptions.length === 0 ? (
+                <div className="admin-card" style={{ textAlign: 'center', padding: '3rem 2rem' }}>
+                  <p style={{ color: 'var(--text-muted)', fontSize: '.9rem', fontWeight: 600, margin: 0 }}>No courier methods configured yet. Add your first courier service!</p>
+                </div>
+              ) : (
+                <div className="premium-radio-grid">
+                  {deliveryOptions.map(dlv => (
+                    <div 
+                      key={dlv.id} 
+                      className="admin-card" 
+                      style={{ 
+                        opacity: dlv.active ? 1 : 0.6, 
+                        transition: 'all .25s var(--ease)',
+                        transform: 'none',
+                        boxShadow: '0 4px 16px var(--shadow-color)',
+                        borderRadius: '16px',
+                        border: '1px solid var(--border-color)',
+                        background: 'var(--bg-card)'
+                      }}
+                      onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 8px 24px var(--shadow-color)'; }}
+                      onMouseLeave={e => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.boxShadow = '0 4px 16px var(--shadow-color)'; }}
+                    >
+                      <div style={{ padding: '1.5rem' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                          <span style={{ fontSize: '.58rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '.06em', background: dlv.pricingType === 'per_kg' ? '#D1FAE5' : '#EDE9FE', color: dlv.pricingType === 'per_kg' ? '#065F46' : '#5B21B6', padding: '.2rem .6rem', borderRadius: '100px' }}>
+                            {dlv.pricingType === 'per_kg' ? 'Per KG Rate' : 'Base + Extra KG'}
+                          </span>
+                          <label className="toggle-switch" style={{ transform: 'scale(0.85)' }}>
+                            <input type="checkbox" checked={dlv.active} onChange={() => handleToggleDelivery(dlv.id)} />
+                            <span className="toggle-slider" />
+                          </label>
+                        </div>
+                        
+                        <h4 style={{ fontWeight: 800, fontSize: '1.05rem', color: 'var(--text-primary)', margin: '0 0 .25rem 0' }}>{dlv.label}</h4>
+                        {dlv.description && <p style={{ fontSize: '.75rem', color: 'var(--text-muted)', margin: '0 0 .75rem 0', lineHeight: 1.35 }}>{dlv.description}</p>}
+                        
+                        <div style={{ fontSize: '.8rem', color: 'var(--text-primary)', marginBottom: '1rem', background: 'var(--bg-primary)', padding: '0.6rem 0.8rem', borderRadius: '10px', border: '1px solid var(--border-color)' }}>
+                          {dlv.pricingType === 'per_kg' ? (
+                            <span><strong style={{ color: 'var(--text-muted)', fontWeight: 600 }}>Pricing Formula:</strong> ৳{dlv.perKgRate}/kg weight</span>
+                          ) : (
+                            <span><strong style={{ color: 'var(--text-muted)', fontWeight: 600 }}>Pricing Formula:</strong> ৳{dlv.firstKgPrice} (1st kg) + ৳{dlv.extraKgRate}/extra kg</span>
+                          )}
+                        </div>
+
+                        <div style={{ fontSize: '.75rem', color: '#E8540A', fontWeight: 800, marginBottom: '1.25rem', background: 'rgba(232,84,10,0.04)', border: '1px solid rgba(232,84,10,0.1)', padding: '.5rem .8rem', borderRadius: '10px', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                          💡 40kg order cost: <strong>৳{dlv.pricingType === 'per_kg' ? (dlv.perKgRate * 40) : (dlv.firstKgPrice + dlv.extraKgRate * 39)}</strong>
+                        </div>
+                        
+                        <div style={{ display: 'flex', gap: '.5rem', borderTop: '1px solid var(--border-color)', paddingTop: '1rem' }}>
+                          <button 
+                            className="order-action-btn" 
+                            style={{ flex: 1, justifyContent: 'center' }} 
+                            onClick={() => openDeliveryModal(dlv)}
+                          >
+                            ✏️ Edit
+                          </button>
+                          <button 
+                            className="order-action-btn" 
+                            style={{ flex: 1, justifyContent: 'center', background: 'var(--red-pale)', color: 'var(--red)', borderColor: 'rgba(239, 68, 68, 0.15)' }} 
+                            onClick={() => handleDeleteDelivery(dlv.id)}
+                          >
+                            🗑️ Delete
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* PACKAGING MODAL */}
+            {showPackagingModal && (
+              <div className="fixed inset-0 z-[500] flex items-center justify-center p-4 backdrop-blur-modal" onClick={() => setShowPackagingModal(false)}>
+                <div className="max-w-lg w-full max-h-[85vh] overflow-y-auto animate-fadeIn" style={{ background: 'var(--bg-card)', borderRadius: '20px', border: '1.5px solid var(--border-color)', boxShadow: '0 20px 60px var(--shadow-color)' }} onClick={e => e.stopPropagation()}>
+                  <div style={{ background: '#121212', padding: '1.2rem 1.5rem', borderRadius: '20px 20px 0 0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <h3 style={{ fontFamily: "'Fraunces', serif", fontWeight: 900, color: '#FFFFFF', fontSize: '1.1rem', margin: 0, display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                      {editPackagingId ? '✏️ Edit Packaging Option' : '📦 Add Packaging Option'}
+                    </h3>
+                    <button onClick={() => setShowPackagingModal(false)} style={{ width: '32px', height: '32px', borderRadius: '50%', background: 'rgba(255,255,255,0.1)', color: '#FFFFFF', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>✕</button>
+                  </div>
+                  <form onSubmit={handleSavePackaging} className="settings-form" style={{ padding: '1.75rem', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+                    <div className="form-group">
+                      <label className="form-label" style={{ color: 'var(--text-muted)', fontSize: '0.68rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.4rem', display: 'block' }}>Label / Name</label>
+                      <input type="text" className="checkout-input-field" value={pkgLabel} onChange={e => setPkgLabel(e.target.value)} placeholder="e.g. Normal Crate" required />
+                    </div>
+                    
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.25rem' }}>
+                      <div className="form-group">
+                        <label className="form-label" style={{ color: 'var(--text-muted)', fontSize: '0.68rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.4rem', display: 'block' }}>Type</label>
+                        <select className="checkout-input-field" value={pkgType} onChange={e => setPkgType(e.target.value)}>
+                          <option value="crate">Crate</option>
+                          <option value="carton">Carton</option>
+                        </select>
+                      </div>
+                      <div className="form-group">
+                        <label className="form-label" style={{ color: 'var(--text-muted)', fontSize: '0.68rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.4rem', display: 'block' }}>Quality</label>
+                        <select className="checkout-input-field" value={pkgQuality} onChange={e => setPkgQuality(e.target.value)}>
+                          <option value="normal">Normal</option>
+                          <option value="premium">Premium / Good</option>
+                        </select>
+                      </div>
+                    </div>
+                    
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.25rem' }}>
+                      <div className="form-group">
+                        <label className="form-label" style={{ color: 'var(--text-muted)', fontSize: '0.68rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.4rem', display: 'block' }}>Min Capacity (kg)</label>
+                        <input type="number" className="checkout-input-field" value={pkgMinCapacity} onChange={e => setPkgMinCapacity(e.target.value)} min="1" required />
+                      </div>
+                      <div className="form-group">
+                        <label className="form-label" style={{ color: 'var(--text-muted)', fontSize: '0.68rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.4rem', display: 'block' }}>Max Capacity (kg)</label>
+                        <input type="number" className="checkout-input-field" value={pkgMaxCapacity} onChange={e => setPkgMaxCapacity(e.target.value)} min="1" required />
+                      </div>
+                    </div>
+                    
+                    <div className="form-group">
+                      <label className="form-label" style={{ color: 'var(--text-muted)', fontSize: '0.68rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.4rem', display: 'block' }}>Price per Unit (৳)</label>
+                      <input type="number" className="checkout-input-field" value={pkgPrice} onChange={e => setPkgPrice(e.target.value)} min="0" required />
+                    </div>
+                    
+                    <div className="form-group" style={{ display: 'flex', alignItems: 'center', gap: '1rem', background: 'var(--bg-primary)', padding: '0.8rem 1.1rem', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
+                      <label className="form-label" style={{ margin: 0, color: 'var(--text-primary)', fontWeight: 700 }}>Enable / Active status</label>
+                      <label className="toggle-switch" style={{ marginLeft: 'auto' }}>
+                        <input type="checkbox" checked={pkgActive} onChange={e => setPkgActive(e.target.checked)} />
+                        <span className="toggle-slider" />
+                      </label>
+                    </div>
+                    
+                    <button type="submit" className="pulsing-confirm-btn" style={{ marginTop: '.5rem', padding: '0.8rem 1.5rem', fontSize: '0.85rem' }}>
+                      {editPackagingId ? 'Update Option' : 'Create Option'}
+                    </button>
+                  </form>
+                </div>
+              </div>
+            )}
+
+            {/* DELIVERY MODAL */}
+            {showDeliveryModal && (
+              <div className="fixed inset-0 z-[500] flex items-center justify-center p-4 backdrop-blur-modal" onClick={() => setShowDeliveryModal(false)}>
+                <div className="max-w-lg w-full max-h-[85vh] overflow-y-auto animate-fadeIn" style={{ background: 'var(--bg-card)', borderRadius: '20px', border: '1.5px solid var(--border-color)', boxShadow: '0 20px 60px var(--shadow-color)' }} onClick={e => e.stopPropagation()}>
+                  <div style={{ background: '#121212', padding: '1.2rem 1.5rem', borderRadius: '20px 20px 0 0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <h3 style={{ fontFamily: "'Fraunces', serif", fontWeight: 900, color: '#FFFFFF', fontSize: '1.1rem', margin: 0, display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                      {editDeliveryId ? '✏️ Edit Courier Method' : '🚚 Add Courier Method'}
+                    </h3>
+                    <button onClick={() => setShowDeliveryModal(false)} style={{ width: '32px', height: '32px', borderRadius: '50%', background: 'rgba(255,255,255,0.1)', color: '#FFFFFF', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>✕</button>
+                  </div>
+                  <form onSubmit={handleSaveDelivery} className="settings-form" style={{ padding: '1.75rem', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+                    <div className="form-group">
+                      <label className="form-label" style={{ color: 'var(--text-muted)', fontSize: '0.68rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.4rem', display: 'block' }}>Label / Name</label>
+                      <input type="text" className="checkout-input-field" value={dlvLabel} onChange={e => setDlvLabel(e.target.value)} placeholder="e.g. Sundarban Courier" required />
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label" style={{ color: 'var(--text-muted)', fontSize: '0.68rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.4rem', display: 'block' }}>Description</label>
+                      <input type="text" className="checkout-input-field" value={dlvDescription} onChange={e => setDlvDescription(e.target.value)} placeholder="e.g. Reliable & affordable" />
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label" style={{ color: 'var(--text-muted)', fontSize: '0.68rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.4rem', display: 'block' }}>Pricing Type</label>
+                      <select className="checkout-input-field" value={dlvPricingType} onChange={e => setDlvPricingType(e.target.value)}>
+                        <option value="per_kg">Per KG (flat rate per kg)</option>
+                        <option value="first_kg_plus">First KG + Extra (e.g. ৳125 first + ৳22/kg)</option>
+                      </select>
+                    </div>
+                    
+                    {dlvPricingType === 'per_kg' ? (
+                      <div className="form-group">
+                        <label className="form-label" style={{ color: 'var(--text-muted)', fontSize: '0.68rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.4rem', display: 'block' }}>Rate Per KG (৳)</label>
+                        <input type="number" className="checkout-input-field" value={dlvPerKgRate} onChange={e => setDlvPerKgRate(e.target.value)} min="0" required />
+                        <div style={{ fontSize: '.75rem', color: '#E8540A', fontWeight: 700, marginTop: '.4rem', paddingLeft: '.5rem' }}>
+                          💡 40 kg order cost: ৳{Number(dlvPerKgRate) * 40}
+                        </div>
+                      </div>
+                    ) : (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.25rem' }}>
+                          <div className="form-group">
+                            <label className="form-label" style={{ color: 'var(--text-muted)', fontSize: '0.68rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.4rem', display: 'block' }}>First KG Price (৳)</label>
+                            <input type="number" className="checkout-input-field" value={dlvFirstKgPrice} onChange={e => setDlvFirstKgPrice(e.target.value)} min="0" required />
+                          </div>
+                          <div className="form-group">
+                            <label className="form-label" style={{ color: 'var(--text-muted)', fontSize: '0.68rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.4rem', display: 'block' }}>Extra KG Rate (৳)</label>
+                            <input type="number" className="checkout-input-field" value={dlvExtraKgRate} onChange={e => setDlvExtraKgRate(e.target.value)} min="0" required />
+                          </div>
+                        </div>
+                        <div style={{ fontSize: '.75rem', color: '#E8540A', fontWeight: 700, paddingLeft: '.5rem' }}>
+                          💡 40 kg order cost: ৳{Number(dlvFirstKgPrice) + Number(dlvExtraKgRate) * 39}
+                        </div>
+                      </div>
+                    )}
+                    
+                    <div className="form-group" style={{ display: 'flex', alignItems: 'center', gap: '1rem', background: 'var(--bg-primary)', padding: '0.8rem 1.1rem', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
+                      <label className="form-label" style={{ margin: 0, color: 'var(--text-primary)', fontWeight: 700 }}>Enable / Active status</label>
+                      <label className="toggle-switch" style={{ marginLeft: 'auto' }}>
+                        <input type="checkbox" checked={dlvActive} onChange={e => setDlvActive(e.target.checked)} />
+                        <span className="toggle-slider" />
+                      </label>
+                    </div>
+                    
+                    <button type="submit" className="pulsing-confirm-btn" style={{ marginTop: '.5rem', padding: '0.8rem 1.5rem', fontSize: '0.85rem' }}>
+                      {editDeliveryId ? 'Update Courier' : 'Create Courier'}
+                    </button>
+                  </form>
+                </div>
+              </div>
+            )}
           </div>
         )}
 
@@ -3364,7 +4117,12 @@ export default function Admin() {
                                           <div style={{ display:'flex',alignItems:'flex-start',gap:'.35rem' }}>
                                             <span style={{ fontFamily:'var(--ff)',fontWeight:700,fontSize:'.8rem',color:'var(--text-primary)',textAlign:'right',whiteSpace:'pre-line',lineHeight:1.5 }}>{order.deliveryAddress || 'N/A'}</span>
                                             <button
-                                              onClick={() => setEditAddressModal({ isOpen: true, orderId: order.id, address: order.deliveryAddress || '' })}
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                e.preventDefault();
+                                                handleOpenEditOrderSteps(order);
+                                                setEditOrderStepsActiveTab('shipping');
+                                              }}
                                               style={{ background:'none',border:'none',cursor:'pointer',color:'#BBBBBB',padding:'.15rem',borderRadius:6,flexShrink:0,transition:'color .18s' }}
                                               onMouseOver={e=>e.currentTarget.style.color='#E8540A'}
                                               onMouseOut={e=>e.currentTarget.style.color='#BBBBBB'}
@@ -3431,7 +4189,7 @@ export default function Admin() {
                                             <span style={{ display:'flex',alignItems:'center',gap:'.35rem' }}>
                                               Total
                                               <button
-                                                onClick={() => setEditFinancialsModal({ isOpen:true,orderId:order.id,total:order.total||0,deliveryFee:order.deliveryFee||0 })}
+                                                onClick={(e) => { e.stopPropagation(); e.preventDefault(); handleOpenEditOrderSteps(order); setEditOrderStepsActiveTab('delivery'); }}
                                                 style={{ background:'none',border:'none',cursor:'pointer',color:'#BBBBBB',padding:'.1rem',transition:'color .18s' }}
                                                 onMouseOver={e=>e.currentTarget.style.color='#E8540A'}
                                                 onMouseOut={e=>e.currentTarget.style.color='#BBBBBB'}
@@ -3467,6 +4225,9 @@ export default function Admin() {
                                       <a href={order.trackingLink.startsWith('http')?order.trackingLink:`https://${order.trackingLink}`} target="_blank" rel="noreferrer"
                                         style={{ fontFamily:'var(--ff)',fontSize:'.72rem',fontWeight:800,color:'#7C3AED',textDecoration:'underline',alignSelf:'center' }}
                                       >View Link</a>
+                                    )}
+                                    {order.status !== 'Cancelled' && (
+                                      <button onClick={() => handleOpenEditOrderSteps(order)} className="order-action-pill primary" style={{ background: '#E8540A', borderColor: '#E8540A' }}>✏️ Edit Order</button>
                                     )}
                                     {showTrash ? (
                                       <>
@@ -3537,61 +4298,491 @@ export default function Admin() {
                 )}
               </AnimatePresence>
 
-              {/* Edit Address Modal */}
+
+
+              {/* Edit Order Steps Modal */}
               <AnimatePresence>
-                {editAddressModal.isOpen && (
+                {editOrderStepsModal.isOpen && (
                   <div className="order-modal-backdrop">
-                    <motion.div className="order-modal" style={{ maxWidth: 480 }} initial={{opacity:0,scale:.96}} animate={{opacity:1,scale:1}} exit={{opacity:0,scale:.96}}>
+                    <motion.div 
+                      className="order-modal" 
+                      style={{ maxWidth: 750, maxHeight: '90vh', display: 'flex', flexDirection: 'column' }} 
+                      initial={{ opacity: 0, scale: 0.96 }} 
+                      animate={{ opacity: 1, scale: 1 }} 
+                      exit={{ opacity: 0, scale: 0.96 }}
+                    >
                       <div className="order-modal-header">
-                        <h3 className="order-modal-title">📍 Edit Delivery Address</h3>
-                        <button className="order-modal-close" onClick={() => setEditAddressModal({isOpen:false,orderId:null,address:''})}>✕</button>
+                        <h3 className="order-modal-title">✏️ Edit Order Flow (Order #{editOrderStepsModal.orderId?.slice(-6).toUpperCase()})</h3>
+                        <button className="order-modal-close" onClick={() => setEditOrderStepsModal({ isOpen: false, orderId: null })}>✕</button>
                       </div>
-                      <div className="order-modal-body">
-                        <label className="order-input-label">Delivery Address</label>
-                        <textarea
-                          value={editAddressModal.address}
-                          onChange={e => setEditAddressModal({...editAddressModal,address:e.target.value})}
-                          className="order-input"
-                          style={{ minHeight:120,resize:'vertical' }}
-                          placeholder="Enter full delivery address..."
-                        />
+
+                      {/* Tab bar */}
+                      <div style={{ display: 'flex', background: 'var(--gray1)', borderBottom: '1.5px solid var(--border-color)', padding: '0.5rem 1.25rem 0', gap: '0.25rem', overflowX: 'auto' }}>
+                        {[
+                          { id: 'items', label: '🛒 Step 1: Items' },
+                          { id: 'packaging', label: '📦 Step 2: Packaging' },
+                          { id: 'delivery', label: '🚚 Step 3: Courier' },
+                          { id: 'shipping', label: '📍 Step 4: Shipping Info' }
+                        ].map(t => (
+                          <button
+                            key={t.id}
+                            type="button"
+                            onClick={() => setEditOrderStepsActiveTab(t.id)}
+                            style={{
+                              padding: '0.6rem 1.1rem',
+                              fontFamily: 'var(--ff)',
+                              fontSize: '0.75rem',
+                              fontWeight: 800,
+                              background: editOrderStepsActiveTab === t.id ? 'var(--bg-card)' : 'transparent',
+                              color: editOrderStepsActiveTab === t.id ? 'var(--primary)' : 'var(--text-muted)',
+                              border: '1.5px solid var(--border-color)',
+                              borderBottom: editOrderStepsActiveTab === t.id ? '1.5px solid var(--bg-card)' : '1.5px solid var(--border-color)',
+                              borderTopLeftRadius: '10px',
+                              borderTopRightRadius: '10px',
+                              cursor: 'pointer',
+                              marginBottom: editOrderStepsActiveTab === t.id ? '-1.5px' : '0',
+                              zIndex: editOrderStepsActiveTab === t.id ? 2 : 1,
+                              whiteSpace: 'nowrap',
+                              transition: 'all 0.18s'
+                            }}
+                          >
+                            {t.label}
+                          </button>
+                        ))}
                       </div>
-                      <div className="order-modal-footer">
-                        <button className="order-action-pill" style={{ flex:1,justifyContent:'center' }} onClick={() => setEditAddressModal({isOpen:false,orderId:null,address:''})}>Cancel</button>
-                        <button className="order-action-pill primary" style={{ flex:1,justifyContent:'center' }} onClick={handleUpdateAddress}>Save Address</button>
+
+                      {/* Scrollable Body */}
+                      <div style={{ padding: '1.5rem', overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column', gap: '1.25rem' }} className="scrollbar-thin">
+                        
+                        {/* TAB 1: ITEMS */}
+                        {editOrderStepsActiveTab === 'items' && (
+                          <div className="space-y-4 animate-fadeIn">
+                            <div className="order-section-label">🛒 Items in Order</div>
+                            
+                            {/* Inventory add row */}
+                            <div style={{ background: 'var(--gray1)', padding: '1rem', borderRadius: '12px', border: '1.5px solid var(--border-color)', display: 'flex', gap: '0.75rem', alignItems: 'flex-end', flexWrap: 'wrap' }}>
+                              <div style={{ flex: 2, minWidth: '180px' }}>
+                                <label className="order-input-label">Select Product to Add</label>
+                                <select 
+                                  value={addItemProductId} 
+                                  onChange={e => setAddItemProductId(e.target.value)}
+                                  className="order-input"
+                                >
+                                  <option value="">-- Choose Product --</option>
+                                  {mangoes.map(p => (
+                                    <option key={p.id} value={p.id}>{p.name} (৳{p.discountPrice || p.price})</option>
+                                  ))}
+                                </select>
+                              </div>
+
+                              {selectedProductForAdd && selectedProductForAdd.weightOptions && selectedProductForAdd.weightOptions.length > 0 && (
+                                <div style={{ flex: 1, minWidth: '100px' }}>
+                                  <label className="order-input-label">Weight</label>
+                                  <select 
+                                    value={addItemWeight} 
+                                    onChange={e => setAddItemWeight(e.target.value)}
+                                    className="order-input"
+                                  >
+                                    {selectedProductForAdd.weightOptions.map(w => (
+                                      <option key={w} value={w}>{w}</option>
+                                    ))}
+                                  </select>
+                                </div>
+                              )}
+
+                              <div style={{ width: '80px' }}>
+                                <label className="order-input-label">Quantity</label>
+                                <input 
+                                  type="number" 
+                                  min="1" 
+                                  value={addItemQuantity} 
+                                  onChange={e => setAddItemQuantity(Math.max(1, parseInt(e.target.value) || 1))}
+                                  className="order-input text-center"
+                                />
+                              </div>
+
+                              <button 
+                                type="button" 
+                                onClick={handleAddItemToOrder}
+                                className="order-action-pill primary"
+                                style={{ height: '38px', padding: '0 1.25rem' }}
+                              >
+                                ➕ Add
+                              </button>
+                            </div>
+
+                            {/* Items table */}
+                            {editOrderItems.length === 0 ? (
+                              <div style={{ padding: '2rem', textAlign: 'center', background: 'var(--gray1)', border: '1.5px dashed var(--border-color)', borderRadius: '12px', color: 'var(--text-muted)' }}>
+                                No items in this order. Add products above.
+                              </div>
+                            ) : (
+                              <div style={{ border: '1.5px solid var(--border-color)', borderRadius: '12px', overflow: 'hidden' }}>
+                                <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.8rem' }}>
+                                  <thead>
+                                    <tr style={{ background: 'var(--gray1)', borderBottom: '1.5px solid var(--border-color)', color: 'var(--text-muted)' }}>
+                                      <th style={{ padding: '0.75rem 1rem' }}>Product</th>
+                                      <th style={{ padding: '0.75rem 1rem', width: '140px' }}>Weight Option</th>
+                                      <th style={{ padding: '0.75rem 1rem', width: '100px', textAlign: 'center' }}>Quantity</th>
+                                      <th style={{ padding: '0.75rem 1rem', textAlign: 'right', width: '100px' }}>Price</th>
+                                      <th style={{ padding: '0.75rem 1rem', width: '60px', textAlign: 'center' }}>Action</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody>
+                                    {editOrderItems.map((item, idx) => {
+                                      const prod = mangoes.find(p => p.id === item.id);
+                                      const wOpts = prod?.weightOptions || [];
+                                      return (
+                                        <tr key={idx} style={{ borderBottom: idx < editOrderItems.length - 1 ? '1px solid var(--border-color)' : 'none' }}>
+                                          <td style={{ padding: '0.75rem 1rem', fontWeight: 700 }}>{item.name}</td>
+                                          <td style={{ padding: '0.75rem 1rem' }}>
+                                            {wOpts.length > 0 ? (
+                                              <select 
+                                                value={item.selectedWeight || ''} 
+                                                onChange={e => handleUpdateItemWeight(idx, e.target.value)}
+                                                className="order-input"
+                                                style={{ padding: '0.25rem 0.5rem', fontSize: '0.75rem' }}
+                                              >
+                                                {wOpts.map(w => (
+                                                  <option key={w} value={w}>{w}</option>
+                                                ))}
+                                              </select>
+                                            ) : (
+                                              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{item.selectedWeight || 'Fixed Weight'}</span>
+                                            )}
+                                          </td>
+                                          <td style={{ padding: '0.75rem 1rem', textAlign: 'center' }}>
+                                            <input 
+                                              type="number" 
+                                              min="1" 
+                                              value={item.quantity} 
+                                              onChange={e => handleUpdateItemQty(idx, e.target.value)}
+                                              className="order-input text-center"
+                                              style={{ padding: '0.25rem 0.5rem', fontSize: '0.75rem', width: '60px', margin: '0 auto' }}
+                                            />
+                                          </td>
+                                          <td style={{ padding: '0.75rem 1rem', textAlign: 'right', fontWeight: 800, color: 'var(--primary)' }}>
+                                            ৳{((item.discountPrice || item.price || 0) * (Number(item.quantity) || 0)).toLocaleString()}
+                                          </td>
+                                          <td style={{ padding: '0.75rem 1rem', textAlign: 'center' }}>
+                                            <button 
+                                              type="button" 
+                                              onClick={() => handleRemoveItem(idx)}
+                                              style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#EF4444', fontSize: '1rem', padding: '0.2rem' }}
+                                              title="Remove Item"
+                                            >
+                                              ✕
+                                            </button>
+                                          </td>
+                                        </tr>
+                                      );
+                                    })}
+                                  </tbody>
+                                </table>
+                              </div>
+                            )}
+                          </div>
+                        )}
+
+                        {/* TAB 2: PACKAGING */}
+                        {editOrderStepsActiveTab === 'packaging' && (
+                          <div className="space-y-4 animate-fadeIn">
+                            <div className="order-section-label">📦 Packaging Options (Weight: {editedTotalWeight.toFixed(2)} kg)</div>
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(210px, 1fr))', gap: '0.85rem' }}>
+                              <div 
+                                onClick={() => setEditOrderPackagingId('')}
+                                className={`premium-radio-card ${!editOrderPackagingId ? 'selected' : ''}`}
+                                style={{ padding: '1rem', display: 'flex', gap: '0.75rem', cursor: 'pointer', transition: 'all 0.2s', border: !editOrderPackagingId ? '2px solid var(--primary)' : '1.5px solid var(--border-color)', borderRadius: '12px' }}
+                              >
+                                <div className="premium-radio-circle" style={{ borderColor: !editOrderPackagingId ? 'var(--primary)' : 'var(--border-color)', backgroundColor: !editOrderPackagingId ? 'var(--primary)' : 'transparent' }}></div>
+                                <div>
+                                  <p style={{ fontWeight: 800, fontSize: '.82rem', margin: 0 }}>📦 No Packaging</p>
+                                  <p style={{ fontSize: '.7rem', color: 'var(--text-muted)', margin: '0.2rem 0 0' }}>No packaging charges</p>
+                                </div>
+                              </div>
+
+                              {packagingOptions.map(pkg => {
+                                const isSelected = editOrderPackagingId === pkg.id;
+                                const units = Math.ceil(editedTotalWeight / pkg.maxCapacity);
+                                const cost = units * pkg.price;
+                                return (
+                                  <div 
+                                    key={pkg.id}
+                                    onClick={() => setEditOrderPackagingId(pkg.id)}
+                                    className={`premium-radio-card ${isSelected ? 'selected' : ''}`}
+                                    style={{ padding: '1rem', display: 'flex', gap: '0.75rem', cursor: 'pointer', transition: 'all 0.2s', border: isSelected ? '2px solid var(--primary)' : '1.5px solid var(--border-color)', borderRadius: '12px' }}
+                                  >
+                                    <div className="premium-radio-circle" style={{ borderColor: isSelected ? 'var(--primary)' : 'var(--border-color)', backgroundColor: isSelected ? 'var(--primary)' : 'transparent' }}></div>
+                                    <div>
+                                      <p style={{ fontWeight: 800, fontSize: '.82rem', margin: 0 }}>{pkg.label}</p>
+                                      <p style={{ fontSize: '.7rem', color: 'var(--text-muted)', margin: '0.2rem 0 0' }}>৳{pkg.price}/unit · Holds {pkg.minCapacity}-{pkg.maxCapacity}kg</p>
+                                      {editedTotalWeight > 0 && (
+                                        <p style={{ fontSize: '.72rem', color: '#E8540A', fontWeight: 800, margin: '0.25rem 0 0' }}>
+                                          {units} unit{units > 1 ? 's' : ''} • ৳{cost}
+                                        </p>
+                                      )}
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* TAB 3: COURIER DELIVERY */}
+                        {editOrderStepsActiveTab === 'delivery' && (
+                          <div className="space-y-4 animate-fadeIn">
+                            <div className="order-section-label">🚚 Courier / Delivery (Weight: {editedTotalWeight.toFixed(2)} kg)</div>
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(210px, 1fr))', gap: '0.85rem', marginBottom: '1.25rem' }}>
+                              <div 
+                                onClick={() => setEditOrderDeliveryId('')}
+                                className={`premium-radio-card ${!editOrderDeliveryId ? 'selected' : ''}`}
+                                style={{ padding: '1rem', display: 'flex', gap: '0.75rem', cursor: 'pointer', transition: 'all 0.2s', border: !editOrderDeliveryId ? '2px solid var(--primary)' : '1.5px solid var(--border-color)', borderRadius: '12px' }}
+                              >
+                                <div className="premium-radio-circle" style={{ borderColor: !editOrderDeliveryId ? 'var(--primary)' : 'var(--border-color)', backgroundColor: !editOrderDeliveryId ? 'var(--primary)' : 'transparent' }}></div>
+                                <div>
+                                  <p style={{ fontWeight: 800, fontSize: '.82rem', margin: 0 }}>🚚 Custom / Store Pickup</p>
+                                  <p style={{ fontSize: '.7rem', color: 'var(--text-muted)', margin: '0.2rem 0 0' }}>Fee entered manually below</p>
+                                </div>
+                              </div>
+
+                              {deliveryOptions.map(dlv => {
+                                const isSelected = editOrderDeliveryId === dlv.id;
+                                const fee = dlv.pricingType === 'per_kg'
+                                  ? dlv.perKgRate * editedTotalWeight
+                                  : dlv.firstKgPrice + (dlv.extraKgRate * Math.max(0, editedTotalWeight - 1));
+                                return (
+                                  <div 
+                                    key={dlv.id}
+                                    onClick={() => setEditOrderDeliveryId(dlv.id)}
+                                    className={`premium-radio-card ${isSelected ? 'selected' : ''}`}
+                                    style={{ padding: '1rem', display: 'flex', gap: '0.75rem', cursor: 'pointer', transition: 'all 0.2s', border: isSelected ? '2px solid var(--primary)' : '1.5px solid var(--border-color)', borderRadius: '12px' }}
+                                  >
+                                    <div className="premium-radio-circle" style={{ borderColor: isSelected ? 'var(--primary)' : 'var(--border-color)', backgroundColor: isSelected ? 'var(--primary)' : 'transparent' }}></div>
+                                    <div>
+                                      <p style={{ fontWeight: 800, fontSize: '.82rem', margin: 0 }}>{dlv.label}</p>
+                                      <p style={{ fontSize: '.7rem', color: 'var(--text-muted)', margin: '0.2rem 0 0' }}>
+                                        {dlv.pricingType === 'per_kg' ? `৳${dlv.perKgRate}/kg` : `৳${dlv.firstKgPrice} + ৳${dlv.extraKgRate}/extra kg`}
+                                      </p>
+                                      {editedTotalWeight > 0 && (
+                                        <p style={{ fontSize: '.72rem', color: '#E8540A', fontWeight: 800, margin: '0.25rem 0 0' }}>
+                                          Calculated Fee: ৳{fee.toLocaleString()}
+                                        </p>
+                                      )}
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+
+                            <div style={{ background: 'var(--gray1)', padding: '1.25rem', borderRadius: '12px', border: '1.5px solid var(--border-color)' }}>
+                              <label className="order-input-label">Delivery Fee Override (৳)</label>
+                              <input 
+                                type="number" 
+                                value={editOrderDeliveryFee} 
+                                onChange={e => setEditOrderDeliveryFee(Math.max(0, Number(e.target.value) || 0))}
+                                className="order-input"
+                                style={{ maxWidth: '200px' }}
+                              />
+                              <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '0.35rem', margin: 0 }}>
+                                Modify the delivery fee manually. Pre-populated automatically based on courier select.
+                              </p>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* TAB 4: SHIPPING INFO */}
+                        {editOrderStepsActiveTab === 'shipping' && (
+                          <div className="space-y-4 animate-fadeIn">
+                            <div className="order-section-label">📍 Recipient Details</div>
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.25rem' }}>
+                              <div>
+                                <label className="order-input-label">Recipient Name</label>
+                                <input 
+                                  type="text" 
+                                  value={editOrderRecipientName} 
+                                  onChange={e => setEditOrderRecipientName(e.target.value)}
+                                  className="order-input"
+                                  placeholder="E.g. Adnan Rahman"
+                                  required
+                                />
+                              </div>
+                              <div>
+                                <label className="order-input-label">Recipient Phone Number</label>
+                                <input 
+                                  type="text" 
+                                  value={editOrderRecipientPhone} 
+                                  onChange={e => setEditOrderRecipientPhone(e.target.value)}
+                                  className="order-input"
+                                  placeholder="E.g. 01712345678"
+                                  required
+                                />
+                              </div>
+                            </div>
+
+                            <div>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.4rem' }}>
+                                <label className="order-input-label" style={{ marginBottom: 0 }}>Full Shipping Address</label>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                                  <button type="button" onClick={() => setShowMapModal(true)} style={{ color: 'var(--primary)', border: 'none', background: 'none', cursor: 'pointer', fontSize: '0.72rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.2rem', outline: 'none', padding: 0 }}>🗺️ Pin on Map</button>
+                                  {editOrderCoords && (
+                                    <a 
+                                      href={`https://www.google.com/maps?q=${editOrderCoords.lat},${editOrderCoords.lng}`} 
+                                      target="_blank" 
+                                      rel="noreferrer"
+                                      style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem', background: 'rgba(232,84,10,0.08)', color: '#E8540A', border: '1.5px solid rgba(232,84,10,0.2)', borderRadius: '100px', padding: '0.15rem 0.5rem', fontFamily: 'var(--ff)', fontSize: '0.62rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.04em', textDecoration: 'none' }}
+                                    >
+                                      📍 View on Map
+                                    </a>
+                                  )}
+                                </div>
+                              </div>
+                              <textarea 
+                                value={editOrderAddress} 
+                                onChange={e => { setEditOrderAddress(e.target.value); setEditOrderCoords(null); }} 
+                                className="order-input"
+                                style={{ minHeight: '80px', resize: 'vertical' }}
+                                placeholder="House, Road, Area, City..."
+                                required
+                              />
+                            </div>
+
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1.25rem' }}>
+                              <div>
+                                <label className="order-input-label">Postal Code</label>
+                                <input 
+                                  type="text" 
+                                  value={editOrderPostcode} 
+                                  onChange={e => setEditOrderPostcode(e.target.value)}
+                                  className="order-input"
+                                  placeholder="Postal Code"
+                                />
+                              </div>
+                              <div>
+                                <label className="order-input-label">Latitude</label>
+                                <input 
+                                  type="number" 
+                                  step="any"
+                                  value={editOrderCoords?.lat ?? ''} 
+                                  onChange={e => handleCoordsChange('lat', e.target.value)}
+                                  className="order-input"
+                                  placeholder="Latitude"
+                                />
+                              </div>
+                              <div>
+                                <label className="order-input-label">Longitude</label>
+                                <input 
+                                  type="number" 
+                                  step="any"
+                                  value={editOrderCoords?.lng ?? ''} 
+                                  onChange={e => handleCoordsChange('lng', e.target.value)}
+                                  className="order-input"
+                                  placeholder="Longitude"
+                                />
+                              </div>
+                            </div>
+                          </div>
+                        )}
+
+                      </div>
+
+                      {/* Summary & Save footer */}
+                      <div className="order-modal-footer" style={{ flexDirection: 'column', gap: '1rem', background: 'var(--gray1)' }}>
+                        {/* Cost summary breakdown */}
+                        <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', width: '100%', gap: '1rem', fontSize: '0.78rem', fontWeight: 700, paddingBottom: '0.75rem', borderBottom: '1px solid var(--border-color)' }}>
+                          <div style={{ display: 'flex', gap: '1.25rem', flexWrap: 'wrap' }}>
+                            <span style={{ color: 'var(--text-muted)' }}>Subtotal: <strong style={{ color: 'var(--text-primary)' }}>৳{editedSubtotal.toLocaleString()}</strong></span>
+                            {editedPackagingCostInfo.cost > 0 && (
+                              <span style={{ color: 'var(--text-muted)' }}>Packaging ({editedPackagingCostInfo.label} ×{editedPackagingCostInfo.units}): <strong style={{ color: 'var(--text-primary)' }}>৳{editedPackagingCostInfo.cost.toLocaleString()}</strong></span>
+                            )}
+                            <span style={{ color: 'var(--text-muted)' }}>Delivery: <strong style={{ color: 'var(--text-primary)' }}>৳{editOrderDeliveryFee.toLocaleString()}</strong></span>
+                          </div>
+
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '1.25rem' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                              <span style={{ color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>Discount Override:</span>
+                              <input 
+                                type="number" 
+                                value={editOrderDiscount} 
+                                onChange={e => setEditOrderDiscount(Math.max(0, Number(e.target.value) || 0))}
+                                className="order-input text-right"
+                                style={{ width: '80px', padding: '0.2rem 0.5rem', fontSize: '0.75rem' }}
+                              />
+                            </div>
+                            
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                              <span style={{ color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>Promo:</span>
+                              <input 
+                                type="text" 
+                                value={editOrderPromoUsed} 
+                                onChange={e => setEditOrderPromoUsed(e.target.value)}
+                                className="order-input"
+                                style={{ width: '100px', padding: '0.2rem 0.5rem', fontSize: '0.75rem' }}
+                              />
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Grand total & save buttons */}
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', gap: '1rem' }}>
+                          <div>
+                            <span style={{ fontSize: '0.75rem', fontWeight: 800, textTransform: 'uppercase', color: 'var(--text-muted)' }}>Grand Total</span>
+                            <div style={{ color: '#E8540A', fontFamily: 'var(--ff-display)', fontWeight: 900, fontSize: '1.4rem', marginTop: '0.1rem' }}>
+                              ৳{editedTotal.toLocaleString()}
+                            </div>
+                          </div>
+                          
+                          <div style={{ display: 'flex', gap: '0.75rem' }}>
+                            <button 
+                              type="button" 
+                              onClick={() => setEditOrderStepsModal({ isOpen: false, orderId: null })}
+                              className="order-action-pill"
+                              style={{ padding: '0.6rem 1.5rem', fontSize: '0.8rem' }}
+                            >
+                              Cancel
+                            </button>
+                            <button 
+                              type="button" 
+                              onClick={handleSaveOrderSteps}
+                              className="order-action-pill primary"
+                              style={{ padding: '0.6rem 1.75rem', fontSize: '0.8rem' }}
+                            >
+                              Save Changes
+                            </button>
+                          </div>
+                        </div>
                       </div>
                     </motion.div>
                   </div>
                 )}
               </AnimatePresence>
 
-              {/* Edit Financials Modal */}
-              <AnimatePresence>
-                {editFinancialsModal.isOpen && (
-                  <div className="order-modal-backdrop">
-                    <motion.div className="order-modal" style={{ maxWidth: 360 }} initial={{opacity:0,scale:.96}} animate={{opacity:1,scale:1}} exit={{opacity:0,scale:.96}}>
-                      <div className="order-modal-header">
-                        <h3 className="order-modal-title">💰 Edit Financials</h3>
-                        <button className="order-modal-close" onClick={() => setEditFinancialsModal({isOpen:false,orderId:null,total:'',deliveryFee:''})}>✕</button>
+              {/* MAP PIN MODAL */}
+              {showMapModal && (
+                <div style={{ position: 'fixed', inset: 0, zIndex: 99999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem', background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)' }}>
+                  <div style={{ background: 'var(--bg-card)', borderRadius: '20px', width: '90%', maxWidth: '600px', overflow: 'hidden', border: '1px solid var(--border-color)', boxShadow: '0 20px 60px var(--shadow-color)' }}>
+                    <div style={{ background: '#121212', padding: '1.2rem 1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <h3 style={{ fontFamily: "'Fraunces', serif", fontWeight: 900, color: '#FFFFFF', fontSize: '1.1rem', margin: 0, display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                        📍 Pin Shipping Location
+                      </h3>
+                      <button onClick={() => setShowMapModal(false)} style={{ width: '32px', height: '32px', borderRadius: '50%', background: 'rgba(255,255,255,0.1)', color: '#FFFFFF', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.1rem', padding: 0 }}>✕</button>
+                    </div>
+                    <div style={{ padding: '0', position: 'relative' }}>
+                      <div id="leaflet-map-container" style={{ width: '100%', height: '380px' }}></div>
+                      <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -100%)', zIndex: 1000, pointerEvents: 'none', fontSize: '2rem' }}>📍</div>
+                    </div>
+                    <div style={{ padding: '1.5rem' }}>
+                      <div style={{ margin: '0 0 1.25rem 0' }}>
+                        <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', margin: '0 0 0.35rem 0', lineHeight: 1.4 }}>Drag the map to position the pin at the exact shipping location. The address coordinates will automatically update.</p>
                       </div>
-                      <div className="order-modal-body" style={{ display:'flex',flexDirection:'column',gap:'.85rem' }}>
-                        <div>
-                          <label className="order-input-label">Delivery Fee (৳)</label>
-                          <input type="number" value={editFinancialsModal.deliveryFee} onChange={e=>setEditFinancialsModal({...editFinancialsModal,deliveryFee:e.target.value})} className="order-input" />
-                        </div>
-                        <div>
-                          <label className="order-input-label">Grand Total (৳)</label>
-                          <input type="number" value={editFinancialsModal.total} onChange={e=>setEditFinancialsModal({...editFinancialsModal,total:e.target.value})} className="order-input" />
-                        </div>
+                      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem' }}>
+                        <button onClick={() => setShowMapModal(false)} className="order-action-pill" style={{ width: 'auto', background: 'transparent', fontWeight: 700, padding: '0.6rem 1.5rem', fontSize: '0.82rem', cursor: 'pointer' }}>Cancel</button>
+                        <button onClick={handleConfirmMapPin} className="order-action-pill primary" style={{ fontWeight: 700, padding: '0.6rem 1.5rem', fontSize: '0.82rem' }}>Confirm Location</button>
                       </div>
-                      <div className="order-modal-footer">
-                        <button className="order-action-pill" style={{ flex:1,justifyContent:'center' }} onClick={() => setEditFinancialsModal({isOpen:false,orderId:null,total:'',deliveryFee:''})}>Cancel</button>
-                        <button className="order-action-pill green" style={{ flex:1,justifyContent:'center' }} onClick={handleUpdateFinancials}>Update</button>
-                      </div>
-                    </motion.div>
+                    </div>
                   </div>
-                )}
-              </AnimatePresence>
+                </div>
+              )}
 
             </div>{/* END print-hide */}
 
