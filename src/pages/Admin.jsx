@@ -4797,49 +4797,159 @@ export default function Admin() {
               {(() => {
                 const allOrders = orders.filter(o => !o.deleted);
                 const printOrders = selectedOrders.size > 0 ? allOrders.filter(o => selectedOrders.has(o.id)) : allOrders;
-                return printOrders.map(order => (
-                  <div key={`print-${order.id}`} style={{ padding:32,border:'4px solid #000',borderRadius:16,marginBottom:48,pageBreakInside:'avoid',breakInside:'avoid' }}>
-                    <div style={{ display:'flex',justifyContent:'space-between',alignItems:'flex-start',borderBottom:'8px solid #000',paddingBottom:16,marginBottom:24 }}>
-                      <div>
-                        <div style={{ fontSize:36,fontWeight:900,textTransform:'uppercase',letterSpacing:'-0.02em',fontFamily:'Georgia,serif' }}>VERTEX PICKS</div>
-                        <div style={{ fontSize:14,fontWeight:700,color:'#888',textTransform:'uppercase',letterSpacing:'.2em' }}>Premium Delivery</div>
+                return printOrders.map(order => {
+                  const pkgLabel = !order.packagingOption ? 'None' : (typeof order.packagingOption === 'string' ? order.packagingOption : `${order.packagingOption.label || 'Packaging'} (${order.packagingOption.unitsNeeded || 1} unit${(order.packagingOption.unitsNeeded || 1) > 1 ? 's' : ''})`);
+                  const dlvLabel = !order.deliveryMethod ? 'Standard Courier' : (typeof order.deliveryMethod === 'string' ? order.deliveryMethod : (order.deliveryMethod.label || 'Standard Courier'));
+                  
+                  return (
+                    <div key={`print-${order.id}`} style={{ padding: 24, border: '1px solid #e2e8f0', borderRadius: 12, marginBottom: 32, pageBreakInside: 'avoid', breakInside: 'avoid', fontFamily: 'system-ui, -apple-system, sans-serif', color: '#1e293b', backgroundColor: '#fff' }}>
+                      {/* Header Section */}
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: '2px solid #f1f5f9', paddingBottom: 16, marginBottom: 20 }}>
+                        <div>
+                          <h1 style={{ margin: 0, fontSize: 24, fontWeight: '800', letterSpacing: '-0.02em', color: '#0f172a', textTransform: 'uppercase' }}>
+                            {storeName}
+                          </h1>
+                          <p style={{ margin: '4px 0 0 0', fontSize: 12, color: '#64748b', fontWeight: '500' }}>
+                            {contactAddress} | Phone: {contactPhone}
+                          </p>
+                          {contactEmail && (
+                            <p style={{ margin: '2px 0 0 0', fontSize: 12, color: '#64748b' }}>
+                              Email: {contactEmail}
+                            </p>
+                          )}
+                        </div>
+                        <div style={{ textAlign: 'right' }}>
+                          <h2 style={{ margin: 0, fontSize: 18, fontWeight: '700', color: '#0f172a', letterSpacing: '0.05em' }}>
+                            INVOICE
+                          </h2>
+                          <p style={{ margin: '4px 0 0 0', fontSize: 12, color: '#64748b', fontWeight: '600' }}>
+                            Order #{order.id?.slice(-8).toUpperCase()}
+                          </p>
+                          <p style={{ margin: '2px 0 0 0', fontSize: 11, color: '#64748b' }}>
+                            Date: {order.createdAt?.toDate ? order.createdAt.toDate().toLocaleDateString() : new Date(order.createdAt?.seconds ? order.createdAt.seconds * 1000 : order.createdAt).toLocaleDateString()}
+                          </p>
+                        </div>
                       </div>
-                      <div style={{ textAlign:'right' }}>
-                        <div style={{ fontSize:28,fontWeight:900,textTransform:'uppercase' }}>Order #{order.id?.slice(-6)}</div>
-                        <div style={{ fontSize:13,fontWeight:600,color:'#666' }}>
-                          {order.createdAt?.toDate ? order.createdAt.toDate().toLocaleDateString() : new Date(order.createdAt?.seconds?order.createdAt.seconds*1000:order.createdAt).toLocaleDateString()}
+
+                      {/* Bill To & Details Section */}
+                      <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 0.8fr', gap: 24, marginBottom: 24 }}>
+                        <div>
+                          <h3 style={{ margin: '0 0 8px 0', fontSize: 11, fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.05em', color: '#94a3b8' }}>
+                            Deliver To
+                          </h3>
+                          <p style={{ margin: '0 0 4px 0', fontSize: 16, fontWeight: '700', color: '#0f172a' }}>
+                            {order.deliveryName || order.customerName || order.customerEmail || 'Valued Customer'}
+                          </p>
+                          <p style={{ margin: '0 0 6px 0', fontSize: 14, fontWeight: '600', color: '#475569' }}>
+                            📞 {order.deliveryPhone || 'N/A'}
+                          </p>
+                          <p style={{ margin: 0, fontSize: 13, lineHeight: 1.4, color: '#334155', whiteSpace: 'pre-line' }}>
+                            {order.deliveryAddress || 'N/A'}
+                          </p>
+                          {order.deliveryPostcode && (
+                            <p style={{ margin: '4px 0 0 0', fontSize: 12, color: '#64748b', fontWeight: '500' }}>
+                              Postcode: {order.deliveryPostcode.replace('Postal Code: ', '')}
+                            </p>
+                          )}
+                        </div>
+                        <div>
+                          <h3 style={{ margin: '0 0 8px 0', fontSize: 11, fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.05em', color: '#94a3b8' }}>
+                            Shipping & Details
+                          </h3>
+                          <p style={{ margin: '0 0 4px 0', fontSize: 13, color: '#334155' }}>
+                            Total Weight: <strong style={{ color: '#0f172a', fontSize: 14 }}>{order.totalWeight || 'N/A'} kg</strong>
+                          </p>
+                          <p style={{ margin: '0 0 4px 0', fontSize: 13, color: '#334155' }}>
+                            Courier: <strong style={{ color: '#0f172a' }}>{dlvLabel}</strong>
+                          </p>
+                          <p style={{ margin: '0 0 4px 0', fontSize: 13, color: '#334155' }}>
+                            Packaging: <strong style={{ color: '#0f172a' }}>{pkgLabel}</strong>
+                          </p>
+                          <p style={{ margin: '0 0 4px 0', fontSize: 13, color: '#334155' }}>
+                            Status: <strong style={{ textTransform: 'uppercase', color: order.status === 'Done' ? '#16a34a' : '#ea580c' }}>{order.status || 'Pending'}</strong>
+                          </p>
+                          {order.isManual && (
+                            <div style={{ display: 'inline-block', margin: '8px 0 0 0', fontSize: 10, fontWeight: '700', border: '1px solid #94a3b8', borderRadius: 4, padding: '2px 8px', textTransform: 'uppercase', letterSpacing: '0.05em', color: '#475569' }}>
+                              Offline Sale
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Items Included Section */}
+                      <div style={{ marginBottom: 24 }}>
+                        <h3 style={{ margin: '0 0 10px 0', fontSize: 11, fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.05em', color: '#94a3b8', borderBottom: '1px solid #f1f5f9', paddingBottom: 6 }}>
+                          Items Included
+                        </h3>
+                        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+                          <thead>
+                            <tr style={{ borderBottom: '1px solid #f1f5f9', color: '#64748b', textAlign: 'left' }}>
+                              <th style={{ padding: '6px 0', fontWeight: '600' }}>Item Details</th>
+                              <th style={{ padding: '6px 0', fontWeight: '600', textAlign: 'center', width: 80 }}>Weight</th>
+                              <th style={{ padding: '6px 0', fontWeight: '600', textAlign: 'center', width: 80 }}>Qty</th>
+                              <th style={{ padding: '6px 0', fontWeight: '600', textAlign: 'right', width: 100 }}>Price</th>
+                              <th style={{ padding: '6px 0', fontWeight: '600', textAlign: 'right', width: 100 }}>Total</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {order.items?.map((item, idx) => {
+                              const itemPrice = item.discountPrice || item.price || 0;
+                              return (
+                                <tr key={idx} style={{ borderBottom: '1px dashed #f1f5f9', color: '#334155' }}>
+                                  <td style={{ padding: '8px 0', fontWeight: '600', color: '#0f172a' }}>{item.name || 'Item'}</td>
+                                  <td style={{ padding: '8px 0', textAlign: 'center' }}>{item.weight || 'N/A'}</td>
+                                  <td style={{ padding: '8px 0', textAlign: 'center', fontWeight: '700' }}>{item.quantity || 1}</td>
+                                  <td style={{ padding: '8px 0', textAlign: 'right' }}>৳{itemPrice}</td>
+                                  <td style={{ padding: '8px 0', textAlign: 'right', fontWeight: '700' }}>৳{itemPrice * (item.quantity || 1)}</td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+
+                      {/* Financial Summary Section */}
+                      <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 0.8fr', gap: 24, borderTop: '2px solid #f1f5f9', paddingTop: 16 }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+                          <p style={{ margin: 0, fontSize: 11, color: '#94a3b8', fontStyle: 'italic' }}>
+                            Thank you for shopping with {storeName}!
+                          </p>
+                          <p style={{ margin: '4px 0 0 0', fontSize: 11, color: '#94a3b8' }}>
+                            For support, contact us at {contactPhone} or {contactEmail}.
+                          </p>
+                        </div>
+                        <div>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, margin: '0 0 6px 0', color: '#475569' }}>
+                            <span>Subtotal:</span>
+                            <span style={{ fontWeight: '600' }}>৳{order.subtotal || 0}</span>
+                          </div>
+                          {order.packagingCost > 0 && (
+                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, margin: '0 0 6px 0', color: '#475569' }}>
+                              <span>Packaging Fee:</span>
+                              <span style={{ fontWeight: '600' }}>৳{order.packagingCost}</span>
+                            </div>
+                          )}
+                          {order.deliveryFee > 0 && (
+                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, margin: '0 0 6px 0', color: '#475569' }}>
+                              <span>Delivery Fee:</span>
+                              <span style={{ fontWeight: '600' }}>৳{order.deliveryFee}</span>
+                            </div>
+                          )}
+                          {order.discount > 0 && (
+                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, margin: '0 0 8px 0', color: '#dc2626' }}>
+                              <span>Discount ({order.promoUsed && order.promoUsed !== 'None' ? order.promoUsed : 'Manual'}):</span>
+                              <span style={{ fontWeight: '600' }}>-৳{order.discount}</span>
+                            </div>
+                          )}
+                          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 16, fontWeight: '800', borderTop: '1px solid #e2e8f0', paddingTop: 8, color: '#0f172a' }}>
+                            <span>Amount To Collect:</span>
+                            <span style={{ fontSize: 20 }}>৳{order.total || 0}</span>
+                          </div>
                         </div>
                       </div>
                     </div>
-                    <div style={{ display:'grid',gridTemplateColumns:'1fr 1fr',gap:32,marginBottom:32 }}>
-                      <div>
-                        <div style={{ fontSize:11,fontWeight:900,textTransform:'uppercase',letterSpacing:'.15em',color:'#888',borderBottom:'2px solid #eee',paddingBottom:6,marginBottom:12 }}>Ship To</div>
-                        <div style={{ fontSize:22,fontWeight:900,marginBottom:4 }}>{order.deliveryName||order.customerName||order.customerEmail||'Valued Customer'}</div>
-                        <div style={{ fontSize:18,fontWeight:800,letterSpacing:'.05em',marginBottom:8 }}>{order.deliveryPhone||'N/A'}</div>
-                        <div style={{ fontSize:15,fontWeight:600,lineHeight:1.5,whiteSpace:'pre-line' }}>{order.deliveryAddress||'N/A'}</div>
-                      </div>
-                      <div>
-                        <div style={{ fontSize:11,fontWeight:900,textTransform:'uppercase',letterSpacing:'.15em',color:'#888',borderBottom:'2px solid #eee',paddingBottom:6,marginBottom:12 }}>Order Details</div>
-                        <div style={{ fontSize:15,fontWeight:600,marginBottom:6 }}>Weight: <strong style={{ fontSize:20 }}>{order.totalWeight||'N/A'} kg</strong></div>
-                        <div style={{ fontSize:15,fontWeight:600 }}>Status: <strong style={{ textTransform:'uppercase' }}>{order.status||'Pending'}</strong></div>
-                        {order.isManual&&<div style={{ fontSize:16,fontWeight:900,border:'2px solid #000',display:'inline-block',padding:'4px 12px',marginTop:10,textTransform:'uppercase',letterSpacing:'.1em' }}>Offline Sale</div>}
-                      </div>
-                    </div>
-                    <div>
-                      <div style={{ fontSize:11,fontWeight:900,textTransform:'uppercase',letterSpacing:'.15em',color:'#888',borderBottom:'2px solid #eee',paddingBottom:6,marginBottom:16 }}>Items Included</div>
-                      {order.items?.map((item,idx)=>(
-                        <div key={idx} style={{ display:'flex',justifyContent:'space-between',fontSize:18,fontWeight:600,borderBottom:'1px dashed #ddd',paddingBottom:12,marginBottom:12 }}>
-                          <span>{item.quantity||1}× {item.name||'Item'} {item.weight?`(${item.weight}kg)`:''}</span>
-                          <span>৳{((item.discountPrice||item.price||0)*(item.quantity||1))}</span>
-                        </div>
-                      ))}
-                    </div>
-                    <div style={{ display:'flex',justifyContent:'space-between',alignItems:'center',borderTop:'8px solid #000',paddingTop:16,marginTop:8 }}>
-                      <span style={{ fontSize:18,fontWeight:900,textTransform:'uppercase',letterSpacing:'.05em' }}>Amount To Collect</span>
-                      <span style={{ fontSize:48,fontWeight:900,letterSpacing:'-.02em' }}>৳{order.total||0}</span>
-                    </div>
-                  </div>
-                ));
+                  );
+                });
               })()}
             </div>
 

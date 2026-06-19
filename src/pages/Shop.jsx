@@ -248,7 +248,7 @@ export default function Shop() {
   const showHeader = true;
 
   return (
-    <div style={{ paddingTop: 'var(--nav-height)', background: '#fff6ec', minHeight: '100vh' }}>
+    <div style={{ paddingTop: 'var(--nav-height)', background: 'var(--peach-gradient)', minHeight: '100vh' }}>
 
       {/* HERO HEADER */}
       {showHeader && (

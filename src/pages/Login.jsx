@@ -7,14 +7,101 @@ import {
   sendPasswordResetEmail,
   signOut,
   GoogleAuthProvider,
-  signInWithPopup
+  signInWithPopup,
+  updateProfile
 } from 'firebase/auth';
 import { useNavigate } from 'react-router-dom';
-import { auth } from '../firebaseConfig';
+import { auth, db } from '../firebaseConfig';
+import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
 import { useAuth } from '../context/AuthContext';
 import { useStore } from '../context/useStore';
 import { isValidBDPhoneNumber } from '../utils/phoneValidation';
 import { toast } from 'react-hot-toast';
+
+const mergeGuestData = async (user) => {
+  try {
+    const guestProfile = JSON.parse(localStorage.getItem('vertex_guest_profile') || '{}');
+    const guestAddresses = JSON.parse(localStorage.getItem('vertex_guest_addresses') || '[]');
+    const guestOrders = JSON.parse(localStorage.getItem('vertex_guest_orders') || '[]');
+
+    if (!guestProfile.name && !guestProfile.phone && !guestProfile.coords && guestAddresses.length === 0 && guestOrders.length === 0) {
+      return;
+    }
+
+    const userRef = doc(db, 'users', user.uid);
+    const userSnap = await getDoc(userRef);
+    let userData = {};
+    if (userSnap.exists()) {
+      userData = userSnap.data();
+    }
+
+    const updates = {};
+
+    if (guestProfile.name && !userData.name) {
+      updates.name = guestProfile.name;
+      try {
+        await updateProfile(user, { displayName: guestProfile.name });
+      } catch (err) {
+        console.error("Failed to update user displayName:", err);
+      }
+    }
+
+    if (guestProfile.phone && !userData.phone) {
+      updates.phone = guestProfile.phone;
+    }
+
+    if (guestProfile.coords && !userData.coords) {
+      updates.coords = guestProfile.coords;
+    }
+
+    const existingAddresses = userData.addresses || [];
+    const mergedAddresses = [...existingAddresses];
+    let addressMergedCount = 0;
+    
+    guestAddresses.forEach(gAddr => {
+      const isDuplicate = existingAddresses.some(
+        eAddr => eAddr.address?.toLowerCase().trim() === gAddr.address?.toLowerCase().trim() &&
+                 eAddr.phone?.trim() === gAddr.phone?.trim()
+      );
+      if (!isDuplicate) {
+        mergedAddresses.push(gAddr);
+        addressMergedCount++;
+      }
+    });
+
+    if (addressMergedCount > 0) {
+      updates.addresses = mergedAddresses;
+    }
+
+    if (Object.keys(updates).length > 0) {
+      await setDoc(userRef, updates, { merge: true });
+    }
+
+    if (guestOrders.length > 0) {
+      for (const order of guestOrders) {
+        if (order.id) {
+          try {
+            const orderRef = doc(db, 'orders', order.id);
+            await updateDoc(orderRef, {
+              customerEmail: user.email,
+              isGuest: false
+            });
+          } catch (err) {
+            console.error(`Failed to merge order ${order.id}:`, err);
+          }
+        }
+      }
+    }
+
+    localStorage.removeItem('vertex_guest_profile');
+    localStorage.removeItem('vertex_guest_addresses');
+    localStorage.removeItem('vertex_guest_orders');
+
+    toast.success("Guest details and orders successfully synced to your account! 🎉");
+  } catch (err) {
+    console.error("Error merging guest data:", err);
+  }
+};
 
 export default function Login() {
   const { ADMIN_EMAIL } = useAuth();
@@ -34,13 +121,14 @@ export default function Login() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (user) {
         const isAdmin = user.email?.toLowerCase() === ADMIN_EMAIL.toLowerCase();
         const isPhoneAccount = user.email?.includes('@phone.vertexpicks.com');
         const isGoogleUser = user.providerData.some(p => p.providerId === 'google.com');
 
         if (user.emailVerified || isAdmin || isPhoneAccount || isGoogleUser) {
+          await mergeGuestData(user);
           if (isAdmin) {
             setShowPortal(true);
           } else {
@@ -472,8 +560,8 @@ export default function Login() {
                 placeholder="Email or Phone Number"
                 className="login-input"
                 style={{
-                  borderColor: phoneError ? '#E8540A' : '#EEEEEE',
-                  background: phoneError ? '#FFF0F0' : '#FFFFFF'
+                  borderColor: phoneError ? '#E8540A' : 'var(--border-color)',
+                  background: phoneError ? 'rgba(232, 84, 10, 0.12)' : 'var(--bg-card)'
                 }}
               />
             </div>

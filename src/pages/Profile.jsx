@@ -260,6 +260,15 @@ export default function Profile() {
           setMyOrders(combined);
         } catch (err) { console.error('Error loading profile:', err); }
       } else {
+        const localProfile = JSON.parse(localStorage.getItem('vertex_guest_profile') || '{}');
+        setName(localProfile.name || '');
+        setDisplayName(localProfile.name || 'Guest User');
+        setPhone(localProfile.phone || '');
+        setCoords(localProfile.coords || '');
+
+        const localAddresses = JSON.parse(localStorage.getItem('vertex_guest_addresses') || '[]');
+        setAddresses(localAddresses);
+
         const lo = JSON.parse(localStorage.getItem('vertex_guest_orders') || '[]');
         setMyOrders(lo.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
       }
@@ -285,9 +294,14 @@ export default function Profile() {
     e.preventDefault();
     setIsSavingName(true);
     try {
-      if (user) await updateProfile(user, { displayName: name });
-      await setDoc(doc(db, 'users', user.uid), { name, email: user.email, phone, coords }, { merge: true });
-      setDisplayName(name);
+      if (user) {
+        await updateProfile(user, { displayName: name });
+        await setDoc(doc(db, 'users', user.uid), { name, email: user.email, phone, coords }, { merge: true });
+      } else {
+        const profileData = { name, phone, coords };
+        localStorage.setItem('vertex_guest_profile', JSON.stringify(profileData));
+      }
+      setDisplayName(name || 'Guest User');
       toast.success('Profile saved successfully!');
     } catch (err) { console.error(err); toast.error('Failed to update profile'); }
     setIsSavingName(false);
@@ -295,7 +309,11 @@ export default function Profile() {
 
   const saveAddresses = async (updated) => {
     try {
-      await setDoc(doc(db, 'users', user.uid), { addresses: updated, updatedAt: new Date() }, { merge: true });
+      if (user) {
+        await setDoc(doc(db, 'users', user.uid), { addresses: updated, updatedAt: new Date() }, { merge: true });
+      } else {
+        localStorage.setItem('vertex_guest_addresses', JSON.stringify(updated));
+      }
       setAddresses(updated);
       toast.success('Address book synchronized');
     } catch (err) { console.error(err); toast.error('Failed to sync addresses'); }
@@ -476,9 +494,7 @@ export default function Profile() {
     </div>
   );
 
-  if (!user) return <Navigate to="/login" replace />;
-
-  const initials = displayName ? displayName.charAt(0).toUpperCase() : (user.email ? user.email.charAt(0).toUpperCase() : 'U');
+  const initials = displayName ? displayName.charAt(0).toUpperCase() : (user?.email ? user.email.charAt(0).toUpperCase() : 'G');
   const deliveredOrders = myOrders.filter(o => o.status === 'Delivered');
   const ltvAmount = deliveredOrders.reduce((s, o) => s + Number(o.total || 0), 0);
 
@@ -703,9 +719,9 @@ export default function Profile() {
           {/* User Card */}
           <div className="dash-user-card">
             <div className="duc-avatar">{initials}</div>
-            <div className="duc-name">{displayName || user.email?.split('@')[0] || 'Vertex User'}</div>
-            <div className="duc-email">{user.email}</div>
-            <div className="duc-tier">{isAdmin ? '🔑 Super Admin' : '🏆 Gold Member'}</div>
+            <div className="duc-name">{displayName || user?.email?.split('@')[0] || 'Guest User'}</div>
+            <div className="duc-email">{user?.email || 'Guest Account'}</div>
+            <div className="duc-tier">{isAdmin ? '🔑 Super Admin' : (user ? '🏆 Gold Member' : '🏆 Guest Explorer')}</div>
           </div>
 
           {/* Nav */}
@@ -734,9 +750,15 @@ export default function Profile() {
             )}
 
             <div className="dash-nav-divider" />
-            <button className="dash-nav-item" style={{ color: 'var(--red)', width: '100%', textAlign: 'left' }} onClick={() => signOut(auth)}>
-              <span className="dni-icon">🚪</span> Sign Out
-            </button>
+            {user ? (
+              <button className="dash-nav-item" style={{ color: 'var(--red)', width: '100%', textAlign: 'left' }} onClick={() => signOut(auth)}>
+                <span className="dni-icon">🚪</span> Sign Out
+              </button>
+            ) : (
+              <button className="dash-nav-item" style={{ color: 'var(--primary)', width: '100%', textAlign: 'left' }} onClick={() => navigate('/login')}>
+                <span className="dni-icon">🔑</span> Log In / Sign Up
+              </button>
+            )}
           </nav>
         </aside>
 
@@ -759,8 +781,10 @@ export default function Profile() {
               </div>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '.75rem' }}>
-              <span style={{ fontSize: '.78rem', color: 'var(--gray4)' }}>{user.email}</span>
-              <span style={{ fontSize: '.68rem', fontWeight: 700, padding: '.25rem .65rem', borderRadius: 100, background: 'var(--gold-pale)', color: '#B07700', textTransform: 'uppercase', letterSpacing: '.06em' }}>Gold</span>
+              <span style={{ fontSize: '.78rem', color: 'var(--gray4)' }}>{user?.email || 'Not Signed In'}</span>
+              <span style={{ fontSize: '.68rem', fontWeight: 700, padding: '.25rem .65rem', borderRadius: 100, background: user ? 'var(--gold-pale)' : 'var(--gray2)', color: user ? '#B07700' : 'var(--gray4)', textTransform: 'uppercase', letterSpacing: '.06em' }}>
+                {user ? 'Gold' : 'Guest'}
+              </span>
             </div>
           </div>
 
@@ -980,8 +1004,19 @@ export default function Profile() {
               <div className="dash-card" style={{ padding: '1.5rem' }}>
                 <div className="review-submit-card">
                   <div style={{ fontWeight: 700, fontSize: '.9rem', marginBottom: '.5rem' }}>Leave a Review</div>
-                  <p style={{ fontSize: '.8rem', color: 'var(--gray4)', marginBottom: '1rem' }}>Have you received a delivery? Share your feedback!</p>
-                  <button className="btn-primary" style={{ borderRadius: 'var(--radius-sm)' }} onClick={() => navigate('/shop')}>Write a Review</button>
+                  {!user ? (
+                    <>
+                      <p style={{ fontSize: '.8rem', color: 'var(--red)', fontWeight: 600, marginBottom: '1rem' }}>
+                        ⚠️ You are currently using a Guest account. Please log in or sign up to submit reviews.
+                      </p>
+                      <button className="btn-primary" style={{ borderRadius: 'var(--radius-sm)' }} onClick={() => navigate('/login')}>Log In / Sign Up</button>
+                    </>
+                  ) : (
+                    <>
+                      <p style={{ fontSize: '.8rem', color: 'var(--gray4)', marginBottom: '1rem' }}>Have you received a delivery? Share your feedback!</p>
+                      <button className="btn-primary" style={{ borderRadius: 'var(--radius-sm)' }} onClick={() => navigate('/shop')}>Write a Review</button>
+                    </>
+                  )}
                 </div>
                 <div className="reviews-row" style={{ marginTop: '1.5rem' }}>
                   <div className="review-card">
@@ -1013,7 +1048,7 @@ export default function Profile() {
                 <form onSubmit={handleSaveProfile} className="profile-form">
                   <div className="profile-grid">
                     <div><label className="form-label">Full Name</label><input type="text" className="form-input" value={name} onChange={e => setName(e.target.value)} required /></div>
-                    <div><label className="form-label">Email Address</label><input type="email" className="form-input" value={user?.email || ''} disabled style={{ background: 'var(--gray1)', cursor: 'not-allowed' }} /></div>
+                    <div><label className="form-label">Email Address</label><input type="email" className="form-input" value={user?.email || 'Guest (Sign up to add email)'} disabled style={{ background: 'var(--gray1)', cursor: 'not-allowed' }} /></div>
                     <div><label className="form-label">Phone Number</label><input type="tel" className="form-input" value={phone} onChange={e => setPhone(e.target.value)} placeholder="017xxxxxxxx" /></div>
                     <div><label className="form-label">Location Coordinates (Optional)</label><input type="text" className="form-input" value={coords} onChange={e => setCoords(e.target.value)} placeholder="Latitude, Longitude" /></div>
                   </div>
@@ -1031,35 +1066,50 @@ export default function Profile() {
               <div className="dash-header"><div className="dash-title">🔒 Security</div><div className="dash-subtitle">Manage your password and account security</div></div>
               <div className="dash-card" style={{ padding: '2rem' }}>
                 <div style={{ maxWidth: 440 }}>
-                  <h3 style={{ fontFamily: 'var(--ff-display)', fontSize: '1rem', fontWeight: 800, color: 'var(--dark)', marginBottom: '.5rem' }}>Password Reset</h3>
-                  <p style={{ fontSize: '.82rem', color: 'var(--gray4)', lineHeight: 1.65, marginBottom: '1.5rem' }}>
-                    We'll send a secure password reset link to <strong>{user.email}</strong>. Click the link in your email to set a new password.
-                  </p>
-                  <button
-                    className="btn-primary"
-                    style={{ borderRadius: 'var(--radius-sm)' }}
-                    onClick={async () => {
-                      try {
-                        await sendPasswordResetEmail(auth, user.email);
-                        toast.success('Password reset email sent! Check your inbox.');
-                      } catch (err) {
-                        console.error(err);
-                        toast.error('Failed to send reset email. Try again.');
-                      }
-                    }}
-                  >
-                    📧 Send Password Reset Email
-                  </button>
-                  <div style={{ marginTop: '2rem', paddingTop: '1.5rem', borderTop: '1px solid var(--gray2)' }}>
-                    <h4 style={{ fontSize: '.82rem', fontWeight: 700, color: 'var(--dark)', marginBottom: '.75rem' }}>🛡️ Active Sessions</h4>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '.75rem 1rem', background: 'var(--gray1)', borderRadius: 10, border: '1.5px solid var(--gray2)', fontSize: '.8rem' }}>
-                      <div>
-                        <div style={{ fontWeight: 700, color: 'var(--dark)' }}>Current Device</div>
-                        <div style={{ color: 'var(--gray4)', marginTop: 2 }}>Last active: just now</div>
+                  {user ? (
+                    <>
+                      <h3 style={{ fontFamily: 'var(--ff-display)', fontSize: '1rem', fontWeight: 800, color: 'var(--dark)', marginBottom: '.5rem' }}>Password Reset</h3>
+                      <p style={{ fontSize: '.82rem', color: 'var(--gray4)', lineHeight: 1.65, marginBottom: '1.5rem' }}>
+                        We'll send a secure password reset link to <strong>{user.email}</strong>. Click the link in your email to set a new password.
+                      </p>
+                      <button
+                        className="btn-primary"
+                        style={{ borderRadius: 'var(--radius-sm)' }}
+                        onClick={async () => {
+                          try {
+                            await sendPasswordResetEmail(auth, user.email);
+                            toast.success('Password reset email sent! Check your inbox.');
+                          } catch (err) {
+                            console.error(err);
+                            toast.error('Failed to send reset email. Try again.');
+                          }
+                        }}
+                      >
+                        📧 Send Password Reset Email
+                      </button>
+                      <div style={{ marginTop: '2rem', paddingTop: '1.5rem', borderTop: '1px solid var(--gray2)' }}>
+                        <h4 style={{ fontSize: '.82rem', fontWeight: 700, color: 'var(--dark)', marginBottom: '.75rem' }}>🛡️ Active Sessions</h4>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '.75rem 1rem', background: 'var(--gray1)', borderRadius: 10, border: '1.5px solid var(--gray2)', fontSize: '.8rem' }}>
+                          <div>
+                            <div style={{ fontWeight: 700, color: 'var(--dark)' }}>Current Device</div>
+                            <div style={{ color: 'var(--gray4)', marginTop: 2 }}>Last active: just now</div>
+                          </div>
+                          <span style={{ fontSize: '.7rem', fontWeight: 700, padding: '.25rem .65rem', borderRadius: 100, background: '#DCFCE7', color: 'var(--green)' }}>Active</span>
+                        </div>
                       </div>
-                      <span style={{ fontSize: '.7rem', fontWeight: 700, padding: '.25rem .6rem', borderRadius: 100, background: '#DCFCE7', color: 'var(--green)' }}>Active</span>
+                    </>
+                  ) : (
+                    <div style={{ textAlign: 'center', padding: '1rem 0' }}>
+                      <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>🔒</div>
+                      <h3 style={{ fontWeight: 800, fontSize: '.95rem', color: 'var(--dark)', marginBottom: '.5rem' }}>Account Security Settings</h3>
+                      <p style={{ fontSize: '.82rem', color: 'var(--gray4)', marginBottom: '1.5rem', lineHeight: 1.6 }}>
+                        Sign up or log in to customize password, set up multi-factor verification, and secure your account credentials.
+                      </p>
+                      <Link to="/login" className="btn-primary" style={{ borderRadius: 'var(--radius-sm)', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '0.5rem', justifyContent: 'center' }}>
+                        🔑 Log In / Sign Up
+                      </Link>
                     </div>
-                  </div>
+                  )}
                 </div>
               </div>
             </div>

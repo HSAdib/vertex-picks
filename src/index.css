@@ -11,6 +11,7 @@
 
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
+  color-scheme: light;
   --primary:#E8540A;--primary-light:#FF7A35;--primary-pale:#FFF0E8;
   --gold:#F5A623;--gold-pale:#FFF8EC;
   --green:#1B6B2F;--green-light:#2A9445;
@@ -45,6 +46,7 @@
 }
 
 html[data-theme="dark"] {
+  color-scheme: dark;
   --bg-primary: #0F0F0F;
   --bg-secondary: #1A1A1A;
   --bg-card: #222222;
@@ -65,6 +67,7 @@ html[data-theme="dark"] {
 }
 
 [data-theme="light"] {
+  color-scheme: light;
   --bg-primary: #F7F7F7;
   --bg-secondary: #FFFFFF;
   --bg-card: #FFFFFF;
