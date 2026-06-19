@@ -42,7 +42,7 @@ export default function ProductDetail() {
 
           const allSnap = await getDocs(collection(db, 'mangoes'));
           const allProducts = allSnap.docs
-            .filter(d => !['STORE_SECTIONS', 'STORE_SETTINGS', 'NAVBAR_TABS', 'CATEGORIES', 'FILTERS', 'VARIETIES'].includes(d.id) && d.id !== id)
+            .filter(d => !['STORE_SECTIONS', 'STORE_SETTINGS', 'NAVBAR_TABS', 'CATEGORIES', 'FILTERS', 'VARIETIES', 'PACKAGING_OPTIONS', 'DELIVERY_OPTIONS'].includes(d.id) && d.id !== id)
             .map(d => ({ id: d.id, ...d.data() }));
           
           const sameSection = allProducts.filter(p => p.section && p.section === data.section);

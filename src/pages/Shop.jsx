@@ -63,7 +63,7 @@ export default function Shop() {
             fetchedCategories = d.data().list || [];
           } else if (d.id === 'FILTERS') {
             fetchedFilters = d.data() || fetchedFilters;
-          } else if (d.id !== 'STORE_SECTIONS' && d.id !== 'NAVBAR_TABS' && d.id !== 'STORE_SETTINGS' && d.id !== 'VARIETIES') {
+          } else if (d.id !== 'STORE_SECTIONS' && d.id !== 'NAVBAR_TABS' && d.id !== 'STORE_SETTINGS' && d.id !== 'VARIETIES' && d.id !== 'PACKAGING_OPTIONS' && d.id !== 'DELIVERY_OPTIONS') {
             productsArray.push({ id: d.id, ...d.data() });
           }
         });

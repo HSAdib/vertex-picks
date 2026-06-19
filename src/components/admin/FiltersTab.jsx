@@ -49,7 +49,7 @@ export default function FiltersTab() {
       }
       
       const prodSnap = await getDocs(collection(db, 'mangoes'));
-      setProducts(prodSnap.docs.filter(d => !['CATEGORIES','STORE_SECTIONS','STORE_SETTINGS','NAVBAR_TABS','FILTERS', 'VARIETIES'].includes(d.id)).map(d => ({ id: d.id, ...d.data() })));
+      setProducts(prodSnap.docs.filter(d => !['CATEGORIES','STORE_SECTIONS','STORE_SETTINGS','NAVBAR_TABS','FILTERS', 'VARIETIES', 'PACKAGING_OPTIONS', 'DELIVERY_OPTIONS'].includes(d.id)).map(d => ({ id: d.id, ...d.data() })));
     } catch (err) {
       console.error(err);
       toast.error('Failed to load data');

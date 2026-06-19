@@ -169,9 +169,9 @@ export default function Admin() {
 
   const parseWeight = (selectedWeightStr, fallbackWeight) => {
     if (!selectedWeightStr) return fallbackWeight;
-    const kgMatch = selectedWeightStr.match(/(\d+(?:\.\d+)?)\s*k?g/i);
+    const kgMatch = String(selectedWeightStr).match(/(\d+(?:\.\d+)?)\s*k?g/i);
     if (kgMatch) return Number(kgMatch[1]);
-    const gMatch = selectedWeightStr.match(/(\d+(?:\.\d+)?)\s*g/i);
+    const gMatch = String(selectedWeightStr).match(/(\d+(?:\.\d+)?)\s*g/i);
     if (gMatch) return Number(gMatch[1]) / 1000;
     return fallbackWeight;
   };
@@ -224,13 +224,15 @@ export default function Admin() {
   const editedPackagingCostInfo = useMemo(() => {
     const pkg = packagingOptions.find(p => p.id === editOrderPackagingId);
     if (!pkg || editedTotalWeight <= 0) return { units: 0, cost: 0, label: '', type: '' };
-    const units = Math.ceil(editedTotalWeight / pkg.maxCapacity);
+    const capacity = Number(pkg.maxCapacity) || 1;
+    const units = Math.ceil(editedTotalWeight / capacity);
+    const price = Number(pkg.price) || 0;
     return {
       units,
-      cost: units * pkg.price,
+      cost: units * price,
       label: pkg.label,
       type: pkg.type,
-      price: pkg.price
+      price: price
     };
   }, [editOrderPackagingId, editedTotalWeight, packagingOptions]);
 
@@ -239,9 +241,12 @@ export default function Admin() {
     if (editOrderStepsModal.isOpen) {
       const dlv = deliveryOptions.find(d => d.id === editOrderDeliveryId);
       if (dlv && editedTotalWeight > 0) {
+        const perKgRate = Number(dlv.perKgRate) || 0;
+        const firstKgPrice = Number(dlv.firstKgPrice) || 0;
+        const extraKgRate = Number(dlv.extraKgRate) || 0;
         const fee = dlv.pricingType === 'per_kg'
-          ? dlv.perKgRate * editedTotalWeight
-          : dlv.firstKgPrice + (dlv.extraKgRate * Math.max(0, editedTotalWeight - 1));
+          ? perKgRate * editedTotalWeight
+          : firstKgPrice + (extraKgRate * Math.max(0, editedTotalWeight - 1));
         setEditOrderDeliveryFee(fee);
       } else if (!editOrderDeliveryId) {
         setEditOrderDeliveryFee(0);
@@ -878,7 +883,7 @@ export default function Admin() {
               rating: data.rating || [], season: data.season || [], weight: data.weight || [], priceRange: data.priceRange || [], variety: data.variety || []
             });
           }
-        } else if (d.id !== 'STORE_SECTIONS' && d.id !== 'STORE_SETTINGS' && d.id !== 'NAVBAR_TABS' && d.id !== 'VARIETIES') {
+        } else if (d.id !== 'STORE_SECTIONS' && d.id !== 'STORE_SETTINGS' && d.id !== 'NAVBAR_TABS' && d.id !== 'VARIETIES' && d.id !== 'PACKAGING_OPTIONS' && d.id !== 'DELIVERY_OPTIONS') {
           productsList.push({ id: d.id, ...d.data() });
         }
       });

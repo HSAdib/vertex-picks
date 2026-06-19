@@ -157,7 +157,7 @@ export default function Checkout() {
         const productSnap = await getDocs(collection(db, 'mangoes'));
         if (requestId !== loadId) return;
         setLiveProducts(productSnap.docs
-          .filter(d => !['STORE_SECTIONS', 'STORE_SETTINGS', 'NAVBAR_TABS', 'CATEGORIES', 'FILTERS', 'VARIETIES'].includes(d.id))
+          .filter(d => !['STORE_SECTIONS', 'STORE_SETTINGS', 'NAVBAR_TABS', 'CATEGORIES', 'FILTERS', 'VARIETIES', 'PACKAGING_OPTIONS', 'DELIVERY_OPTIONS'].includes(d.id))
           .map(doc => ({ id: doc.id, ...doc.data() })));
         
         const promoSnap = await getDocs(collection(db, 'promos'));
@@ -337,9 +337,9 @@ export default function Checkout() {
 
   const parseWeight = (selectedWeightStr, fallbackWeight) => {
     if (!selectedWeightStr) return fallbackWeight;
-    const kgMatch = selectedWeightStr.match(/(\d+(?:\.\d+)?)\s*k?g/i);
+    const kgMatch = String(selectedWeightStr).match(/(\d+(?:\.\d+)?)\s*k?g/i);
     if (kgMatch) return Number(kgMatch[1]);
-    const gMatch = selectedWeightStr.match(/(\d+(?:\.\d+)?)\s*g/i);
+    const gMatch = String(selectedWeightStr).match(/(\d+(?:\.\d+)?)\s*g/i);
     if (gMatch) return Number(gMatch[1]) / 1000;
     return fallbackWeight;
   };
@@ -402,8 +402,10 @@ export default function Checkout() {
   // --- Packaging cost calculation ---
   const calcPackagingCost = (pkg) => {
     if (!pkg || totalWeight <= 0) return { units: 0, cost: 0 };
-    const units = Math.ceil(totalWeight / pkg.maxCapacity);
-    return { units, cost: units * pkg.price };
+    const capacity = Number(pkg.maxCapacity) || 1;
+    const units = Math.ceil(totalWeight / capacity);
+    const price = Number(pkg.price) || 0;
+    return { units, cost: units * price };
   };
 
   // Auto-select first compatible packaging if none selected
@@ -417,10 +419,13 @@ export default function Checkout() {
   // --- Delivery fee calculation ---
   const calcDeliveryFee = (dlv) => {
     if (!dlv || totalWeight <= 0) return 0;
+    const perKgRate = Number(dlv.perKgRate) || 0;
+    const firstKgPrice = Number(dlv.firstKgPrice) || 0;
+    const extraKgRate = Number(dlv.extraKgRate) || 0;
     if (dlv.pricingType === 'per_kg') {
-      return dlv.perKgRate * totalWeight;
+      return perKgRate * totalWeight;
     } else {
-      return dlv.firstKgPrice + (dlv.extraKgRate * Math.max(0, totalWeight - 1));
+      return firstKgPrice + (extraKgRate * Math.max(0, totalWeight - 1));
     }
   };
 

@@ -216,7 +216,7 @@ export default function Home() {
       try {
         const snap = await getDocs(collection(db, 'mangoes'));
         const list = snap.docs
-          .filter(d => !['STORE_SECTIONS', 'STORE_SETTINGS', 'NAVBAR_TABS', 'CATEGORIES', 'FILTERS', 'VARIETIES'].includes(d.id))
+          .filter(d => !['STORE_SECTIONS', 'STORE_SETTINGS', 'NAVBAR_TABS', 'CATEGORIES', 'FILTERS', 'VARIETIES', 'PACKAGING_OPTIONS', 'DELIVERY_OPTIONS'].includes(d.id))
           .map(d => ({ id: d.id, ...d.data() }))
           .filter(p => p.featured === true)
           .sort((a, b) => (a.order || 0) - (b.order || 0))

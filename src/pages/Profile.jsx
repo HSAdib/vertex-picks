@@ -274,7 +274,7 @@ export default function Profile() {
       if (ids.length === 0) { setWishlistProducts([]); return; }
       try {
         const snap = await getDocs(collection(db, 'mangoes'));
-        const all = snap.docs.filter(d => !['STORE_SECTIONS','STORE_SETTINGS','NAVBAR_TABS', 'CATEGORIES', 'FILTERS', 'VARIETIES'].includes(d.id)).map(d => ({ id: d.id, ...d.data() }));
+        const all = snap.docs.filter(d => !['STORE_SECTIONS','STORE_SETTINGS','NAVBAR_TABS', 'CATEGORIES', 'FILTERS', 'VARIETIES', 'PACKAGING_OPTIONS', 'DELIVERY_OPTIONS'].includes(d.id)).map(d => ({ id: d.id, ...d.data() }));
         setWishlistProducts(all.filter(m => ids.includes(m.id)));
       } catch (err) { console.error('Wishlist load error:', err); }
     };

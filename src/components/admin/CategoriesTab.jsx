@@ -71,7 +71,7 @@ export default function CategoriesTab() {
       // Mode invokes twice, causing duplicate writes).
       const newCats = new Set(categories);
       for (const d of snap.docs) {
-        if (['CATEGORIES', 'FILTERS', 'VARIETIES', 'STORE_SECTIONS', 'STORE_SETTINGS', 'NAVBAR_TABS'].includes(d.id)) continue;
+        if (['CATEGORIES', 'FILTERS', 'VARIETIES', 'STORE_SECTIONS', 'STORE_SETTINGS', 'NAVBAR_TABS', 'PACKAGING_OPTIONS', 'DELIVERY_OPTIONS'].includes(d.id)) continue;
         const data = d.data();
         const cat = data.section || data.variety || 'Uncategorized';
         await updateDoc(doc(db, 'mangoes', d.id), { category: cat });
