@@ -116,6 +116,7 @@ export default function Admin() {
   const [editOrderDiscount, setEditOrderDiscount] = useState(0);
   const [editOrderPromoUsed, setEditOrderPromoUsed] = useState('None');
   const [editOrderDeliveryFee, setEditOrderDeliveryFee] = useState(0);
+  const [editOrderCustomerEmail, setEditOrderCustomerEmail] = useState('offline@vertexpicks.com');
 
   // Map Modal & Geolocation States/Refs
   const [showMapModal, setShowMapModal] = useState(false);
@@ -194,12 +195,33 @@ export default function Admin() {
     setEditOrderDeliveryId(order.deliveryMethod?.id || '');
     setEditOrderRecipientName(order.deliveryName || order.customerName || '');
     setEditOrderRecipientPhone(order.deliveryPhone || '');
+    setEditOrderCustomerEmail(order.customerEmail || 'offline@vertexpicks.com');
     setEditOrderAddress(order.deliveryAddress || '');
     setEditOrderPostcode(order.deliveryPostcode || '');
     setEditOrderCoords(order.deliveryCoords || null);
     setEditOrderDiscount(0);
     setEditOrderPromoUsed(order.promoUsed || 'None');
     setEditOrderDeliveryFee(Number(order.deliveryFee) || 0);
+    setAddItemProductId('');
+    setAddItemWeight('');
+    setAddItemQuantity(1);
+  };
+
+  const handleOpenAddCustomOrder = () => {
+    setEditOrderStepsModal({ isOpen: true, orderId: 'new' });
+    setEditOrderStepsActiveTab('items');
+    setEditOrderItems([]);
+    setEditOrderPackagingId('');
+    setEditOrderDeliveryId('');
+    setEditOrderRecipientName('');
+    setEditOrderRecipientPhone('');
+    setEditOrderCustomerEmail('offline@vertexpicks.com');
+    setEditOrderAddress('');
+    setEditOrderPostcode('');
+    setEditOrderCoords(null);
+    setEditOrderDiscount(0);
+    setEditOrderPromoUsed('None');
+    setEditOrderDeliveryFee(0);
     setAddItemProductId('');
     setAddItemWeight('');
     setAddItemQuantity(1);
@@ -437,10 +459,14 @@ export default function Admin() {
     }
 
     try {
-      const orderRef = doc(db, 'orders', editOrderStepsModal.orderId);
+      const isNewOrder = editOrderStepsModal.orderId === 'new';
+      const orderId = isNewOrder ? generateUniqueId() : editOrderStepsModal.orderId;
+      const orderRef = doc(db, 'orders', orderId);
+      
       const updatedData = {
         deliveryName: editOrderRecipientName.trim(),
         customerName: editOrderRecipientName.trim(),
+        customerEmail: editOrderCustomerEmail.trim() || 'offline@vertexpicks.com',
         deliveryPhone: editOrderRecipientPhone.trim(),
         deliveryAddress: editOrderAddress.trim(),
         deliveryPostcode: editOrderPostcode.trim(),
@@ -465,16 +491,27 @@ export default function Admin() {
         deliveryFee: editOrderDeliveryFee,
         discount: editOrderDiscount,
         promoUsed: editOrderPromoUsed,
-        total: editedTotal
+        total: editedTotal,
+        ...(isNewOrder ? {
+          isManual: true,
+          status: 'Pending',
+          createdAt: new Date()
+        } : {})
       };
 
-      await updateDoc(orderRef, updatedData);
-      setOrders(orders.map(o => o.id === editOrderStepsModal.orderId ? { ...o, ...updatedData } : o));
-      toast.success('Order steps updated successfully!');
+      if (isNewOrder) {
+        await setDoc(orderRef, updatedData);
+        setOrders([{ id: orderId, ...updatedData }, ...orders]);
+        toast.success('Custom offline order created successfully!');
+      } else {
+        await updateDoc(orderRef, updatedData);
+        setOrders(orders.map(o => o.id === orderId ? { ...o, ...updatedData } : o));
+        toast.success('Order steps updated successfully!');
+      }
       setEditOrderStepsModal({ isOpen: false, orderId: null });
     } catch (err) {
       console.error(err);
-      toast.error('Failed to update order steps: ' + err.message);
+      toast.error('Failed to save order: ' + err.message);
     }
   };
 
@@ -1025,17 +1062,19 @@ export default function Admin() {
               if (prev.find(o => o.id === order.id)) return prev;
               return [order, ...prev];
             });
-            setNewOrderAlert(prev => ({
-              show: true,
-              orders: [order, ...prev.orders].slice(0, 5),
-              count: prev.count + 1
-            }));
-            setUnreadOrderCount(prev => prev + 1);
-            playNotificationChime();
-            toast.success(
-              `📦 New order! ৳${order.total || 0} from ${order.customerName || order.deliveryName || 'customer'}`,
-              { duration: 6000, icon: '📦' }
-            );
+            if (!order.isManual) {
+              setNewOrderAlert(prev => ({
+                show: true,
+                orders: [order, ...prev.orders].slice(0, 5),
+                count: prev.count + 1
+              }));
+              setUnreadOrderCount(prev => prev + 1);
+              playNotificationChime();
+              toast.success(
+                `📦 New order! ৳${order.total || 0} from ${order.customerName || order.deliveryName || 'customer'}`,
+                { duration: 6000, icon: '📦' }
+              );
+            }
           }
         }
       });
@@ -3772,6 +3811,14 @@ export default function Admin() {
                   ) : (
                     <>
                       <button
+                        onClick={handleOpenAddCustomOrder}
+                        style={{ display:'inline-flex',alignItems:'center',gap:'.4rem',padding:'.55rem 1.2rem',borderRadius:100,border:'1.5px solid #E8540A',background:'#E8540A',color:'#fff',fontFamily:'var(--ff)',fontSize:'.75rem',fontWeight:800,textTransform:'uppercase',letterSpacing:'.05em',cursor:'pointer',transition:'all .18s' }}
+                        onMouseOver={e=>{ e.currentTarget.style.background='#121212'; e.currentTarget.style.borderColor='#121212'; }}
+                        onMouseOut={e=>{ e.currentTarget.style.background='#E8540A'; e.currentTarget.style.borderColor='#E8540A'; }}
+                      >
+                        ➕ Add Custom Order
+                      </button>
+                      <button
                         onClick={() => window.print()}
                         style={{ display:'inline-flex',alignItems:'center',gap:'.4rem',padding:'.55rem 1.2rem',borderRadius:100,border:'1.5px solid #EEEEEE',background:'#F7F7F7',color:'#555',fontFamily:'var(--ff)',fontSize:'.75rem',fontWeight:800,textTransform:'uppercase',letterSpacing:'.05em',cursor:'pointer',transition:'all .18s' }}
                         onMouseOver={e=>{ e.currentTarget.style.background='#121212'; e.currentTarget.style.color='#fff'; }}
@@ -4317,7 +4364,9 @@ export default function Admin() {
                       exit={{ opacity: 0, scale: 0.96 }}
                     >
                       <div className="order-modal-header">
-                        <h3 className="order-modal-title">✏️ Edit Order Flow (Order #{editOrderStepsModal.orderId?.slice(-6).toUpperCase()})</h3>
+                        <h3 className="order-modal-title">
+                          {editOrderStepsModal.orderId === 'new' ? '➕ Add Custom Order' : `✏️ Edit Order Flow (Order #${editOrderStepsModal.orderId?.slice(-6).toUpperCase()})`}
+                        </h3>
                         <button className="order-modal-close" onClick={() => setEditOrderStepsModal({ isOpen: false, orderId: null })}>✕</button>
                       </div>
 
@@ -4600,7 +4649,7 @@ export default function Admin() {
                         {editOrderStepsActiveTab === 'shipping' && (
                           <div className="space-y-4 animate-fadeIn">
                             <div className="order-section-label">📍 Recipient Details</div>
-                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.25rem' }}>
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1.25rem' }}>
                               <div>
                                 <label className="order-input-label">Recipient Name</label>
                                 <input 
@@ -4621,6 +4670,16 @@ export default function Admin() {
                                   className="order-input"
                                   placeholder="E.g. 01712345678"
                                   required
+                                />
+                              </div>
+                              <div>
+                                <label className="order-input-label">Customer Email</label>
+                                <input 
+                                  type="email" 
+                                  value={editOrderCustomerEmail} 
+                                  onChange={e => setEditOrderCustomerEmail(e.target.value)}
+                                  className="order-input"
+                                  placeholder="E.g. offline@vertexpicks.com"
                                 />
                               </div>
                             </div>
@@ -4752,7 +4811,7 @@ export default function Admin() {
                               className="order-action-pill primary"
                               style={{ padding: '0.6rem 1.75rem', fontSize: '0.8rem' }}
                             >
-                              Save Changes
+                              {editOrderStepsModal.orderId === 'new' ? 'Create Order' : 'Save Changes'}
                             </button>
                           </div>
                         </div>

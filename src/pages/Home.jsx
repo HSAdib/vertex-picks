@@ -5,6 +5,8 @@ import { Share2, Camera, Globe, MessageCircle, Heart } from 'lucide-react';
 import { db } from '../firebaseConfig';
 import { toast } from 'react-hot-toast';
 import { useWishlist } from '../hooks/useWishlist';
+import { useCart } from '../context/CartContext';
+import { useAuth } from '../context/AuthContext';
 import { sanitizeHTML } from '../utils/sanitizeHTML';
 
 export default function Home() {
@@ -16,6 +18,31 @@ export default function Home() {
   const [featuredProducts, setFeaturedProducts] = useState([]);
   const [featuredLoading, setFeaturedLoading] = useState(true);
   const { toggleWishlist, isInWishlist } = useWishlist();
+  const { addToCart } = useCart();
+  const { isAdmin } = useAuth();
+  const [quantities, setQuantities] = useState({});
+  const [cardSelectedWeights, setCardSelectedWeights] = useState({});
+
+  const updateQty = (id, amount) => {
+    setQuantities(prev => {
+      const newQty = Math.max(1, (prev[id] || 1) + amount);
+      return { ...prev, [id]: newQty };
+    });
+  };
+
+  const handleAddToCart = (mango) => {
+    const qtyToAdd = quantities[mango.id] || 1;
+    const selW = cardSelectedWeights[mango.id] || (mango.weightOptions && mango.weightOptions.length > 0 ? mango.weightOptions[0] : `${mango.fixedWeight || 1}kg Box`);
+    addToCart(mango.id, qtyToAdd, mango, selW);
+    setQuantities(prev => ({ ...prev, [mango.id]: 1 }));
+  };
+
+  const handleGodModeEdit = (e, id) => {
+    e.preventDefault();
+    e.stopPropagation();
+    localStorage.setItem('teleportEditId', id);
+    navigate('/admin');
+  };
   
   const [reviews, setReviews] = useState([]);
   const [reviewsLoading, setReviewsLoading] = useState(true);
@@ -350,57 +377,146 @@ export default function Home() {
               <p style={{ fontWeight: 600 }}>No featured products yet — visit Admin → Products to set some!</p>
             </div>
           ) : (
-            featuredProducts.map(p => (
-              <div key={p.id} className="product-card" onClick={() => navigate(`/product/${p.id}`)}>
-                <div className="pc-img" style={{ background: 'var(--bg-card)' }}>
-                  {p.discountPrice && (
-                    <div className="pc-discount-badge">Sale</div>
-                  )}
-                  {(p.images?.[0] || p.image)
-                    ? <img src={p.images?.[0] || p.image} alt={p.name} />
-                    : <span style={{ fontSize: '3.5rem' }}>🥭</span>
-                  }
-                </div>
-                <div className="pc-body">
-                  <div className="pc-name">{p.name}</div>
-                  <div className="pc-sub" style={{ fontFamily: "'Sora', sans-serif", fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '0.4rem', display: 'flex', gap: '0.3rem', alignItems: 'center' }}>
-                    <span>📦 {p.fixedWeight || 1}kg Box</span>
-                    <span> · 🌱 {p.season || 'Peak'} Season</span>
+            featuredProducts.map(p => {
+              const mainImage = p.images?.[0] || p.image;
+              const displayPrice = p.discountPrice || p.price;
+              const oldPrice = p.discountPrice ? p.price : null;
+              const ratingStars = Math.round(Number(p.stats?.rating) || Number(p.rating) || 5);
+              const isLiked = isInWishlist(p.id);
+
+              return (
+                <div key={p.id} className="product-card" onClick={() => navigate(`/product/${p.id}`)}>
+                  {/* Image */}
+                  <div className="pc-img">
+                    {p.discountPercent && (
+                      <div className="pc-discount-badge">-{p.discountPercent}%</div>
+                    )}
+                    {p.discountPrice && !p.discountPercent && (
+                      <div className="pc-discount-badge">Sale</div>
+                    )}
+                    {isAdmin && (
+                      <button className="pc-edit-btn" onClick={e => handleGodModeEdit(e, p.id)}>
+                        EDIT
+                      </button>
+                    )}
+                    {mainImage
+                      ? <img src={mainImage} alt={p.name} />
+                      : <span style={{ fontSize: '3.5rem' }}>🥭</span>
+                    }
                   </div>
-                  <div className="pc-rating">
-                    <span className="stars">★★★★★</span> 5.0 <span>(—)</span>
-                  </div>
-                  <div className="pc-price-row">
-                    <div className="pc-price">
-                      ৳{Number(p.discountPrice || p.price || 0).toLocaleString()} <span className="unit">/ {p.fixedWeight || 1}kg box</span>
-                      {p.discountPrice && (
-                        <>
-                          <span className="old">৳{p.price}</span>
-                          {Number(p.price) > Number(p.discountPrice) && (
-                            <span className="pc-savings-pill">Save ৳{Number(p.price) - Number(p.discountPrice)}</span>
-                          )}
-                        </>
+
+                  {/* Body */}
+                  <div className="pc-body">
+                    {p.section && (
+                      <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.08em', color: 'var(--primary)', marginBottom: 4 }}>
+                        {p.section}
+                      </div>
+                    )}
+                    <h4 className="pc-name" style={{ overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 1, WebkitBoxOrient: 'vertical' }}>{p.name}</h4>
+                    <div className="pc-sub" style={{ fontFamily: "'Sora', sans-serif", fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '0.4rem', display: 'flex', gap: '0.3rem', alignItems: 'center', flexWrap: 'wrap' }}>
+                      {p.weightOptions && p.weightOptions.length > 1 ? (
+                        <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap', marginTop: '0.2rem', marginBottom: '0.2rem' }} onClick={e => { e.preventDefault(); e.stopPropagation(); }}>
+                          {p.weightOptions.map(opt => {
+                            const isSelected = (cardSelectedWeights[p.id] || p.weightOptions[0]) === opt;
+                            return (
+                              <button
+                                key={opt}
+                                type="button"
+                                onClick={() => setCardSelectedWeights(prev => ({ ...prev, [p.id]: opt }))}
+                                style={{
+                                  background: isSelected ? '#E8540A' : 'var(--bg-card)',
+                                  borderColor: isSelected ? '#E8540A' : 'var(--border-color)',
+                                  borderStyle: 'solid',
+                                  borderWidth: '1.5px',
+                                  borderRadius: '100px',
+                                  fontSize: '0.75rem',
+                                  fontWeight: 700,
+                                  color: isSelected ? '#FFFFFF' : 'var(--text-primary)',
+                                  padding: '0.3rem 0.8rem',
+                                  cursor: 'pointer',
+                                  transition: 'all 0.15s'
+                                }}
+                              >
+                                {opt}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      ) : (
+                        <span>📦 {p.weightOptions && p.weightOptions.length === 1 ? p.weightOptions[0] : `${p.fixedWeight || 1}kg Box`}</span>
                       )}
+                      {p.season && <span> · 🌱 {p.season} Season</span>}
                     </div>
-                    <button
-                      style={{ 
-                        background: 'var(--gray1)', border: 'none', cursor: 'pointer',
-                        fontSize: '1.2rem', color: isInWishlist(p.id) ? 'var(--primary)' : 'var(--gray4)',
-                        width: '32px', height: '32px', borderRadius: '50%',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        transition: 'all 0.2s', marginTop: '-4px'
-                      }}
-                      onClick={e => { e.preventDefault(); e.stopPropagation(); toggleWishlist(p); }}
-                      title={isInWishlist(p.id) ? "Remove from Wishlist" : "Add to Wishlist"}
-                      onMouseEnter={e => e.currentTarget.style.color = 'var(--primary)'}
-                      onMouseLeave={e => e.currentTarget.style.color = isInWishlist(p.id) ? 'var(--primary)' : 'var(--gray4)'}
-                    >
-                      <Heart size={18} fill={isInWishlist(p.id) ? 'currentColor' : 'none'} />
-                    </button>
+                    <div className="pc-rating">
+                      <span className="stars">{'★'.repeat(ratingStars)}{'☆'.repeat(5 - ratingStars)}</span>
+                      <span>({p.stats?.reviewCount || p.reviews?.length || 0})</span>
+                    </div>
+                    <div className="pc-price-row">
+                      <div className="pc-price">
+                        ৳{Number(displayPrice).toLocaleString()}
+                        {oldPrice && (
+                          <>
+                            <span className="old">৳{Number(oldPrice).toLocaleString()}</span>
+                            {Number(oldPrice) > Number(displayPrice) && (
+                              <span className="pc-savings-pill">Save ৳{Number(oldPrice) - Number(displayPrice)}</span>
+                            )}
+                          </>
+                        )}
+                      </div>
+                      <button
+                        style={{ 
+                          background: 'var(--gray1)', border: 'none', cursor: 'pointer',
+                          fontSize: '1.2rem', color: isLiked ? 'var(--primary)' : 'var(--gray4)',
+                          width: '32px', height: '32px', borderRadius: '50%',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          transition: 'all 0.2s', marginTop: '-4px'
+                        }}
+                        onClick={e => { e.preventDefault(); e.stopPropagation(); toggleWishlist(p); }}
+                        title={isLiked ? "Remove from Wishlist" : "Add to Wishlist"}
+                        onMouseEnter={e => e.currentTarget.style.color = 'var(--primary)'}
+                        onMouseLeave={e => e.currentTarget.style.color = isLiked ? 'var(--primary)' : 'var(--gray4)'}
+                      >
+                        <Heart size={18} fill={isLiked ? 'currentColor' : 'none'} />
+                      </button>
+                    </div>
+
+                    {/* Bottom Actions */}
+                    <div style={{ marginTop: '0.75rem', paddingTop: '0.75rem', borderTop: '1px solid var(--gray2)', display: 'flex', flexDirection: 'column', alignItems: 'center' }} onClick={e => { e.preventDefault(); e.stopPropagation(); }}>
+                      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', marginBottom: '0.6rem', width: '100%' }}>
+                        <div className="pc-qty-stepper">
+                          <button className="pc-qty-btn" onClick={e => { e.stopPropagation(); updateQty(p.id, -1); }}>−</button>
+                          <input
+                            type="number"
+                            className="pc-qty-input"
+                            value={quantities[p.id] === undefined ? 1 : quantities[p.id]}
+                            min="1"
+                            onClick={e => { e.preventDefault(); e.stopPropagation(); }}
+                            onChange={e => {
+                              const val = e.target.value;
+                              setQuantities(prev => ({ ...prev, [p.id]: val === '' ? '' : Math.max(1, parseInt(val) || 1) }));
+                            }}
+                            onBlur={() => {
+                              if (quantities[p.id] === '' || quantities[p.id] < 1) {
+                                setQuantities(prev => ({ ...prev, [p.id]: 1 }));
+                              }
+                            }}
+                          />
+                          <button className="pc-qty-btn" onClick={e => { e.stopPropagation(); updateQty(p.id, 1); }}>+</button>
+                        </div>
+                      </div>
+                      <div style={{ display: 'flex', gap: '0.5rem', width: '100%' }}>
+                        <button className="pc-add-btn-new" onClick={e => { e.stopPropagation(); handleAddToCart(p); }}>
+                          Add to Cart
+                        </button>
+                        <button className="pc-buy-btn-new" onClick={e => { e.stopPropagation(); handleAddToCart(p); navigate('/checkout'); }}>
+                          Buy Now
+                        </button>
+                      </div>
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))
+              );
+            })
           )}
         </div>
       </div>

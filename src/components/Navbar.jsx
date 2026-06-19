@@ -343,12 +343,29 @@ export default function Navbar() {
                     <div className="nav-custom-dropdown-divider dropdown-mobile-only"></div>
 
                     <Link to="/profile?tab=account" className="nav-custom-dropdown-item" onClick={() => setIsDropdownOpen(false)}>
-                      <span className="nav-custom-dropdown-icon">👤</span> My Profile
+                      <span className="nav-custom-dropdown-icon">👤</span> My Account
+                    </Link>
+                    <Link to="/profile?tab=orders" className="nav-custom-dropdown-item" onClick={() => setIsDropdownOpen(false)}>
+                      <span className="nav-custom-dropdown-icon">📦</span> My Orders
+                    </Link>
+                    <Link to="/profile?tab=wishlist" className="nav-custom-dropdown-item" onClick={() => setIsDropdownOpen(false)}>
+                      <span className="nav-custom-dropdown-icon">❤️</span> Wishlist
                     </Link>
                     <div className="nav-custom-dropdown-divider"></div>
-                    <Link to="/login" className="nav-custom-dropdown-item" onClick={() => setIsDropdownOpen(false)}>
-                      <span className="nav-custom-dropdown-icon">🚪</span> Login / Sign Up
-                    </Link>
+                    <button 
+                      onClick={() => {
+                        setIsDropdownOpen(false);
+                        localStorage.removeItem('vertex_cart');
+                        localStorage.removeItem('vertex_wishlist');
+                        localStorage.removeItem('vertex_guest_profile');
+                        localStorage.removeItem('vertex_guest_addresses');
+                        localStorage.removeItem('vertex_guest_orders');
+                        window.location.href = '/';
+                      }} 
+                      className="nav-custom-dropdown-item nav-custom-dropdown-logout"
+                    >
+                      <span className="nav-custom-dropdown-icon">🚪</span> Logout
+                    </button>
                   </div>
                 </div>
               )}

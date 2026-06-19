@@ -53,7 +53,7 @@ html[data-theme="dark"] {
   --border-color: #333333;
   --text-primary: #F0F0F0;
   --text-secondary: #AAAAAA;
-  --text-muted: #666666;
+  --text-muted: #888888;
   --shadow-color: rgba(0,0,0,0.4);
   --input-bg: #2A2A2A;
   --navbar-bg: #0A0A0A;
@@ -437,7 +437,7 @@ html[data-theme="dark"] .navbar.scrolled {
 .pc-add.added{background:var(--green)}
 .pc-qty-stepper { background: var(--bg-primary); border-radius: 100px; padding: 0.25rem 0.75rem; display: inline-flex; align-items: center; gap: 0.75rem; }
 .pc-qty-btn { background: none; border: none; font-weight: 800; font-size: 0.9rem; color: var(--text-primary); cursor: pointer; padding: 0; }
-.pc-qty-input { font-family: 'Sora', sans-serif; font-weight: 700; min-width: 1.2rem; text-align: center; border: none; background: transparent; outline: none; padding: 0; width: 28px; }
+.pc-qty-input { font-family: 'Sora', sans-serif; font-weight: 700; min-width: 1.2rem; text-align: center; border: none; background: transparent; outline: none; padding: 0; width: 28px; color: var(--text-primary); }
 .pc-add-btn-new { flex: 1; background: var(--bg-card); color: #E8540A; border: 1.5px solid #E8540A; border-radius: 100px; font-family: 'Sora', sans-serif; font-size: 0.75rem; font-weight: 800; padding: 0.65rem 0.5rem; white-space: nowrap; cursor: pointer; transition: all 0.2s ease; display: flex; align-items: center; justify-content: center; }
 .pc-add-btn-new:hover { background: #FFF0E8; }
 .pc-buy-btn-new { flex: 1; background: #FFA600; color: #FFFFFF; border: none; border-radius: 100px; font-family: 'Sora', sans-serif; font-size: 0.75rem; font-weight: 800; padding: 0.65rem 0.5rem; white-space: nowrap; box-shadow: 0 4px 16px rgba(232,84,10,0.25); cursor: pointer; transition: all 0.2s ease; display: flex; align-items: center; justify-content: center; }
@@ -1027,6 +1027,33 @@ input[type="number"] {
 html[data-theme="dark"] .glass-panel {
   background: rgba(26, 26, 26, 0.75);
   border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+/* Product Card Dark Mode Overrides */
+html[data-theme="dark"] .product-card {
+  background: rgba(30, 30, 30, 0.45);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+}
+
+html[data-theme="dark"] .product-card:hover {
+  background: rgba(40, 40, 40, 0.6);
+  border-color: rgba(232, 84, 10, 0.3);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
+}
+
+html[data-theme="dark"] .pc-name {
+  color: var(--text-primary);
+}
+
+html[data-theme="dark"] .pc-sub,
+html[data-theme="dark"] .pc-rating,
+html[data-theme="dark"] .pc-price .unit {
+  color: var(--text-secondary);
+}
+
+html[data-theme="dark"] .pc-price .old {
+  color: var(--text-muted);
 }
 html[data-theme="dark"] .glass-modal {
   background: rgba(34, 34, 34, 0.85) !important;

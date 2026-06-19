@@ -1048,7 +1048,49 @@ export default function Profile() {
                 <form onSubmit={handleSaveProfile} className="profile-form">
                   <div className="profile-grid">
                     <div><label className="form-label">Full Name</label><input type="text" className="form-input" value={name} onChange={e => setName(e.target.value)} required /></div>
-                    <div><label className="form-label">Email Address</label><input type="email" className="form-input" value={user?.email || 'Guest (Sign up to add email)'} disabled style={{ background: 'var(--gray1)', cursor: 'not-allowed' }} /></div>
+                    <div>
+                      <label className="form-label">Email Address</label>
+                      {!user ? (
+                        <div style={{ display: 'flex', gap: '0.75rem' }}>
+                          <input 
+                            type="text" 
+                            className="form-input" 
+                            value="Guest (Sign up to add email)" 
+                            disabled 
+                            style={{ background: 'var(--gray1)', cursor: 'not-allowed', flex: 1 }} 
+                          />
+                          <button 
+                            type="button" 
+                            onClick={() => navigate('/login')}
+                            className="btn-primary" 
+                            style={{ 
+                              borderRadius: '14px', 
+                              padding: '0 1.5rem', 
+                              fontSize: '0.825rem', 
+                              fontWeight: 800, 
+                              whiteSpace: 'nowrap',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              background: '#E8540A',
+                              color: '#fff',
+                              border: 'none',
+                              cursor: 'pointer'
+                            }}
+                          >
+                            Sign Up
+                          </button>
+                        </div>
+                      ) : (
+                        <input 
+                          type="email" 
+                          className="form-input" 
+                          value={user.email} 
+                          disabled 
+                          style={{ background: 'var(--gray1)', cursor: 'not-allowed' }} 
+                        />
+                      )}
+                    </div>
                     <div><label className="form-label">Phone Number</label><input type="tel" className="form-input" value={phone} onChange={e => setPhone(e.target.value)} placeholder="017xxxxxxxx" /></div>
                     <div><label className="form-label">Location Coordinates (Optional)</label><input type="text" className="form-input" value={coords} onChange={e => setCoords(e.target.value)} placeholder="Latitude, Longitude" /></div>
                   </div>
