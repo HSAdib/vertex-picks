@@ -142,27 +142,38 @@ export default function Admin() {
     });
   };
 
+  const getOrderUpdatePayload = (id, extraData) => {
+    const order = orders.find(o => o.id === id);
+    const isGuestVal = order ? (order.isGuest !== undefined ? order.isGuest : false) : false;
+    return {
+      ...extraData,
+      isGuest: isGuestVal
+    };
+  };
+
   const handleBatchStatus = async (newStatus) => {
     if (selectedOrders.size === 0) return;
     setBatchUpdating(true);
     try {
-      await Promise.all([...selectedOrders].map(id => updateDoc(doc(db, 'orders', id), { status: newStatus })));
-      setOrders(orders.map(o => selectedOrders.has(o.id) ? { ...o, status: newStatus } : o));
+      await Promise.all([...selectedOrders].map(id => updateDoc(doc(db, 'orders', id), getOrderUpdatePayload(id, { status: newStatus }))));
+      setOrders(orders.map(o => selectedOrders.has(o.id) ? { ...o, status: newStatus, isGuest: getOrderUpdatePayload(o.id, {}).isGuest } : o));
       toast.success(`${selectedOrders.size} order(s) marked as ${newStatus}`);
       setSelectedOrders(new Set());
-    } catch {
-      toast.error('Failed to update orders.');
+    } catch (err) {
+      console.error("Failed to update batch status:", err);
+      toast.error('Failed to update orders: ' + err.message);
     }
     setBatchUpdating(false);
   };
 
   const handleUpdateStatus = async (id, newStatus) => {
     try {
-      await updateDoc(doc(db, 'orders', id), { status: newStatus });
-      setOrders(orders.map(o => o.id === id ? { ...o, status: newStatus } : o));
+      await updateDoc(doc(db, 'orders', id), getOrderUpdatePayload(id, { status: newStatus }));
+      setOrders(orders.map(o => o.id === id ? { ...o, status: newStatus, isGuest: getOrderUpdatePayload(id, {}).isGuest } : o));
       toast.success(`Status updated to ${newStatus}`);
-    } catch {
-      toast.error('Failed to update status.');
+    } catch (err) {
+      console.error("Failed to update status:", err);
+      toast.error('Failed to update status: ' + err.message);
     }
   };
 
@@ -460,9 +471,11 @@ export default function Admin() {
 
     try {
       const isNewOrder = editOrderStepsModal.orderId === 'new';
-      const orderId = isNewOrder ? generateUniqueId() : editOrderStepsModal.orderId;
-      const orderRef = doc(db, 'orders', orderId);
+      const orderRef = isNewOrder ? doc(collection(db, 'orders')) : doc(db, 'orders', editOrderStepsModal.orderId);
+      const orderId = orderRef.id;
       
+      const existingOrder = orders.find(o => o.id === orderId);
+
       const updatedData = {
         deliveryName: editOrderRecipientName.trim(),
         customerName: editOrderRecipientName.trim(),
@@ -492,6 +505,7 @@ export default function Admin() {
         discount: editOrderDiscount,
         promoUsed: editOrderPromoUsed,
         total: editedTotal,
+        isGuest: existingOrder ? (existingOrder.isGuest !== undefined ? existingOrder.isGuest : false) : false,
         ...(isNewOrder ? {
           isManual: true,
           status: 'Pending',
@@ -504,8 +518,8 @@ export default function Admin() {
         setOrders([{ id: orderId, ...updatedData }, ...orders]);
         toast.success('Custom offline order created successfully!');
       } else {
-        await updateDoc(orderRef, updatedData);
-        setOrders(orders.map(o => o.id === orderId ? { ...o, ...updatedData } : o));
+        await updateDoc(orderRef, getOrderUpdatePayload(orderId, updatedData));
+        setOrders(orders.map(o => o.id === orderId ? { ...o, ...updatedData, isGuest: getOrderUpdatePayload(orderId, {}).isGuest } : o));
         toast.success('Order steps updated successfully!');
       }
       setEditOrderStepsModal({ isOpen: false, orderId: null });
@@ -518,8 +532,8 @@ export default function Admin() {
   const handleSaveTracking = async () => {
     if (!trackingModal.value.trim()) return;
     try {
-      await updateDoc(doc(db, 'orders', trackingModal.orderId), { trackingLink: trackingModal.value });
-      setOrders(orders.map(o => o.id === trackingModal.orderId ? { ...o, trackingLink: trackingModal.value } : o));
+      await updateDoc(doc(db, 'orders', trackingModal.orderId), getOrderUpdatePayload(trackingModal.orderId, { trackingLink: trackingModal.value }));
+      setOrders(orders.map(o => o.id === trackingModal.orderId ? { ...o, trackingLink: trackingModal.value, isGuest: getOrderUpdatePayload(trackingModal.orderId, {}).isGuest } : o));
       toast.success('Tracking link saved!');
       setTrackingModal({ isOpen: false, orderId: null, value: '' });
     } catch {
@@ -528,8 +542,8 @@ export default function Admin() {
   };
 
   const executeSoftDelete = async (id) => {
-    await updateDoc(doc(db, 'orders', id), { deleted: true, deletedAt: new Date() });
-    setOrders(orders.map(o => o.id === id ? { ...o, deleted: true, deletedAt: new Date() } : o));
+    await updateDoc(doc(db, 'orders', id), getOrderUpdatePayload(id, { deleted: true, deletedAt: new Date() }));
+    setOrders(orders.map(o => o.id === id ? { ...o, deleted: true, deletedAt: new Date(), isGuest: getOrderUpdatePayload(id, {}).isGuest } : o));
     toast.success('Order moved to Trash');
   };
 
@@ -543,8 +557,8 @@ export default function Admin() {
   };
 
   const handleRestoreOrder = async (id) => {
-    await updateDoc(doc(db, 'orders', id), { deleted: false, deletedAt: null });
-    setOrders(orders.map(o => o.id === id ? { ...o, deleted: false, deletedAt: null } : o));
+    await updateDoc(doc(db, 'orders', id), getOrderUpdatePayload(id, { deleted: false, deletedAt: null }));
+    setOrders(orders.map(o => o.id === id ? { ...o, deleted: false, deletedAt: null, isGuest: getOrderUpdatePayload(id, {}).isGuest } : o));
     toast.success('Order restored!');
   };
 
@@ -580,8 +594,8 @@ export default function Admin() {
       value: "",
       action: (url) => {
         if (url) {
-          updateDoc(doc(db, 'orders', id), { trackingLink: url });
-          setOrders(orders.map(o => o.id === id ? { ...o, trackingLink: url } : o));
+          updateDoc(doc(db, 'orders', id), getOrderUpdatePayload(id, { trackingLink: url }));
+          setOrders(orders.map(o => o.id === id ? { ...o, trackingLink: url, isGuest: getOrderUpdatePayload(id, {}).isGuest } : o));
         }
       }
     });
@@ -3967,8 +3981,8 @@ export default function Admin() {
                       onClick={async () => {
                         if (!window.confirm(`Move ${selectedOrders.size} order(s) to trash?`)) return;
                         setBatchUpdating(true);
-                        await Promise.all([...selectedOrders].map(id => updateDoc(doc(db,'orders',id),{deleted:true})));
-                        setOrders(orders.map(o => selectedOrders.has(o.id) ? {...o,deleted:true} : o));
+                        await Promise.all([...selectedOrders].map(id => updateDoc(doc(db,'orders',id), getOrderUpdatePayload(id, {deleted:true}))));
+                        setOrders(orders.map(o => selectedOrders.has(o.id) ? {...o,deleted:true,isGuest: getOrderUpdatePayload(o.id, {}).isGuest} : o));
                         toast.success(`${selectedOrders.size} order(s) moved to trash.`);
                         setSelectedOrders(new Set());
                         setBatchUpdating(false);
