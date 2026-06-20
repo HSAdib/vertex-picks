@@ -206,7 +206,7 @@ export default function Admin() {
     setEditOrderDeliveryId(order.deliveryMethod?.id || '');
     setEditOrderRecipientName(order.deliveryName || order.customerName || '');
     setEditOrderRecipientPhone(order.deliveryPhone || '');
-    setEditOrderCustomerEmail(order.customerEmail || 'offline@vertexpicks.com');
+    setEditOrderCustomerEmail(order.manualCustomerEmail || order.customerEmail || 'offline@vertexpicks.com');
     setEditOrderAddress(order.deliveryAddress || '');
     setEditOrderPostcode(order.deliveryPostcode || '');
     setEditOrderCoords(order.deliveryCoords || null);
@@ -475,11 +475,13 @@ export default function Admin() {
       const orderId = orderRef.id;
       
       const existingOrder = orders.find(o => o.id === orderId);
+      const isManualVal = isNewOrder ? true : (existingOrder?.isManual || false);
 
       const updatedData = {
         deliveryName: editOrderRecipientName.trim(),
         customerName: editOrderRecipientName.trim(),
-        customerEmail: editOrderCustomerEmail.trim() || 'offline@vertexpicks.com',
+        customerEmail: isManualVal ? (auth.currentUser?.email || 'hasanshahriaradib@gmail.com') : (existingOrder?.customerEmail || editOrderCustomerEmail.trim() || 'guest@vertexpicks.com'),
+        manualCustomerEmail: editOrderCustomerEmail.trim() || 'offline@vertexpicks.com',
         deliveryPhone: editOrderRecipientPhone.trim(),
         deliveryAddress: editOrderAddress.trim(),
         deliveryPostcode: editOrderPostcode.trim(),
@@ -1734,7 +1736,7 @@ export default function Admin() {
   const fulfillmentRate = totalOrdersCount > 0 ? ((deliveredOrders / totalOrdersCount) * 100).toFixed(1) : '0.0';
   
   const customerCounts = orders.reduce((acc, o) => {
-    const key = o.customerEmail || o.customerPhone || o.userId;
+    const key = o.manualCustomerEmail || o.customerEmail || o.customerPhone || o.userId;
     if (key) acc[key] = (acc[key] || 0) + 1;
     return acc;
   }, {});
@@ -2461,7 +2463,7 @@ export default function Admin() {
               <div className="bg-[var(--gray1)] p-4 rounded-[14px] border border-[var(--gray2)]">
                 <p className="text-[9px] uppercase tracking-wider text-[var(--gray3)] mb-1 font-black">Billing Customer</p>
                 <p className="text-[var(--dark)] text-sm font-black">{selectedOrder.deliveryName || selectedOrder.customerName || 'Guest User'}</p>
-                <p className="text-[var(--gray4)] mt-0.5 font-semibold">{selectedOrder.customerEmail} • {selectedOrder.deliveryPhone}</p>
+                <p className="text-[var(--gray4)] mt-0.5 font-semibold">{selectedOrder.manualCustomerEmail || selectedOrder.customerEmail} • {selectedOrder.deliveryPhone}</p>
               </div>
               
               <div className="bg-[var(--gray1)] p-4 rounded-[14px] border border-[var(--gray2)]">
@@ -4003,7 +4005,7 @@ export default function Admin() {
                       const q = orderSearch.toLowerCase();
                       if (!o.id.toLowerCase().includes(q) &&
                           !(o.deliveryName||o.customerName||'').toLowerCase().includes(q) &&
-                          !(o.customerEmail||'').toLowerCase().includes(q) &&
+                          !(o.manualCustomerEmail||o.customerEmail||'').toLowerCase().includes(q) &&
                           !(o.deliveryPhone||'').includes(q)) return false;
                     }
                     if (orderStatusFilter !== 'All Status' && o.status !== orderStatusFilter) return false;
@@ -5047,8 +5049,8 @@ export default function Admin() {
                     </div>
                   </div>
                   <div className="cust-stats">
-                    <div className="cs-item"><strong>{orders.filter(o => o.customerEmail === u.email).length}</strong>Orders</div>
-                    <div className="cs-item"><strong>৳{orders.filter(o => o.customerEmail === u.email && o.status === 'Delivered').reduce((sum, o) => sum + Number(o.total || 0), 0).toLocaleString()}</strong>Spent</div>
+                    <div className="cs-item"><strong>{orders.filter(o => (o.manualCustomerEmail || o.customerEmail) === u.email).length}</strong>Orders</div>
+                    <div className="cs-item"><strong>৳{orders.filter(o => (o.manualCustomerEmail || o.customerEmail) === u.email && o.status === 'Delivered').reduce((sum, o) => sum + Number(o.total || 0), 0).toLocaleString()}</strong>Spent</div>
                     <div className="cs-item"><strong>5.0</strong>Rating</div>
                   </div>
                 </div>
@@ -5071,7 +5073,7 @@ export default function Admin() {
                 <div className="aab-right">
                   <button className="add-btn" onClick={() => {
                     const data = filteredCustomers.map(u => {
-                      const uOrders = orders.filter(o => o.customerEmail === u.email);
+                      const uOrders = orders.filter(o => (o.manualCustomerEmail || o.customerEmail) === u.email);
                       const uTotal = uOrders.filter(o => o.status === 'Delivered').reduce((sum, o) => sum + Number(o.total || 0), 0);
                       return [u.name || 'Anonymous', u.phone || 'N/A', 'Dhaka', uOrders.length, uTotal];
                     });
@@ -5097,7 +5099,7 @@ export default function Admin() {
                   </thead>
                   <tbody>
                     {filteredCustomers.map(u => {
-                      const uOrders = orders.filter(o => o.customerEmail === u.email);
+                      const uOrders = orders.filter(o => (o.manualCustomerEmail || o.customerEmail) === u.email);
                       const uTotal = uOrders.filter(o => o.status === 'Delivered').reduce((sum, o) => sum + Number(o.total || 0), 0);
                       const lastOrderDate = uOrders.length > 0 ? new Date(uOrders[0].createdAt?.seconds ? uOrders[0].createdAt.seconds * 1000 : uOrders[0].createdAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) : 'Never';
                       

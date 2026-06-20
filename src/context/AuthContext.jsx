@@ -15,7 +15,7 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       setUser(currentUser);
-      setIsAdmin(currentUser !== null);
+      setIsAdmin(currentUser?.email?.toLowerCase() === ADMIN_EMAIL.toLowerCase());
       setAuthLoading(false);
     });
     return () => unsubscribe();
