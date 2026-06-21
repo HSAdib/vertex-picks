@@ -503,7 +503,7 @@ export default function Shop() {
                         </button>
                       )}
                       {mainImage
-                        ? <img src={mainImage} alt={mango.name} />
+                        ? <img src={mainImage} alt={mango.name} loading="lazy" />
                         : <span style={{ fontSize: '3.5rem' }}>🥭</span>
                       }
                     </div>

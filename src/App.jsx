@@ -9,14 +9,14 @@ import { StoreProvider } from './context/StoreContext';
 import { useStore } from './context/useStore';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from './firebaseConfig';
+import { Analytics } from "@vercel/analytics/react";
 import AdminRoute from './components/AdminRoute';
-import Profile from './pages/Profile';
 import Navbar from './components/Navbar';
-import Home from './pages/Home';
-import Shop from './pages/Shop';
-import Login from './pages/Login';
-import { Analytics } from "@vercel/analytics/react"
 
+const Home = lazy(() => import('./pages/Home'));
+const Shop = lazy(() => import('./pages/Shop'));
+const Login = lazy(() => import('./pages/Login'));
+const Profile = lazy(() => import('./pages/Profile'));
 const Admin = lazy(() => import('./pages/Admin'));
 const Checkout = lazy(() => import('./pages/Checkout'));
 const ProductDetail = lazy(() => import('./components/PDP/ProductDetail'));
@@ -81,11 +81,11 @@ function App() {
               <main className="flex-grow">
                 <Routes>
                  <Route path="/product/:id" element={<Suspense fallback={<RouteFallback />}><ProductDetail /></Suspense>} />
-                  <Route path="/profile" element={<Profile />} />
-                  <Route path="/login" element={<Login />} />
+                  <Route path="/profile" element={<Suspense fallback={<RouteFallback />}><Profile /></Suspense>} />
+                  <Route path="/login" element={<Suspense fallback={<RouteFallback />}><Login /></Suspense>} />
                   <Route path="/admin" element={<Suspense fallback={<RouteFallback />}><AdminRoute><Admin /></AdminRoute></Suspense>} />
-                  <Route path="/" element={<Home />} />
-                  <Route path="/shop" element={<Shop />} />
+                  <Route path="/" element={<Suspense fallback={<RouteFallback />}><Home /></Suspense>} />
+                  <Route path="/shop" element={<Suspense fallback={<RouteFallback />}><Shop /></Suspense>} />
                   <Route path="/checkout" element={<Suspense fallback={<RouteFallback />}><Checkout /></Suspense>} />
                   {/* Fix #8: catch-all 404 — renders instead of a blank page */}
                   <Route path="*" element={

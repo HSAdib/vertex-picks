@@ -241,11 +241,10 @@ export default function Home() {
   useEffect(() => {
     const loadFeatured = async () => {
       try {
-        const snap = await getDocs(collection(db, 'mangoes'));
+        const q = query(collection(db, 'mangoes'), where('featured', '==', true));
+        const snap = await getDocs(q);
         const list = snap.docs
-          .filter(d => !['STORE_SECTIONS', 'STORE_SETTINGS', 'NAVBAR_TABS', 'CATEGORIES', 'FILTERS', 'VARIETIES', 'PACKAGING_OPTIONS', 'DELIVERY_OPTIONS'].includes(d.id))
           .map(d => ({ id: d.id, ...d.data() }))
-          .filter(p => p.featured === true)
           .sort((a, b) => (a.order || 0) - (b.order || 0))
           .slice(0, 4);
         setFeaturedProducts(list);
@@ -400,7 +399,7 @@ export default function Home() {
                       </button>
                     )}
                     {mainImage
-                      ? <img src={mainImage} alt={p.name} />
+                      ? <img src={mainImage} alt={p.name} loading="lazy" />
                       : <span style={{ fontSize: '3.5rem' }}>🥭</span>
                     }
                   </div>
