@@ -352,20 +352,13 @@ export default function Navbar() {
                       <span className="nav-custom-dropdown-icon">❤️</span> Wishlist
                     </Link>
                     <div className="nav-custom-dropdown-divider"></div>
-                    <button 
-                      onClick={() => {
-                        setIsDropdownOpen(false);
-                        localStorage.removeItem('vertex_cart');
-                        localStorage.removeItem('vertex_wishlist');
-                        localStorage.removeItem('vertex_guest_profile');
-                        localStorage.removeItem('vertex_guest_addresses');
-                        localStorage.removeItem('vertex_guest_orders');
-                        window.location.href = '/';
-                      }} 
+                    <Link 
+                      to="/login"
                       className="nav-custom-dropdown-item nav-custom-dropdown-logout"
+                      onClick={() => setIsDropdownOpen(false)}
                     >
-                      <span className="nav-custom-dropdown-icon">🚪</span> Logout
-                    </button>
+                      <span className="nav-custom-dropdown-icon">🔑</span> Login / Sign Up
+                    </Link>
                   </div>
                 </div>
               )}
