@@ -480,7 +480,7 @@ export default function Home() {
                     </div>
 
                     {/* Bottom Actions */}
-                    <div style={{ marginTop: '0.75rem', paddingTop: '0.75rem', borderTop: '1px solid var(--gray2)', display: 'flex', flexDirection: 'column', alignItems: 'center' }} onClick={e => { e.preventDefault(); e.stopPropagation(); }}>
+                    <div style={{ marginTop: 'auto', paddingTop: '0.75rem', borderTop: '1px solid var(--gray2)', display: 'flex', flexDirection: 'column', alignItems: 'center' }} onClick={e => { e.preventDefault(); e.stopPropagation(); }}>
                       <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', marginBottom: '0.6rem', width: '100%' }}>
                         <div className="pc-qty-stepper">
                           <button className="pc-qty-btn" onClick={e => { e.stopPropagation(); updateQty(p.id, -1); }}>−</button>
