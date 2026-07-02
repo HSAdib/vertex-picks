@@ -442,6 +442,11 @@ html[data-theme="dark"] .navbar.scrolled {
 .pc-add-btn-new:hover { background: #FFF0E8; }
 .pc-buy-btn-new { flex: 1; background: #FFA600; color: #FFFFFF; border: none; border-radius: 100px; font-family: 'Sora', sans-serif; font-size: 0.75rem; font-weight: 800; padding: 0.65rem 0.5rem; white-space: nowrap; box-shadow: 0 4px 16px rgba(232,84,10,0.25); cursor: pointer; transition: all 0.2s ease; display: flex; align-items: center; justify-content: center; }
 .pc-buy-btn-new:hover { filter: brightness(1.1); transform: translateY(-1px); }
+
+@media (max-width: 480px) {
+  .pc-add-btn-new { font-size: 0.65rem; padding: 0.55rem 0.3rem; }
+  .pc-buy-btn-new { font-size: 0.65rem; padding: 0.55rem 0.3rem; }
+}
 .products-row{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:1rem}
 .home-section{padding:2.5rem 5%}
 .home-section.bg-light{background:var(--gray1)}

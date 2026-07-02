@@ -579,13 +579,135 @@ export default function Admin() {
     });
   };
 
+  const printOrdersToNewWindow = (orderIds) => {
+    const allOrders = orders.filter(o => !o.deleted);
+    const printOrders = orderIds && orderIds.length > 0
+      ? allOrders.filter(o => orderIds.includes(o.id))
+      : allOrders;
+    if (!printOrders.length) return;
+
+    const receiptHTML = printOrders.map(order => {
+      const pkgLabel = !order.packagingOption ? 'None'
+        : (typeof order.packagingOption === 'string' ? order.packagingOption
+          : `${order.packagingOption.label || 'Packaging'} (${order.packagingOption.unitsNeeded || 1} unit${(order.packagingOption.unitsNeeded || 1) > 1 ? 's' : ''})`);
+      const dlvLabel = !order.deliveryMethod ? 'Standard Courier'
+        : (typeof order.deliveryMethod === 'string' ? order.deliveryMethod
+          : (order.deliveryMethod.label || 'Standard Courier'));
+      const dateStr = order.createdAt?.toDate
+        ? order.createdAt.toDate().toLocaleDateString()
+        : new Date(order.createdAt?.seconds ? order.createdAt.seconds * 1000 : order.createdAt).toLocaleDateString();
+
+      const itemRows = (order.items || []).map(item => {
+        const price = item.discountPrice || item.price || 0;
+        return `<tr>
+          <td style="padding:6px 4px;border-bottom:1px dashed #e2e8f0;font-weight:600;color:#0f172a">${item.name || 'Item'}</td>
+          <td style="padding:6px 4px;border-bottom:1px dashed #e2e8f0;text-align:center">${item.selectedWeight || item.weight || 'N/A'}</td>
+          <td style="padding:6px 4px;border-bottom:1px dashed #e2e8f0;text-align:center;font-weight:700">${item.quantity || 1}</td>
+          <td style="padding:6px 4px;border-bottom:1px dashed #e2e8f0;text-align:right">৳${price}</td>
+          <td style="padding:6px 4px;border-bottom:1px dashed #e2e8f0;text-align:right;font-weight:700">৳${price * (item.quantity || 1)}</td>
+        </tr>`;
+      }).join('');
+
+      return `
+        <div style="padding:20px;border:1px solid #e2e8f0;border-radius:10px;margin-bottom:28px;page-break-inside:avoid;break-inside:avoid;background:#fff;font-family:system-ui,-apple-system,sans-serif;color:#1e293b">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #f1f5f9;padding-bottom:14px;margin-bottom:16px;flex-wrap:wrap;gap:8px">
+            <div>
+              <div style="font-size:20px;font-weight:800;letter-spacing:-0.02em;color:#0f172a;text-transform:uppercase">${storeName}</div>
+              <div style="font-size:11px;color:#64748b;margin-top:3px">${contactAddress} | ${contactPhone}</div>
+              ${contactEmail ? `<div style="font-size:11px;color:#64748b">${contactEmail}</div>` : ''}
+            </div>
+            <div style="text-align:right">
+              <div style="font-size:16px;font-weight:700;color:#0f172a;letter-spacing:0.05em">INVOICE</div>
+              <div style="font-size:11px;color:#64748b;margin-top:2px">Order #${(order.id || '').slice(-8).toUpperCase()}</div>
+              <div style="font-size:11px;color:#64748b">Date: ${dateStr}</div>
+            </div>
+          </div>
+
+          <div style="display:flex;gap:20px;margin-bottom:18px;flex-wrap:wrap">
+            <div style="flex:1;min-width:160px">
+              <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:#94a3b8;margin-bottom:6px">Deliver To</div>
+              <div style="font-size:14px;font-weight:700;color:#0f172a;margin-bottom:3px">${order.deliveryName || order.customerName || 'Valued Customer'}</div>
+              <div style="font-size:12px;color:#475569;margin-bottom:4px">📞 ${order.deliveryPhone || 'N/A'}</div>
+              <div style="font-size:12px;color:#334155;line-height:1.4">${order.deliveryAddress || 'N/A'}</div>
+              ${order.deliveryPostcode ? `<div style="font-size:11px;color:#64748b;margin-top:2px">${order.deliveryPostcode.replace('Postal Code: ', '')}</div>` : ''}
+            </div>
+            <div style="min-width:140px">
+              <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:#94a3b8;margin-bottom:6px">Shipping Details</div>
+              <div style="font-size:12px;color:#334155;margin-bottom:3px">Weight: <strong>${order.totalWeight || 'N/A'} kg</strong></div>
+              <div style="font-size:12px;color:#334155;margin-bottom:3px">Courier: <strong>${dlvLabel}</strong></div>
+              <div style="font-size:12px;color:#334155;margin-bottom:3px">Packaging: <strong>${pkgLabel}</strong></div>
+              <div style="font-size:12px;color:#334155">Status: <strong style="text-transform:uppercase;color:${order.status === 'Done' || order.status === 'Delivered' ? '#16a34a' : '#ea580c'}">${order.status || 'Pending'}</strong></div>
+              ${order.isManual ? `<div style="display:inline-block;margin-top:6px;font-size:10px;font-weight:700;border:1px solid #94a3b8;border-radius:4px;padding:2px 6px;text-transform:uppercase;color:#475569">Offline Sale</div>` : ''}
+            </div>
+          </div>
+
+          <div style="margin-bottom:18px">
+            <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:#94a3b8;border-bottom:1px solid #f1f5f9;padding-bottom:5px;margin-bottom:8px">Items Included</div>
+            <table style="width:100%;border-collapse:collapse;font-size:12px">
+              <thead><tr style="color:#64748b;text-align:left">
+                <th style="padding:4px 4px;font-weight:600">Item</th>
+                <th style="padding:4px 4px;font-weight:600;text-align:center;width:60px">Weight</th>
+                <th style="padding:4px 4px;font-weight:600;text-align:center;width:40px">Qty</th>
+                <th style="padding:4px 4px;font-weight:600;text-align:right;width:70px">Price</th>
+                <th style="padding:4px 4px;font-weight:600;text-align:right;width:70px">Total</th>
+              </tr></thead>
+              <tbody>${itemRows}</tbody>
+            </table>
+          </div>
+
+          <div style="border-top:2px solid #f1f5f9;padding-top:12px">
+            <div style="max-width:220px;margin-left:auto">
+              <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px;color:#475569"><span>Subtotal:</span><span style="font-weight:600">৳${order.subtotal || 0}</span></div>
+              ${(order.packagingCost > 0) ? `<div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px;color:#475569"><span>Packaging Fee:</span><span style="font-weight:600">৳${order.packagingCost}</span></div>` : ''}
+              ${(order.deliveryFee > 0) ? `<div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px;color:#475569"><span>Delivery Fee:</span><span style="font-weight:600">৳${order.deliveryFee}</span></div>` : ''}
+              ${(order.discount > 0) ? `<div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:6px;color:#dc2626"><span>Discount:</span><span style="font-weight:600">-৳${order.discount}</span></div>` : ''}
+              <div style="display:flex;justify-content:space-between;font-size:15px;font-weight:800;border-top:1px solid #e2e8f0;padding-top:7px;color:#0f172a"><span>Amount To Collect:</span><span style="font-size:18px">৳${order.total || 0}</span></div>
+            </div>
+            <div style="margin-top:14px;font-size:11px;color:#94a3b8;font-style:italic">Thank you for shopping with ${storeName}! For support: ${contactPhone} | ${contactEmail}</div>
+          </div>
+        </div>`;
+    }).join('');
+
+    const win = window.open('', '_blank');
+    if (!win) return;
+
+    let docTitle = `Receipts — ${storeName}`;
+    if (printOrders.length === 1) {
+      const o = printOrders[0];
+      const shortId = (o.id || '').slice(-6).toUpperCase();
+      const customerName = o.deliveryName || o.customerName || 'Customer';
+      docTitle = `Order ${shortId} - ${customerName}`;
+    } else if (printOrders.length > 1) {
+      docTitle = `Orders (${printOrders.length}) - ${storeName}`;
+    }
+
+    win.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0">
+      <title>${docTitle}</title>
+      <style>
+        *{box-sizing:border-box;margin:0;padding:0}
+        body{background:#f8fafc;padding:16px;font-family:system-ui,-apple-system,sans-serif}
+        .receipt-container { max-width: 800px; margin: 0 auto; width: 100%; }
+        @media print{
+          body{background:#fff;padding:0}
+          @page{margin:12mm}
+          .no-print{display:none!important}
+          .receipt-container { max-width: none; }
+        }
+        .no-print{text-align:center;margin-bottom:16px}
+        .print-btn{background:#0f172a;color:#fff;border:none;padding:12px 32px;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;letter-spacing:.03em;box-shadow:0 4px 12px rgba(15,23,42,0.15)}
+      </style>
+    </head><body>
+      <div class="receipt-container">
+        <div class="no-print"><button class="print-btn" onclick="window.print()">🖨️ Print / Save as PDF</button></div>
+        ${receiptHTML}
+      </div>
+    </body></html>`);
+    win.document.close();
+    win.focus();
+  };
+
   const handlePrintSingleOrder = (orderId) => {
-    const prev = new Set(selectedOrders);
-    setSelectedOrders(new Set([orderId]));
-    setTimeout(() => {
-      window.print();
-      setSelectedOrders(prev);
-    }, 150);
+    printOrdersToNewWindow([orderId]);
   };
 
   const handleAddTracking = (id) => {
@@ -906,145 +1028,156 @@ export default function Admin() {
   // 3. View Order Details Modal
   const [showOrderDetailModal, setShowOrderDetailModal] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState(null);
+  // ── ADMIN CACHE & FETCH STRATEGY ────────────────────────────────────────
+  const ADMIN_CACHE_KEY = 'admin_cache_v2';
 
+  // Applies pre-processed data objects to React state (used by both cache and live fetch)
+  const applyProcessedData = (data) => {
+    const { products, adminCats, adminFilt, ordersList, pkgOpts, dlvOpts, config } = data;
+    if (products) {
+      setMangoes(products);
+      if (adminCats) setAdminCategories(adminCats);
+      if (adminFilt) setAdminFilters(adminFilt);
+    }
+    if (ordersList) setOrders(ordersList);
+    if (pkgOpts)    setPackagingOptions(pkgOpts);
+    if (dlvOpts)    setDeliveryOptions(dlvOpts);
+    if (config) {
+      const c = config;
+      setStoreConfig({
+        baseDeliveryFee: c.baseDeliveryFee ?? 110,
+        perKgFee: c.perKgFee ?? 21,
+        automatedLeadEmail: c.automatedLeadEmail || "আসসালামু আলাইকুম,\nVertex Picks-এর আর্লি অ্যাক্সেস লিস্টে যুক্ত হওয়ার জন্য আপনাকে ধন্যবাদ! আমাদের নতুন সিজনের প্রিমিয়াম রাজশাহীর আম যখনই স্টকে আসবে, আমরা সবার আগে আপনাকে জানাবো। \n\nযেকোনো প্রয়োজনে আমাদের সাথে যোগাযোগ করতে পারেন।\nধন্যবাদ,\nVertex Picks টিম",
+        automatedLeadWhatsapp: c.automatedLeadWhatsapp || "আসসালামু আলাইকুম! Vertex Picks-এর আর্লি অ্যাক্সেস লিস্টে যুক্ত হওয়ার জন্য ধন্যবাদ 🥭 নতুন সিজনের আম স্টকে আসলে আমরা আপনাকে এখানেই জানিয়ে দিবো!"
+      });
+      setStoreName(c.storeName || 'Vertex Picks');
+      setContactEmail(c.contactEmail || 'hello@vertexpicks.com');
+      setFooterDesc(c.footerDesc || 'Hand-picked, tree-bagged, and delivered flawlessly. Premium Rajshahi mangoes, direct from farm to your door.');
+      setContactPhone(c.contactPhone || '+880 1581-221084');
+      setContactAddress(c.contactAddress || 'Rajshahi, Bangladesh');
+      setFloatingWhatsappPhone(c.floatingWhatsappPhone || '8801581221084');
+      if (c.marqueeItems && Array.isArray(c.marqueeItems)) setMarqueeItems(c.marqueeItems);
+      if (c.heroBadge1 !== undefined) setHeroBadge1(c.heroBadge1);
+      if (c.heroBadge2 !== undefined) setHeroBadge2(c.heroBadge2);
+      if (c.heroBadge3 !== undefined) setHeroBadge3(c.heroBadge3);
+      if (c.heroTitleLine1 !== undefined) setHeroTitleLine1(c.heroTitleLine1);
+      if (c.heroTitleLine2 !== undefined) setHeroTitleLine2(c.heroTitleLine2);
+      if (c.heroTitleLine3 !== undefined) setHeroTitleLine3(c.heroTitleLine3);
+      if (c.heroSubtitle !== undefined) setHeroSubtitle(c.heroSubtitle);
+      if (c.heroTrust1 !== undefined) setHeroTrust1(c.heroTrust1);
+      if (c.heroTrust2 !== undefined) setHeroTrust2(c.heroTrust2);
+      if (c.heroTrust3 !== undefined) setHeroTrust3(c.heroTrust3);
+      if (c.promiseTitle !== undefined) setPromiseTitle(c.promiseTitle);
+      if (c.promiseFeature1Title !== undefined) setPromiseFeature1Title(c.promiseFeature1Title);
+      if (c.promiseFeature1Text !== undefined) setPromiseFeature1Text(c.promiseFeature1Text);
+      if (c.promiseFeature1Icon !== undefined) setPromiseFeature1Icon(c.promiseFeature1Icon);
+      if (c.promiseFeature2Title !== undefined) setPromiseFeature2Title(c.promiseFeature2Title);
+      if (c.promiseFeature2Text !== undefined) setPromiseFeature2Text(c.promiseFeature2Text);
+      if (c.promiseFeature2Icon !== undefined) setPromiseFeature2Icon(c.promiseFeature2Icon);
+      if (c.promiseFeature3Title !== undefined) setPromiseFeature3Title(c.promiseFeature3Title);
+      if (c.promiseFeature3Text !== undefined) setPromiseFeature3Text(c.promiseFeature3Text);
+      if (c.promiseFeature3Icon !== undefined) setPromiseFeature3Icon(c.promiseFeature3Icon);
+      if (c.promiseFeature4Title !== undefined) setPromiseFeature4Title(c.promiseFeature4Title);
+      if (c.promiseFeature4Text !== undefined) setPromiseFeature4Text(c.promiseFeature4Text);
+      if (c.promiseFeature4Icon !== undefined) setPromiseFeature4Icon(c.promiseFeature4Icon);
+      if (c.promoBanners && Array.isArray(c.promoBanners)) setPromoBanners(c.promoBanners);
+    }
+  };
 
+  // Wave 1: only what's needed to show the dashboard tab immediately
+  const fetchWave1 = async () => {
+    const [mangoesSnap, ordersSnap, pkgSnap, dlvSnap, configSnap] = await Promise.all([
+      getDocs(collection(db, 'mangoes')),
+      getDocs(collection(db, 'orders')),
+      getDoc(doc(db, 'mangoes', 'PACKAGING_OPTIONS')).catch(() => null),
+      getDoc(doc(db, 'mangoes', 'DELIVERY_OPTIONS')).catch(() => null),
+      getDoc(doc(db, 'mangoes', 'STORE_SETTINGS')),
+    ]);
 
-  // Fetch Master Dataset
+    const productsList = [];
+    let adminCats = ['Mangoes', 'Gift Boxes', 'Pickles'];
+    let adminFilt = { variety: ['Himsagar','Langra','Fazli','Gopalbhog','Amrapali','Gift Box'], weight: ['5kg','10kg','20kg'], season: ['Early Season','Peak Season','Late Season'], priceRange: ['0-500','501-1000','1000+'], rating: [] };
+    mangoesSnap.docs.forEach(d => {
+      if (d.id === 'CATEGORIES') {
+        const list = d.data().list || [];
+        if (list.length > 0) adminCats = list;
+      } else if (d.id === 'FILTERS') {
+        const data = d.data() || {};
+        if (data.variety?.length || data.weight?.length || data.season?.length) {
+          adminFilt = { rating: data.rating || [], season: data.season || [], weight: data.weight || [], priceRange: data.priceRange || [], variety: data.variety || [] };
+        }
+      } else if (!['STORE_SECTIONS','STORE_SETTINGS','NAVBAR_TABS','VARIETIES','PACKAGING_OPTIONS','DELIVERY_OPTIONS'].includes(d.id)) {
+        productsList.push({ id: d.id, ...d.data() });
+      }
+    });
+    productsList.sort((a, b) => (a.order || 0) - (b.order || 0));
+
+    const ordersList = ordersSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+    ordersList.sort((a, b) => {
+      const tA = a.createdAt?.toMillis ? a.createdAt.toMillis() : (a.createdAt?.seconds ? a.createdAt.seconds * 1000 : new Date(a.createdAt || 0).getTime());
+      const tB = b.createdAt?.toMillis ? b.createdAt.toMillis() : (b.createdAt?.seconds ? b.createdAt.seconds * 1000 : new Date(b.createdAt || 0).getTime());
+      return tB - tA;
+    });
+
+    const pkgOpts = (pkgSnap?.exists() && Array.isArray(pkgSnap.data().options)) ? pkgSnap.data().options : null;
+    const dlvOpts = (dlvSnap?.exists() && Array.isArray(dlvSnap.data().options)) ? dlvSnap.data().options : null;
+    const config  = configSnap.exists() ? configSnap.data() : null;
+    const processed = { products: productsList, adminCats, adminFilt, ordersList, pkgOpts, dlvOpts, config };
+
+    applyProcessedData(processed);
+    pageLoadTime.current = Date.now();
+
+    // Cache for instant next visit (strip Firestore Timestamps before JSON)
+    try {
+      localStorage.setItem(ADMIN_CACHE_KEY, JSON.stringify({
+        ...processed,
+        ordersList: ordersList.map(o => ({
+          ...o,
+          createdAt: o.createdAt?.toMillis ? o.createdAt.toMillis() : (o.createdAt?.seconds ? o.createdAt.seconds * 1000 : o.createdAt)
+        })).slice(0, 150),
+      }));
+    } catch { /* storage full — skip */ }
+  };
+
+  // Wave 2: secondary collections — loads after UI is already visible
+  const fetchWave2 = async () => {
+    try {
+      const [usersSnap, promosSnap, leadsSnap] = await Promise.all([
+        getDocs(collection(db, 'users')),
+        getDocs(collection(db, 'promos')),
+        getDocs(collection(db, 'leads')).catch(() => null),
+      ]);
+      setUsers(usersSnap.docs.map(d => ({ id: d.id, ...d.data() })));
+      setPromos(promosSnap.docs.map(d => ({ id: d.id, ...d.data() })));
+      if (leadsSnap) {
+        const ll = leadsSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+        ll.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+        setLeads(ll);
+      }
+    } catch (err) {
+      console.error('Wave 2 fetch error:', err);
+    }
+  };
+
+  // Main fetch — serves cache first, then revalidates in background
   const fetchData = async () => {
     try {
-      // 1. Fetch mangoes
-      const mangoesSnap = await getDocs(collection(db, 'mangoes'));
-      const productsList = [];
-      mangoesSnap.docs.forEach(d => {
-        if (d.id === 'CATEGORIES') {
-          const list = d.data().list || [];
-          setAdminCategories(list.length > 0 ? list : ['Mangoes', 'Gift Boxes', 'Pickles']);
-        } else if (d.id === 'FILTERS') {
-          const data = d.data() || {};
-          const isFunctionallyEmpty = (!data.variety || data.variety.length === 0) && 
-                                      (!data.weight || data.weight.length === 0) && 
-                                      (!data.season || data.season.length === 0);
-          if (isFunctionallyEmpty) {
-            setAdminFilters({
-              variety: ['Himsagar', 'Langra', 'Fazli', 'Gopalbhog', 'Amrapali', 'Gift Box'],
-              weight: ['5kg', '10kg', '20kg'],
-              season: ['Early Season', 'Peak Season', 'Late Season'],
-              priceRange: ['0-500', '501-1000', '1000+']
-            });
-          } else {
-            setAdminFilters({
-              rating: data.rating || [], season: data.season || [], weight: data.weight || [], priceRange: data.priceRange || [], variety: data.variety || []
-            });
-          }
-        } else if (d.id !== 'STORE_SECTIONS' && d.id !== 'STORE_SETTINGS' && d.id !== 'NAVBAR_TABS' && d.id !== 'VARIETIES' && d.id !== 'PACKAGING_OPTIONS' && d.id !== 'DELIVERY_OPTIONS') {
-          productsList.push({ id: d.id, ...d.data() });
-        }
-      });
-      productsList.sort((a, b) => (a.order || 0) - (b.order || 0));
-      setMangoes(productsList);
-
-      // 2. Fetch orders (initial load only via getDocs — real-time handled by onSnapshot below)
-      const ordersSnap = await getDocs(collection(db, 'orders'));
-      const ordersList = ordersSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-      ordersList.sort((a, b) => {
-        const timeA = a.createdAt?.toMillis ? a.createdAt.toMillis() : new Date(a.createdAt).getTime();
-        const timeB = b.createdAt?.toMillis ? b.createdAt.toMillis() : new Date(b.createdAt).getTime();
-        return timeB - timeA;
-      });
-      setOrders(ordersList);
-      // Mark page load time so we only alert on FUTURE orders
-      pageLoadTime.current = Date.now();
-
-      // 3. Fetch users
-      const usersSnap = await getDocs(collection(db, 'users'));
-      const usersList = usersSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-      setUsers(usersList);
-
-      // 4. Fetch promos
-      const promosSnap = await getDocs(collection(db, 'promos'));
-      const promosList = promosSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-      setPromos(promosList);
-
-      // 4b. Fetch leads
       try {
-        const leadsSnap = await getDocs(collection(db, 'leads'));
-        const leadsList = leadsSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-        leadsList.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
-        setLeads(leadsList);
-      } catch (err) {
-        console.error('Failed to load leads:', err);
-      }
-
-      // 6. Fetch packaging options
-      try {
-        const pkgSnap = await getDoc(doc(db, 'mangoes', 'PACKAGING_OPTIONS'));
-        if (pkgSnap.exists() && Array.isArray(pkgSnap.data().options)) {
-          setPackagingOptions(pkgSnap.data().options);
+        const raw = localStorage.getItem(ADMIN_CACHE_KEY);
+        if (raw) {
+          applyProcessedData(JSON.parse(raw));
+          setLoading(false);
+          // Silent background revalidation
+          fetchWave1().catch(console.error);
+          fetchWave2().catch(console.error);
+          return;
         }
-      } catch (err) {
-        console.error('Failed to load packaging options:', err);
-      }
+      } catch { /* corrupt cache — fall through */ }
 
-      // 7. Fetch delivery options
-      try {
-        const dlvSnap = await getDoc(doc(db, 'mangoes', 'DELIVERY_OPTIONS'));
-        if (dlvSnap.exists() && Array.isArray(dlvSnap.data().options)) {
-          setDeliveryOptions(dlvSnap.data().options);
-        }
-      } catch (err) {
-        console.error('Failed to load delivery options:', err);
-      }
-
-      // 5. Fetch settings
-      const configSnap = await getDoc(doc(db, 'mangoes', 'STORE_SETTINGS'));
-      if (configSnap.exists()) {
-        const cData = configSnap.data();
-        setStoreConfig({
-          baseDeliveryFee: cData.baseDeliveryFee ?? 110,
-          perKgFee: cData.perKgFee ?? 21,
-          automatedLeadEmail: cData.automatedLeadEmail || "আসসালামু আলাইকুম,\nVertex Picks-এর আর্লি অ্যাক্সেস লিস্টে যুক্ত হওয়ার জন্য আপনাকে ধন্যবাদ! আমাদের নতুন সিজনের প্রিমিয়াম রাজশাহীর আম যখনই স্টকে আসবে, আমরা সবার আগে আপনাকে জানাবো। \n\nযেকোনো প্রয়োজনে আমাদের সাথে যোগাযোগ করতে পারেন।\nধন্যবাদ,\nVertex Picks টিম",
-          automatedLeadWhatsapp: cData.automatedLeadWhatsapp || "আসসালামু আলাইকুম! Vertex Picks-এর আর্লি অ্যাক্সেস লিস্টে যুক্ত হওয়ার জন্য ধন্যবাদ 🥭 নতুন সিজনের আম স্টকে আসলে আমরা আপনাকে এখানেই জানিয়ে দিবো!"
-        });
-        setStoreName(cData.storeName || 'Vertex Picks');
-        setContactEmail(cData.contactEmail || 'hello@vertexpicks.com');
-        setFooterDesc(cData.footerDesc || 'Hand-picked, tree-bagged, and delivered flawlessly. Premium Rajshahi mangoes, direct from farm to your door.');
-        setContactPhone(cData.contactPhone || '+880 1581-221084');
-        setContactAddress(cData.contactAddress || 'Rajshahi, Bangladesh');
-        setFloatingWhatsappPhone(cData.floatingWhatsappPhone || '8801581221084');
-
-
-        // Fetch customizer text settings if they exist
-        if (cData.marqueeItems && Array.isArray(cData.marqueeItems)) setMarqueeItems(cData.marqueeItems);
-        if (cData.heroBadge1 !== undefined) setHeroBadge1(cData.heroBadge1);
-        if (cData.heroBadge2 !== undefined) setHeroBadge2(cData.heroBadge2);
-        if (cData.heroBadge3 !== undefined) setHeroBadge3(cData.heroBadge3);
-        if (cData.heroTitleLine1 !== undefined) setHeroTitleLine1(cData.heroTitleLine1);
-        if (cData.heroTitleLine2 !== undefined) setHeroTitleLine2(cData.heroTitleLine2);
-        if (cData.heroTitleLine3 !== undefined) setHeroTitleLine3(cData.heroTitleLine3);
-        if (cData.heroSubtitle !== undefined) setHeroSubtitle(cData.heroSubtitle);
-        if (cData.heroTrust1 !== undefined) setHeroTrust1(cData.heroTrust1);
-        if (cData.heroTrust2 !== undefined) setHeroTrust2(cData.heroTrust2);
-        if (cData.heroTrust3 !== undefined) setHeroTrust3(cData.heroTrust3);
-        if (cData.promiseTitle !== undefined) setPromiseTitle(cData.promiseTitle);
-        if (cData.promiseFeature1Title !== undefined) setPromiseFeature1Title(cData.promiseFeature1Title);
-        if (cData.promiseFeature1Text !== undefined) setPromiseFeature1Text(cData.promiseFeature1Text);
-        if (cData.promiseFeature1Icon !== undefined) setPromiseFeature1Icon(cData.promiseFeature1Icon);
-        if (cData.promiseFeature2Title !== undefined) setPromiseFeature2Title(cData.promiseFeature2Title);
-        if (cData.promiseFeature2Text !== undefined) setPromiseFeature2Text(cData.promiseFeature2Text);
-        if (cData.promiseFeature2Icon !== undefined) setPromiseFeature2Icon(cData.promiseFeature2Icon);
-        if (cData.promiseFeature3Title !== undefined) setPromiseFeature3Title(cData.promiseFeature3Title);
-        if (cData.promiseFeature3Text !== undefined) setPromiseFeature3Text(cData.promiseFeature3Text);
-        if (cData.promiseFeature3Icon !== undefined) setPromiseFeature3Icon(cData.promiseFeature3Icon);
-        if (cData.promiseFeature4Title !== undefined) setPromiseFeature4Title(cData.promiseFeature4Title);
-        if (cData.promiseFeature4Text !== undefined) setPromiseFeature4Text(cData.promiseFeature4Text);
-        if (cData.promiseFeature4Icon !== undefined) setPromiseFeature4Icon(cData.promiseFeature4Icon);
-        
-        if (cData.promoBanners && Array.isArray(cData.promoBanners)) {
-          setPromoBanners(cData.promoBanners);
-        }
-      }
-
+      // Fresh first load
+      await fetchWave1();
       setLoading(false);
+      fetchWave2().catch(console.error); // load users/promos/leads after UI appears
     } catch (err) {
       console.error('Failed to load admin dataset:', err);
       setLoading(false);
@@ -3802,6 +3935,25 @@ export default function Admin() {
                 border-top: 1.5px solid #EEEEEE;
                 padding: 1.25rem 1.5rem;
               }
+              .order-info-grid {
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                gap: 1.5rem;
+                margin-bottom: 1.25rem;
+              }
+              @media (max-width: 600px) {
+                .order-info-grid {
+                  grid-template-columns: 1fr;
+                  gap: 1rem;
+                }
+                .order-expand-panel {
+                  padding: 1rem;
+                }
+                .order-action-pill {
+                  font-size: .7rem !important;
+                  padding: .4rem .8rem !important;
+                }
+              }
             `}</style>
 
             <div className="print-hide space-y-5">
@@ -3835,7 +3987,7 @@ export default function Admin() {
                         ➕ Add Custom Order
                       </button>
                       <button
-                        onClick={() => window.print()}
+                        onClick={() => printOrdersToNewWindow([])}
                         style={{ display:'inline-flex',alignItems:'center',gap:'.4rem',padding:'.55rem 1.2rem',borderRadius:100,border:'1.5px solid #EEEEEE',background:'#F7F7F7',color:'#555',fontFamily:'var(--ff)',fontSize:'.75rem',fontWeight:800,textTransform:'uppercase',letterSpacing:'.05em',cursor:'pointer',transition:'all .18s' }}
                         onMouseOver={e=>{ e.currentTarget.style.background='#121212'; e.currentTarget.style.color='#fff'; }}
                         onMouseOut={e=>{ e.currentTarget.style.background='#F7F7F7'; e.currentTarget.style.color='#555'; }}
@@ -4169,7 +4321,7 @@ export default function Admin() {
                                 style={{ overflow: 'hidden' }}
                               >
                                 <div className="order-expand-panel">
-                                  <div style={{ display:'grid',gridTemplateColumns:'1fr 1fr',gap:'1.5rem',marginBottom:'1.25rem' }} className="md:grid-cols-2 grid-cols-1">
+                                  <div className="order-info-grid">
 
                                     {/* Delivery Info */}
                                     <div>
@@ -4232,9 +4384,9 @@ export default function Admin() {
                                       <div style={{ background:'var(--bg-card)',border:'1.5px solid var(--border-color)',borderRadius:10,padding:'1rem' }}>
                                         <ul style={{ listStyle:'none',padding:0,margin:'0 0 .75rem' }}>
                                           {order.items?.map((item, idx) => (
-                                            <li key={idx} style={{ display:'flex',justifyContent:'space-between',alignItems:'center',fontFamily:'var(--ff)',fontWeight:700,fontSize:'.8rem',color:'var(--text-primary)',padding:'.3rem 0',borderBottom:'1px dashed var(--border-color)' }}>
-                                              <span>{item.quantity||1}× {item.name||'Item'} {item.weight?`(${item.weight}kg)`:''}</span>
-                                              <span style={{ fontWeight:800,color:'#E8540A' }}>৳{((item.discountPrice||item.price||0)*(item.quantity||1))}</span>
+                                            <li key={idx} style={{ display:'flex',justifyContent:'space-between',alignItems:'flex-start',fontFamily:'var(--ff)',fontWeight:700,fontSize:'.8rem',color:'var(--text-primary)',padding:'.3rem 0',borderBottom:'1px dashed var(--border-color)',gap:'.5rem',minWidth:0 }}>
+                                              <span style={{ flex:1,minWidth:0,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'normal',lineHeight:1.4 }}>{item.quantity||1}× {item.name||'Item'}{item.selectedWeight||item.weight ? ` (${item.selectedWeight||item.weight})` : ''}</span>
+                                              <span style={{ fontWeight:800,color:'#E8540A',flexShrink:0 }}>৳{((item.discountPrice||item.price||0)*(item.quantity||1))}</span>
                                             </li>
                                           ))}
                                         </ul>
@@ -4866,8 +5018,8 @@ export default function Admin() {
 
             </div>{/* END print-hide */}
 
-            {/* ── PRINTABLE PACKING SLIPS ─────────────────────────── */}
-            <div style={{ display:'none' }} className="print:block print:absolute print:top-0 print:left-0 print:w-full print:bg-white print:z-[9999] print:p-8">
+            {/* Printable packing slips are now generated in a separate window via printOrdersToNewWindow() */}
+            <div style={{ display:'none' }}>
               <style>{`@media print { .print\\:block { display: block !important; } .print\\:hidden, .print-hide { display: none !important; } }`}</style>
               {(() => {
                 const allOrders = orders.filter(o => !o.deleted);

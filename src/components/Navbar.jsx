@@ -152,9 +152,15 @@ export default function Navbar() {
         <Link 
           to="/" 
           onClick={(e) => {
-            // If already on '/', just prevent navigation — no full-page reload needed
             if (location.pathname === '/') {
               e.preventDefault();
+              if (window.scrollY > 80) {
+                // Scrolled down — go to top first
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+              } else {
+                // Already at top — reload the page
+                window.location.reload();
+              }
             }
           }}
           className="nav-logo"
@@ -204,7 +210,7 @@ export default function Navbar() {
         <div className="nav-actions">
           {/* Mobile Shop Icon */}
           <Link to="/shop" className="nav-icon-btn mobile-shop-btn" title="Shop">
-            🏪
+            🛍️
           </Link>
 
           {/* Wishlist */}
@@ -263,11 +269,12 @@ export default function Navbar() {
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  transition: 'all 0.2s ease',
-                  boxSizing: 'border-box'
+                  boxSizing: 'border-box',
+                  userSelect: 'none',
+                  WebkitUserSelect: 'none'
                 }}
               >
-                <div className="nav-user-avatar" style={{ margin: 0, width: '28px', height: '28px', fontSize: '.85rem' }}>
+                <div className="nav-user-avatar" style={{ margin: 0, width: '28px', height: '28px', fontSize: '.85rem', userSelect: 'none', WebkitUserSelect: 'none' }}>
                   👤
                 </div>
               </div>
@@ -321,7 +328,7 @@ export default function Navbar() {
                       <span className="nav-custom-dropdown-icon">🏠</span> Home
                     </Link>
                     <Link to="/shop" className={`nav-custom-dropdown-item dropdown-mobile-only ${location.pathname === '/shop' && !currentCategory ? 'active' : ''}`} onClick={() => setIsDropdownOpen(false)}>
-                      <span className="nav-custom-dropdown-icon">🏪</span> Shop
+                      <span className="nav-custom-dropdown-icon">🛍️</span> Shop
                     </Link>
                     {categories.map(cat => (
                       <Link 
@@ -387,12 +394,17 @@ export default function Navbar() {
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  transition: 'all 0.2s ease',
-                  boxSizing: 'border-box'
+                  boxSizing: 'border-box',
+                  userSelect: 'none',
+                  WebkitUserSelect: 'none'
                 }}
               >
-                <div className="nav-user-avatar" style={{ margin: 0, width: '28px', height: '28px', fontSize: '.8rem' }}>
-                  {user.displayName ? user.displayName.charAt(0).toUpperCase() : (user.email ? user.email.charAt(0).toUpperCase() : 'U')}
+                <div className="nav-user-avatar" style={{ margin: 0, width: '28px', height: '28px', fontSize: '.8rem', userSelect: 'none', WebkitUserSelect: 'none', overflow: 'hidden' }}>
+                  {user.photoURL ? (
+                    <img src={user.photoURL} alt="Profile" style={{ width: '100%', height: '100%', objectFit: 'cover' }} referrerPolicy="no-referrer" />
+                  ) : (
+                    user.displayName ? user.displayName.charAt(0).toUpperCase() : (user.email ? user.email.charAt(0).toUpperCase() : 'U')
+                  )}
                 </div>
               </div>
               
@@ -446,7 +458,7 @@ export default function Navbar() {
                       <span className="nav-custom-dropdown-icon">🏠</span> Home
                     </Link>
                     <Link to="/shop" className={`nav-custom-dropdown-item dropdown-mobile-only ${location.pathname === '/shop' && !currentCategory ? 'active' : ''}`} onClick={() => setIsDropdownOpen(false)}>
-                      <span className="nav-custom-dropdown-icon">🏪</span> Shop
+                      <span className="nav-custom-dropdown-icon">🛍️</span> Shop
                     </Link>
                     {categories.map(cat => (
                       <Link 

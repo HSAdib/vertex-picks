@@ -51,7 +51,27 @@ export default function Shop() {
   const navigate = useNavigate();
 
   useEffect(() => {
+    const CACHE_KEY = 'shop_products_cache';
     const fetchMangoes = async () => {
+      // Serve from sessionStorage cache for instant repeat visits
+      try {
+        const cached = sessionStorage.getItem(CACHE_KEY);
+        if (cached) {
+          const { products, cats, filts } = JSON.parse(cached);
+          setMangoes(products);
+          setCategories(cats);
+          setFilters(filts);
+          setLoading(false);
+          // Revalidate in background (silent refresh)
+          fetchFromFirestore(CACHE_KEY, false);
+          return;
+        }
+      } catch {}
+      fetchFromFirestore(CACHE_KEY, true);
+    };
+
+    const fetchFromFirestore = async (cacheKey, showLoading) => {
+      if (showLoading) setLoading(true);
       try {
         const querySnapshot = await getDocs(collection(db, 'mangoes'));
         const productsArray = [];
@@ -69,8 +89,7 @@ export default function Shop() {
         });
 
         productsArray.sort((a, b) => (a.order || 0) - (b.order || 0));
-        setCategories(fetchedCategories);
-        // Fix: If FILTERS document is functionally empty, use the same defaults as Admin > FiltersTab
+
         const isFiltersEmpty = !fetchedFilters.variety?.length && !fetchedFilters.weight?.length && !fetchedFilters.season?.length;
         if (isFiltersEmpty) {
           fetchedFilters = {
@@ -82,20 +101,33 @@ export default function Shop() {
           };
         }
 
-        setFilters({
+        const normalizedFilters = {
           rating: fetchedFilters.rating || [],
           season: fetchedFilters.season || [],
           weight: fetchedFilters.weight || [],
           priceRange: fetchedFilters.priceRange || [],
           variety: fetchedFilters.variety || []
-        });
+        };
+
+        setCategories(fetchedCategories);
+        setFilters(normalizedFilters);
         setMangoes(productsArray);
         setLoading(false);
+
+        // Cache for this browser session
+        try {
+          sessionStorage.setItem(cacheKey, JSON.stringify({
+            products: productsArray,
+            cats: fetchedCategories,
+            filts: normalizedFilters
+          }));
+        } catch {}
       } catch (error) {
         console.error('Error fetching shop data:', error);
         setLoading(false);
       }
     };
+
     fetchMangoes();
   }, []);
 
@@ -231,12 +263,29 @@ export default function Shop() {
   };
 
   if (loading) {
+    // Shimmer skeleton — shows layout instantly instead of a blank spinner
+    const skeletonCount = 4;
     return (
-      <div style={{ paddingTop: 'var(--nav-height)', minHeight: '80vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg-primary)' }}>
-        <div style={{ textAlign: 'center' }}>
-          <div style={{ width: 48, height: 48, border: '4px solid var(--primary)', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite', margin: '0 auto 1rem' }} />
-          <p style={{ fontSize: '.875rem', fontWeight: 700, color: 'var(--gray4)', textTransform: 'uppercase', letterSpacing: '.1em' }}>Syncing Harvests…</p>
+      <div style={{ paddingTop: 'var(--nav-height)', background: 'var(--peach-gradient)', minHeight: '100vh' }}>
+        <section style={{ padding: '1rem 5% 1rem', textAlign: 'center' }}>
+          <div style={{ height: '2.4rem', width: '260px', borderRadius: '12px', background: 'linear-gradient(90deg,var(--gray2) 25%,var(--gray1) 50%,var(--gray2) 75%)', backgroundSize: '400% 100%', animation: 'shimmer 1.4s ease infinite', margin: '0 auto 0.75rem' }} />
+          <div style={{ height: '1rem', width: '340px', maxWidth: '90%', borderRadius: '8px', background: 'linear-gradient(90deg,var(--gray2) 25%,var(--gray1) 50%,var(--gray2) 75%)', backgroundSize: '400% 100%', animation: 'shimmer 1.4s ease infinite', margin: '0 auto' }} />
+        </section>
+        <div style={{ padding: '0 5% 2rem' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: '1rem', marginTop: '1rem' }}>
+            {Array.from({ length: skeletonCount }).map((_, i) => (
+              <div key={i} style={{ background: 'rgba(255,255,255,0.5)', borderRadius: 'var(--radius)', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.6)' }}>
+                <div style={{ height: '160px', background: 'linear-gradient(90deg,var(--gray2) 25%,var(--gray1) 50%,var(--gray2) 75%)', backgroundSize: '400% 100%', animation: 'shimmer 1.4s ease infinite' }} />
+                <div style={{ padding: '0.75rem' }}>
+                  <div style={{ height: '1rem', borderRadius: '6px', background: 'linear-gradient(90deg,var(--gray2) 25%,var(--gray1) 50%,var(--gray2) 75%)', backgroundSize: '400% 100%', animation: 'shimmer 1.4s ease infinite', marginBottom: '0.5rem' }} />
+                  <div style={{ height: '0.75rem', width: '70%', borderRadius: '6px', background: 'linear-gradient(90deg,var(--gray2) 25%,var(--gray1) 50%,var(--gray2) 75%)', backgroundSize: '400% 100%', animation: 'shimmer 1.4s ease infinite', marginBottom: '0.75rem' }} />
+                  <div style={{ height: '1.1rem', width: '50%', borderRadius: '6px', background: 'linear-gradient(90deg,var(--gray2) 25%,var(--gray1) 50%,var(--gray2) 75%)', backgroundSize: '400% 100%', animation: 'shimmer 1.4s ease infinite' }} />
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
+        <style>{`@keyframes shimmer { 0%{background-position:100% 0} 100%{background-position:-100% 0} }`}</style>
       </div>
     );
   }

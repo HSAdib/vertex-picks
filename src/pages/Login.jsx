@@ -25,7 +25,7 @@ const mergeGuestData = async (user) => {
     const guestOrders = JSON.parse(localStorage.getItem('vertex_guest_orders') || '[]');
 
     if (!guestProfile.name && !guestProfile.phone && !guestProfile.coords && guestAddresses.length === 0 && guestOrders.length === 0) {
-      return;
+      return; // Nothing to merge — skip silently, no toast
     }
 
     const userRef = doc(db, 'users', user.uid);
@@ -97,7 +97,11 @@ const mergeGuestData = async (user) => {
     localStorage.removeItem('vertex_guest_addresses');
     localStorage.removeItem('vertex_guest_orders');
 
-    toast.success("Guest details and orders successfully synced to your account! 🎉");
+    // Only show if there was real data to merge
+    const hadData = Object.keys(updates).length > 0 || guestOrders.length > 0;
+    if (hadData) {
+      toast.success("Guest data synced to your account! 🎉", { id: 'guest-merge' });
+    }
   } catch (err) {
     console.error("Error merging guest data:", err);
   }
@@ -145,7 +149,8 @@ export default function Login() {
     const provider = new GoogleAuthProvider();
     try {
       await signInWithPopup(auth, provider);
-      toast.success("Google Login Successful!");
+      // Use a fixed ID so if onAuthStateChanged also triggers, this toast is replaced not doubled
+      toast.success("Logged in successfully!", { id: 'login-success' });
     } catch (err) {
       console.error(err);
       setError(`Google login error: ${err.message}`);
@@ -183,7 +188,7 @@ export default function Login() {
           await signOut(auth);
           setError('Please verify your email address. Check your inbox!');
         } else {
-          toast.success("Logged in successfully!");
+          toast.success("Logged in successfully!", { id: 'login-success' });
         }
       } else {
         const userCredential = await createUserWithEmailAndPassword(auth, emailToUse, password);
