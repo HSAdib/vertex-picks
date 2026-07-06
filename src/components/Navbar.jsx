@@ -56,8 +56,6 @@ export default function Navbar() {
         } else {
           setCategories([]);
         }
-
-        const settingsSnap = await getDoc(doc(db, 'mangoes', 'STORE_SETTINGS'));
       } catch (err) {
         console.error("Error loading navbar data", err);
       }

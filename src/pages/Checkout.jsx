@@ -4,15 +4,13 @@ import { db, auth } from '../firebaseConfig';
 import { onAuthStateChanged } from 'firebase/auth';
 import { useCart } from '../context/CartContext';
 import { useNavigate } from 'react-router-dom';
+import { resolvePrice, getOptionLabel, parseWeight } from '../utils/price';
 import { toast } from 'react-hot-toast';
 import { isValidBDPhoneNumber } from '../utils/phoneValidation';
 import { fetchCurrentLocation } from '../utils/geolocation';
 import { ShoppingBag, Box, Truck, MapPin, Ticket, ShieldCheck, PhoneCall, Check, Trash2, Plus, Minus, ArrowRight, Edit } from 'lucide-react';
 
-// Fix #12: use crypto.randomUUID() to eliminate Date.now() millisecond collision risk
-function generateUniqueId() {
-  return crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36).slice(2);
-}
+import { generateUniqueId } from '../utils/id';
 
 export default function Checkout() {
   const { cart, setCart, removeFromCart, updateQuantity, toggleSelection } = useCart();
@@ -24,6 +22,7 @@ export default function Checkout() {
   const [promoCode, setPromoCode] = useState('');
   const [appliedPromo, setAppliedPromo] = useState(null);
   const [promoMessage, setPromoMessage] = useState({ text: '', type: '' });
+  const [isPlacingOrder, setIsPlacingOrder] = useState(false);
   
   const [customerName, setCustomerName] = useState('');
   const [userProfileName, setUserProfileName] = useState('');
@@ -129,7 +128,6 @@ export default function Checkout() {
       let formattedAddress = "";
       if (data.address) {
         const { road, neighbourhood, town, city, state_district, state, postcode, country } = data.address;
-        console.log('Nominatim postcode raw value:', postcode, '| Full address object:', JSON.stringify(data.address));
         const parts = [road, neighbourhood, city || town, state_district, state, postcode, country];
         formattedAddress = Array.from(new Set(parts)).filter(Boolean).join(', ');
         if (postcode) {
@@ -289,7 +287,7 @@ export default function Checkout() {
           let resolvedWeight = cartItem.selectedWeight;
           if (!resolvedWeight) {
             if (product.weightOptions && product.weightOptions.length > 0) {
-              resolvedWeight = product.weightOptions[0];
+              resolvedWeight = getOptionLabel(product.weightOptions[0]);
               cartChanged = true;
             } else if (product.fixedWeight) {
               resolvedWeight = `${product.fixedWeight}kg Box`;
@@ -335,14 +333,7 @@ export default function Checkout() {
     }
   };
 
-  const parseWeight = (selectedWeightStr, fallbackWeight) => {
-    if (!selectedWeightStr) return fallbackWeight;
-    const kgMatch = String(selectedWeightStr).match(/(\d+(?:\.\d+)?)\s*k?g/i);
-    if (kgMatch) return Number(kgMatch[1]);
-    const gMatch = String(selectedWeightStr).match(/(\d+(?:\.\d+)?)\s*g/i);
-    if (gMatch) return Number(gMatch[1]) / 1000;
-    return fallbackWeight;
-  };
+  // parseWeight is imported from utils/price.js
 
   const cartItemsWithPrice = [];
   cart.forEach(cartItem => {
@@ -358,7 +349,7 @@ export default function Checkout() {
     let resolvedWeight = cartItem.selectedWeight;
     if (!resolvedWeight) {
       if (product.weightOptions && product.weightOptions.length > 0) {
-        resolvedWeight = product.weightOptions[0];
+        resolvedWeight = getOptionLabel(product.weightOptions[0]);
       } else if (product.fixedWeight) {
         resolvedWeight = `${product.fixedWeight}kg Box`;
       }
@@ -378,8 +369,11 @@ export default function Checkout() {
         existing.selectedWeight = resolvedWeight;
       }
     } else {
+      const { displayPrice, oldPrice } = resolvePrice(product, resolvedWeight);
       cartItemsWithPrice.push({
         ...product,
+        price: oldPrice || displayPrice,
+        discountPrice: oldPrice ? displayPrice : null,
         quantity: cartItem.quantity,
         weight: Number(product.fixedWeight) || 1,
         selected: cartItem.selected !== false,
@@ -408,13 +402,13 @@ export default function Checkout() {
     return { units, cost: units * price };
   };
 
-  // Auto-select first compatible packaging if none selected
-  if (!selectedPackaging && packagingOptions.length > 0 && totalWeight > 0) {
-    setSelectedPackaging(packagingOptions[0].id);
-  }
-
-  const currentPackaging = packagingOptions.find(p => p.id === selectedPackaging);
-  const { units: packagingUnits, cost: packagingCost } = calcPackagingCost(currentPackaging);
+  // Auto-select default packaging and cheapest delivery when options load
+  // (moved into useEffect to avoid calling setState during render — C2 fix)
+  useEffect(() => {
+    if (!selectedPackaging && packagingOptions.length > 0 && totalWeight > 0) {
+      setSelectedPackaging(packagingOptions[0].id);
+    }
+  }, [packagingOptions, totalWeight, selectedPackaging]);
 
   // --- Delivery fee calculation ---
   const calcDeliveryFee = (dlv) => {
@@ -429,14 +423,20 @@ export default function Checkout() {
     }
   };
 
-  // Auto-select cheapest delivery if none selected
-  if (!selectedDelivery && deliveryOptions.length > 0 && totalWeight > 0) {
-    const cheapest = [...deliveryOptions].sort((a, b) => calcDeliveryFee(a) - calcDeliveryFee(b))[0];
-    setSelectedDelivery(cheapest.id);
-  }
+  useEffect(() => {
+    if (!selectedDelivery && deliveryOptions.length > 0 && totalWeight > 0) {
+      const cheapest = [...deliveryOptions].sort((a, b) => calcDeliveryFee(a) - calcDeliveryFee(b))[0];
+      setSelectedDelivery(cheapest.id);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [deliveryOptions, totalWeight, selectedDelivery]);
+
+  const currentPackaging = packagingOptions.find(p => p.id === selectedPackaging);
+  const { units: packagingUnits, cost: packagingCost } = calcPackagingCost(currentPackaging);
 
   const currentDelivery = deliveryOptions.find(d => d.id === selectedDelivery);
   const deliveryFee = deliveryOptions.length > 0 ? calcDeliveryFee(currentDelivery) : (totalWeight > 0 ? storeConfig.baseDeliveryFee + ((totalWeight - 1) * storeConfig.perKgFee) : 0);
+
 
   // B5 fix: support both flat and percentage discounts
   let discountAmount = 0;
@@ -494,6 +494,7 @@ export default function Checkout() {
   };
 
   const handleConfirmOrder = async () => {
+    if (isPlacingOrder) return; // prevent double-submit
     if (activeItems.length === 0) return toast.error("Select at least one item to checkout!");
     
     const isNewAddress = selectedAddressId === 'new' || savedAddresses.length === 0;
@@ -508,6 +509,7 @@ export default function Checkout() {
       return toast.error("Please enter a valid Bangladeshi phone number");
     }
 
+    setIsPlacingOrder(true);
     try {
       const finalAddress = isNewAddress
         ? (deliveryHouseNumber.trim() ? `${deliveryHouseNumber.trim()}, ${deliveryAddress}` : deliveryAddress)
@@ -602,6 +604,8 @@ export default function Checkout() {
     } catch (err) {
       console.error("Failed to place order:", err);
       toast.error("Error: " + err.message);
+    } finally {
+      setIsPlacingOrder(false);
     }
   };
 
@@ -1144,11 +1148,20 @@ export default function Checkout() {
               {/* CONFIRM BUTTON */}
               <button 
                 onClick={handleConfirmOrder} 
-                disabled={activeItems.length === 0}
+                disabled={activeItems.length === 0 || isPlacingOrder}
                 className="pulsing-confirm-btn"
               >
-                <span>Confirm Order</span>
-                <ArrowRight style={{ width: '1.1rem', height: '1.1rem' }} />
+                {isPlacingOrder ? (
+                  <>
+                    <span className="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    <span>Placing Order...</span>
+                  </>
+                ) : (
+                  <>
+                    <span>Confirm Order</span>
+                    <ArrowRight style={{ width: '1.1rem', height: '1.1rem' }} />
+                  </>
+                )}
               </button>
 
               {/* TRUST STRIP */}

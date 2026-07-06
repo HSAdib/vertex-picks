@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useCart } from '../../context/CartContext';
 import { useNavigate } from 'react-router-dom';
+import { resolvePrice, getOptionLabel } from '../../utils/price';
 
 export default function ProductInfo({ 
   product, 
@@ -30,6 +31,8 @@ export default function ProductInfo({
   };
 
 
+  const { displayPrice, oldPrice } = resolvePrice(product, selectedWeight);
+
   return (
     <div className="pdp-info">
       <div className="pdp-variety-tag" id="pdp-variety-tag">
@@ -41,15 +44,15 @@ export default function ProductInfo({
       <div className="pdp-meta-row">
         <div className="pdp-rating-block">
           <span className="pdp-stars" id="pdp-stars">
-            {'★'.repeat(product.rating) + '☆'.repeat(5 - product.rating)}
+            {'★'.repeat(product.rating || 5) + '☆'.repeat(5 - (product.rating || 5))}
           </span>
-          <span className="pdp-rating-num" id="pdp-rating-num">{(displayRating ?? product.rating).toFixed(1)}</span>
+          <span className="pdp-rating-num" id="pdp-rating-num">{(displayRating ?? product.rating ?? 5).toFixed(1)}</span>
           <span
             className="pdp-review-count"
             id="pdp-review-count"
             onClick={() => document.getElementById('pdp-tab-btn-reviews')?.click()}
           >
-            ({product.reviews} reviews)
+            ({product.reviews || 0} reviews)
           </span>
         </div>
         <div className="pdp-meta-sep"></div>
@@ -65,21 +68,21 @@ export default function ProductInfo({
       <div className="pdp-price-block">
         <div>
           <div className="pdp-price-main" id="pdp-price-main">
-            ৳{Number(product.price || 0).toLocaleString()}
+            ৳{Number(displayPrice || 0).toLocaleString()}
           </div>
-          <span className="pdp-price-unit" id="pdp-price-unit">per {product.unit}</span>
-          {product.oldPrice && (
+          <span className="pdp-price-unit" id="pdp-price-unit">per {product.unit || 'unit'}</span>
+          {oldPrice && (
             <div id="pdp-save-badge">
               <span className="pdp-price-save">
-                🎉 You save <span id="pdp-save-amount">৳{product.oldPrice - product.price}</span>
+                🎉 You save <span id="pdp-save-amount">৳{oldPrice - displayPrice}</span>
               </span>
             </div>
           )}
         </div>
         <div style={{ textAlign: 'right' }}>
-          {product.oldPrice && (
+          {oldPrice && (
             <div className="pdp-price-old" id="pdp-price-old">
-              ৳{Number(product.oldPrice || 0).toLocaleString()}
+              ৳{Number(oldPrice || 0).toLocaleString()}
             </div>
           )}
           <div style={{ fontSize: '.72rem', color: 'var(--gray4)', marginTop: '.3rem' }}>
@@ -94,12 +97,13 @@ export default function ProductInfo({
         {product.weightOptions && product.weightOptions.length > 1 ? (
           <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginTop: '0.5rem' }}>
             {product.weightOptions.map(opt => {
-              const isSelected = selectedWeight === opt;
+              const optLabel = getOptionLabel(opt);
+              const isSelected = selectedWeight === optLabel;
               return (
                 <button
-                  key={opt}
+                  key={optLabel}
                   type="button"
-                  onClick={() => setSelectedWeight(opt)}
+                  onClick={() => setSelectedWeight(optLabel)}
                   style={{
                     background: isSelected ? '#E8540A' : 'var(--bg-card)',
                     borderColor: isSelected ? '#E8540A' : 'var(--border-color)',
@@ -114,14 +118,14 @@ export default function ProductInfo({
                     transition: 'all 0.15s'
                   }}
                 >
-                  {opt}
+                  {optLabel}
                 </button>
               );
             })}
           </div>
         ) : (
           <div style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--text-primary)', marginTop: '0.4rem' }}>
-            📦 {product.weightOptions && product.weightOptions.length === 1 ? product.weightOptions[0] : product.weight}
+            📦 {product.weightOptions && product.weightOptions.length === 1 ? getOptionLabel(product.weightOptions[0]) : product.weight}
           </div>
         )}
       </div>
@@ -155,7 +159,7 @@ export default function ProductInfo({
           {product.inStock ? '🛒 Add to Cart' : 'Out of Stock'}
         </button>
         <button className="pdp-buy-now" onClick={handleBuyNow} disabled={!product.inStock}>
-          Buy Now <span style={{ opacity: 0.85, fontWeight: 700 }}>• ৳{Number((product.price || 0) * (qty || 1)).toLocaleString()}</span>
+          Buy Now <span style={{ opacity: 0.85, fontWeight: 700 }}>• ৳{Number((displayPrice || 0) * (qty || 1)).toLocaleString()}</span>
         </button>
       </div>
 

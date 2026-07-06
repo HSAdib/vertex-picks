@@ -6,6 +6,7 @@ import { useCart } from '../context/CartContext';
 import { useWishlist } from '../hooks/useWishlist';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Heart } from 'lucide-react';
+import { resolvePrice, getOptionLabel } from '../utils/price';
 
 export default function Shop() {
   const [mangoes, setMangoes] = useState([]);
@@ -140,7 +141,7 @@ export default function Shop() {
 
   const handleAddToCart = (mango) => {
     const qtyToAdd = quantities[mango.id] || 1;
-    const selW = cardSelectedWeights[mango.id] || (mango.weightOptions && mango.weightOptions.length > 0 ? mango.weightOptions[0] : `${mango.fixedWeight || 1}kg Box`);
+    const selW = cardSelectedWeights[mango.id] || (mango.weightOptions && mango.weightOptions.length > 0 ? getOptionLabel(mango.weightOptions[0]) : `${mango.fixedWeight || 1}kg Box`);
     addToCart(mango.id, qtyToAdd, mango, selW);
     setQuantities(prev => ({ ...prev, [mango.id]: 1 }));
   };
@@ -527,8 +528,8 @@ export default function Shop() {
             <div className={`shop-grid${viewMode === 'list' ? ' list-view' : ''}`} id="shopGrid">
               {filteredMangoes.map(mango => {
                 const mainImage = mango.images?.[0] || mango.image;
-                const displayPrice = mango.discountPrice || mango.price;
-                const oldPrice = mango.discountPrice ? mango.price : null;
+                const selW = cardSelectedWeights[mango.id] || (mango.weightOptions && mango.weightOptions.length > 0 ? getOptionLabel(mango.weightOptions[0]) : `${mango.fixedWeight || 1}kg Box`);
+                const { displayPrice, oldPrice } = resolvePrice(mango, selW);
                 const ratingStars = Math.round(Number(mango.stats?.rating) || Number(mango.rating) || 5);
                 const isLiked = isInWishlist(mango.id);
 
@@ -569,12 +570,13 @@ export default function Shop() {
                         {mango.weightOptions && mango.weightOptions.length > 1 ? (
                           <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap', marginTop: '0.2rem', marginBottom: '0.2rem' }} onClick={e => { e.preventDefault(); e.stopPropagation(); }}>
                             {mango.weightOptions.map(opt => {
-                              const isSelected = (cardSelectedWeights[mango.id] || mango.weightOptions[0]) === opt;
+                              const optLabel = getOptionLabel(opt);
+                              const isSelected = selW === optLabel;
                               return (
                                 <button
-                                  key={opt}
+                                  key={optLabel}
                                   type="button"
-                                  onClick={() => setCardSelectedWeights(prev => ({ ...prev, [mango.id]: opt }))}
+                                  onClick={() => setCardSelectedWeights(prev => ({ ...prev, [mango.id]: optLabel }))}
                                   style={{
                                     background: isSelected ? '#E8540A' : 'var(--bg-card)',
                                     borderColor: isSelected ? '#E8540A' : 'var(--border-color)',
@@ -589,13 +591,13 @@ export default function Shop() {
                                     transition: 'all 0.15s'
                                   }}
                                 >
-                                  {opt}
+                                  {optLabel}
                                 </button>
                               );
                             })}
                           </div>
                         ) : (
-                          <span>📦 {mango.weightOptions && mango.weightOptions.length === 1 ? mango.weightOptions[0] : `${mango.fixedWeight || 1}kg Box`}</span>
+                          <span>📦 {mango.weightOptions && mango.weightOptions.length === 1 ? getOptionLabel(mango.weightOptions[0]) : `${mango.fixedWeight || 1}kg Box`}</span>
                         )}
                         {mango.season && <span> · 🌱 {mango.season} Season</span>}
                       </div>

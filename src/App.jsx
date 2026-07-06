@@ -1,6 +1,5 @@
-import { Suspense, lazy, useState, useEffect } from 'react';
+import { Suspense, lazy } from 'react';
 import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom';
-import { Toaster } from 'react-hot-toast';
 import SwipeableToaster from './components/SwipeableToaster';
 import { motion } from 'framer-motion';
 import { AuthProvider } from './context/AuthContext';
@@ -8,8 +7,6 @@ import { CartProvider } from './context/CartContext';
 import { ThemeProvider } from './context/ThemeContext';
 import { StoreProvider } from './context/StoreContext';
 import { useStore } from './context/useStore';
-import { doc, getDoc } from 'firebase/firestore';
-import { db } from './firebaseConfig';
 import { Analytics } from "@vercel/analytics/react";
 import AdminRoute from './components/AdminRoute';
 import Navbar from './components/Navbar';
@@ -29,26 +26,13 @@ const RouteFallback = () => (
 );
 
 const FloatingWhatsApp = () => {
-  const { storeName } = useStore();
-  const [waUrl, setWaUrl] = useState("https://wa.me/8801581221084?text=Hello!%20I%20need%20help%20with%20my%20Vertex%20Picks%20order.");
+  const { storeName, floatingWhatsappPhone } = useStore();
 
-  useEffect(() => {
-    const fetchPhone = async () => {
-      try {
-        const settingsSnap = await getDoc(doc(db, 'mangoes', 'STORE_SETTINGS'));
-        if (settingsSnap.exists()) {
-          const data = settingsSnap.data();
-          const phone = data.floatingWhatsappPhone || data.contactPhone || '8801581221084';
-          const cleanPhone = phone.replace(/\D/g, '');
-          const waPhone = cleanPhone.startsWith('0') ? '88' + cleanPhone : cleanPhone;
-          setWaUrl(`https://wa.me/${waPhone}?text=${encodeURIComponent(`Hello! I need help with my ${storeName} order.`)}`);
-        }
-      } catch (err) {
-        console.error("Error loading floating WhatsApp phone:", err);
-      }
-    };
-    fetchPhone();
-  }, [storeName]);
+  // Build WA URL from context — no extra Firestore read needed (StoreContext already has a live listener)
+  const rawPhone = floatingWhatsappPhone || '8801581221084';
+  const cleanPhone = rawPhone.replace(/\D/g, '');
+  const waPhone = cleanPhone.startsWith('0') ? '88' + cleanPhone : cleanPhone;
+  const waUrl = `https://wa.me/${waPhone}?text=${encodeURIComponent(`Hello! I need help with my ${storeName} order.`)}`;
 
   return (
     <motion.a

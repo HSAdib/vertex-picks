@@ -182,8 +182,8 @@ export default function Login() {
     try {
       if (isLoginMode) {
         const userCredential = await signInWithEmailAndPassword(auth, emailToUse, password);
-        const isAdmin = userCredential.user.email.toLowerCase() === ADMIN_EMAIL.toLowerCase();
-        if (isEmail && !userCredential.user.emailVerified && !isAdmin) {
+        const isAdmin = userCredential.user.email?.toLowerCase() === ADMIN_EMAIL.toLowerCase();
+        if (!isAdmin && isEmail && !userCredential.user.emailVerified) {
           try { await sendEmailVerification(userCredential.user); } catch { /* ignore */ }
           await signOut(auth);
           setError('Please verify your email address. Check your inbox!');
@@ -524,7 +524,7 @@ export default function Login() {
 
         {/* DIVIDER */}
         {!isForgotPasswordMode && (
-          <div style={{ display: 'flex', alignItems: 'center', width: '100%', margin: '1.25rem 0', select: 'none' }}>
+          <div style={{ display: 'flex', alignItems: 'center', width: '100%', margin: '1.25rem 0', userSelect: 'none' }}>
             <div className="login-divider-line"></div>
             <span className="login-divider-text">or</span>
             <div className="login-divider-line"></div>

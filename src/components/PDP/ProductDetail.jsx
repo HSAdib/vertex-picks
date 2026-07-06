@@ -1,11 +1,10 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { doc, getDoc, collection, getDocs, updateDoc, arrayUnion, arrayRemove, query, where } from 'firebase/firestore';
+import { doc, getDoc, collection, getDocs, runTransaction, updateDoc, arrayUnion, query, where, limit } from 'firebase/firestore';
 import { db, auth } from '../../firebaseConfig';
 
 import { useCart } from '../../context/CartContext';
 import { toast } from 'react-hot-toast';
-
 
 import './ProductDetail.css';
 import ProductGallery from './ProductGallery';
@@ -37,17 +36,30 @@ export default function ProductDetail() {
           const data = docSnap.data();
           setProductData({ id: docSnap.id, ...data });
           setSelectedWeight(data.weightOptions && data.weightOptions.length > 0
-            ? data.weightOptions[0]
+            ? (typeof data.weightOptions[0] === 'string' ? data.weightOptions[0] : data.weightOptions[0].label)
             : `${data.fixedWeight || 1} Kg`);
 
-          const allSnap = await getDocs(collection(db, 'mangoes'));
-          const allProducts = allSnap.docs
-            .filter(d => !['STORE_SECTIONS', 'STORE_SETTINGS', 'NAVBAR_TABS', 'CATEGORIES', 'FILTERS', 'VARIETIES', 'PACKAGING_OPTIONS', 'DELIVERY_OPTIONS'].includes(d.id) && d.id !== id)
-            .map(d => ({ id: d.id, ...d.data() }));
-          
-          const sameSection = allProducts.filter(p => p.section && p.section === data.section);
-          const others = allProducts.filter(p => !p.section || p.section !== data.section);
-          const related = [...sameSection, ...others].slice(0, 4);
+          // C3: Query only products in the same section (limited to 8) instead of
+          // fetching the entire collection — avoids a full read just to find 4 related items.
+          let related = [];
+          if (data.section) {
+            const sectionSnap = await getDocs(
+              query(collection(db, 'mangoes'), where('section', '==', data.section), limit(8))
+            );
+            related = sectionSnap.docs
+              .filter(d => !['STORE_SECTIONS', 'STORE_SETTINGS', 'NAVBAR_TABS', 'CATEGORIES', 'FILTERS', 'VARIETIES', 'PACKAGING_OPTIONS', 'DELIVERY_OPTIONS'].includes(d.id) && d.id !== id)
+              .map(d => ({ id: d.id, ...d.data() }))
+              .slice(0, 4);
+          }
+          // Top up from any products if section gave fewer than 4 results
+          if (related.length < 4) {
+            const topUpSnap = await getDocs(query(collection(db, 'mangoes'), limit(10)));
+            const extras = topUpSnap.docs
+              .filter(d => !['STORE_SECTIONS', 'STORE_SETTINGS', 'NAVBAR_TABS', 'CATEGORIES', 'FILTERS', 'VARIETIES', 'PACKAGING_OPTIONS', 'DELIVERY_OPTIONS'].includes(d.id) && d.id !== id)
+              .map(d => ({ id: d.id, ...d.data() }))
+              .filter(p => !related.some(r => r.id === p.id));
+            related = [...related, ...extras].slice(0, 4);
+          }
           setRelatedProducts(related);
         }
         setLoading(false);
@@ -86,7 +98,6 @@ export default function ProductDetail() {
   }, [loading]);
 
   // Check if user has a delivered order containing this product.
-  // Fix #6 (prev): removed `productData` from deps to prevent redundant Firestore re-runs.
   useEffect(() => {
     const checkPurchase = async () => {
       const currentUser = auth.currentUser;
@@ -120,8 +131,6 @@ export default function ProductDetail() {
     setIsSubmitting(true);
 
     const newReview = {
-      // Fix #4: use crypto.randomUUID() so arrayRemove/arrayUnion matching is
-      // collision-proof and React list keys are always unique.
       id: crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36).slice(2),
       name: auth.currentUser.displayName || auth.currentUser.email.split('@')[0],
       userEmail: auth.currentUser.email,
@@ -149,26 +158,33 @@ export default function ProductDetail() {
     setIsSubmitting(false);
   };
 
-  // Fix #3: persist the helpful vote to Firestore using arrayRemove + arrayUnion
-  // so the count survives re-renders and page refreshes.
+  // C4: Wrap the vote in a single transaction to prevent data loss from sequential writes
   const handleHelpfulVote = async (review) => {
     if (!productData) return;
     const oldReview = (productData.reviewsList || []).find(r => r.id === review.id);
     if (!oldReview) return;
-    const updatedReview = { ...oldReview, helpful: (oldReview.helpful || 0) + 1 };
+    const optimisticUpdated = { ...oldReview, helpful: (oldReview.helpful || 0) + 1 };
     try {
       const docRef = doc(db, 'mangoes', productData.id);
-      await updateDoc(docRef, {
-        reviewsList: arrayRemove(oldReview)
-      });
-      await updateDoc(docRef, {
-        reviewsList: arrayUnion(updatedReview)
+      await runTransaction(db, async (transaction) => {
+        const snap = await transaction.get(docRef);
+        if (!snap.exists()) throw new Error('Product not found');
+        const currentList = snap.data().reviewsList || [];
+        const freshOld = currentList.find(r => r.id === review.id);
+        if (!freshOld) throw new Error('Review not found');
+        const freshUpdated = { ...freshOld, helpful: (freshOld.helpful || 0) + 1 };
+        transaction.update(docRef, {
+          reviewsList: [
+            ...currentList.filter(r => r.id !== review.id),
+            freshUpdated
+          ]
+        });
       });
       // Optimistically update local state so the UI reflects the change immediately
       setProductData(prev => ({
         ...prev,
         reviewsList: (prev.reviewsList || []).map(r =>
-          r.id === review.id ? updatedReview : r
+          r.id === review.id ? optimisticUpdated : r
         )
       }));
     } catch (err) {
@@ -220,6 +236,7 @@ export default function ProductDetail() {
     season: productData.season || 'Peak',
     inStock: productData.inStock !== false,
     price: productData.discountPrice || productData.price,
+    discountPrice: productData.discountPrice ? productData.discountPrice : null,
     oldPrice: productData.discountPrice ? productData.price : null,
     unit: productData.unit || 'box',
     weight: `${productData.fixedWeight || 1} Kg`,
@@ -240,7 +257,7 @@ export default function ProductDetail() {
 
   const handleAddToCart = () => {
     addToCart(mappedProduct.id, qty, productData, selectedWeight);
-    // NOTE: CartContext.addToCart already fires a toast (B18 fix) — no extra toast here
+    // NOTE: CartContext.addToCart already fires a toast — no extra toast here
   };
 
   const handleBuyNow = () => {
@@ -328,7 +345,8 @@ export default function ProductDetail() {
             </div>
           </div>
           <button className="pdp-sticky-btn" onClick={handleAddToCart} style={{ height: '44px' }}>🛒 Add to Cart</button>
-          <button className="pdp-sticky-btn buy-now" onClick={handleBuyNow} style={{ height: '44px' }}>Buy Now <span style={{ opacity: 0.85, fontWeight: 700 }}>• ৳{Number((mappedProduct.price || 0) * (qty || 1)).toLocaleString()}</span></button>
+          {/* A2: Use discountPrice if set, otherwise price — shows the real amount user pays */}
+          <button className="pdp-sticky-btn buy-now" onClick={handleBuyNow} style={{ height: '44px' }}>Buy Now <span style={{ opacity: 0.85, fontWeight: 700 }}>• ৳{Number((mappedProduct.discountPrice || mappedProduct.price || 0) * (qty || 1)).toLocaleString()}</span></button>
         </div>
         
         <div className="pdp-sticky-spacer"></div>

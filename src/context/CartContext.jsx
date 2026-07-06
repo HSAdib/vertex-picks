@@ -3,6 +3,7 @@ import { createContext, useContext, useState, useEffect } from 'react';
 import { auth } from '../firebaseConfig';
 import { onAuthStateChanged } from 'firebase/auth';
 import { toast } from 'react-hot-toast';
+import { getOptionLabel } from '../utils/price';
 
 const CartContext = createContext();
 
@@ -31,7 +32,7 @@ export function CartProvider({ children }) {
     let resolvedWeight = selectedWeight;
     if (!resolvedWeight && productData) {
       if (productData.weightOptions && productData.weightOptions.length > 0) {
-        resolvedWeight = productData.weightOptions[0];
+        resolvedWeight = getOptionLabel(productData.weightOptions[0]);
       } else if (productData.fixedWeight) {
         resolvedWeight = `${productData.fixedWeight}kg Box`;
       }

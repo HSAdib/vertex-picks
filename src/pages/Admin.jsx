@@ -10,6 +10,7 @@ import CategoriesTab from '../components/admin/CategoriesTab';
 import FiltersTab from '../components/admin/FiltersTab';
 import { ResponsiveContainer, BarChart, CartesianGrid, XAxis, YAxis, Tooltip, Bar } from 'recharts';
 import { sanitizeHTML } from '../utils/sanitizeHTML';
+import { parseWeight } from '../utils/price';
 
 const exportToCSV = (filename, rows, headers) => {
   const escapeCsvField = (field) => {
@@ -37,7 +38,9 @@ const exportToCSV = (filename, rows, headers) => {
 };
 
 function generateUniqueId() {
-  return Date.now().toString();
+  return crypto.randomUUID
+    ? crypto.randomUUID()
+    : Date.now().toString(36) + Math.random().toString(36).slice(2);
 }
 
 export default function Admin() {
@@ -179,14 +182,7 @@ export default function Admin() {
 
 
 
-  const parseWeight = (selectedWeightStr, fallbackWeight) => {
-    if (!selectedWeightStr) return fallbackWeight;
-    const kgMatch = String(selectedWeightStr).match(/(\d+(?:\.\d+)?)\s*k?g/i);
-    if (kgMatch) return Number(kgMatch[1]);
-    const gMatch = String(selectedWeightStr).match(/(\d+(?:\.\d+)?)\s*g/i);
-    if (gMatch) return Number(gMatch[1]) / 1000;
-    return fallbackWeight;
-  };
+  // parseWeight imported from utils/price.js
 
   const handleCoordsChange = (key, val) => {
     setEditOrderCoords(prev => {
@@ -966,6 +962,17 @@ export default function Admin() {
   const [weightOptions, setWeightOptions] = useState([]);
   const [prodBadge, setProdBadge] = useState('');
 
+  // -- Product form UX improvements --
+  const [isSavingProduct, setIsSavingProduct] = useState(false);
+  // Map of image index -> 'ok' | 'error' | 'loading' | 'idle'
+  const [imageValidity, setImageValidity] = useState({});
+  // Whether prodName matches an existing product (duplicate warning)
+  const [prodNameDuplicate, setProdNameDuplicate] = useState(false);
+  // ID of product to copy Rich Display fields from
+  const [copyFromProductId, setCopyFromProductId] = useState('');
+  // Tab completion badge: which tabs have their required fields filled
+  const [basicTabTouched, setBasicTabTouched] = useState(false);
+
   const [prodTrustStrip, setProdTrustStrip] = useState([
     { title: 'Chemical-Free', sub: 'Guaranteed' },
     { title: 'Same-Day', sub: 'Dispatch' },
@@ -1271,13 +1278,70 @@ export default function Admin() {
     }
   }, [mangoes]);
 
+  // Validates an image URL by attempting to load it
+  const checkImageUrl = (index, url) => {
+    if (!url || !url.trim()) {
+      setImageValidity(v => ({ ...v, [index]: 'idle' }));
+      return;
+    }
+    setImageValidity(v => ({ ...v, [index]: 'loading' }));
+    const img = new Image();
+    img.onload = () => setImageValidity(v => ({ ...v, [index]: 'ok' }));
+    img.onerror = () => setImageValidity(v => ({ ...v, [index]: 'error' }));
+    img.src = url;
+  };
+
   const handleProdImageChange = (index, value) => {
     const next = [...prodImages];
     next[index] = value;
     setProdImages(next);
+    // Debounced validation on each change
+    setImageValidity(v => ({ ...v, [index]: 'idle' }));
   };
-  const addProdImageField = () => setProdImages([...prodImages, '']);
-  const removeProdImageField = (index) => setProdImages(prodImages.filter((_, i) => i !== index));
+  const handleProdImageBlur = (index, value) => {
+    checkImageUrl(index, value);
+  };
+  const addProdImageField = () => {
+    setProdImages([...prodImages, '']);
+    setImageValidity(v => ({ ...v, [prodImages.length]: 'idle' }));
+  };
+  const removeProdImageField = (index) => {
+    setProdImages(prodImages.filter((_, i) => i !== index));
+    setImageValidity(v => {
+      const next = {};
+      Object.entries(v).forEach(([k, val]) => {
+        const ki = Number(k);
+        if (ki < index) next[ki] = val;
+        else if (ki > index) next[ki - 1] = val;
+      });
+      return next;
+    });
+  };
+
+  // Check for duplicate product name
+  const handleProdNameBlur = () => {
+    const trimmed = prodName.trim().toLowerCase();
+    const isDuplicate = trimmed && mangoes.some(
+      m => m.name.trim().toLowerCase() === trimmed && m.id !== editProductId
+    );
+    setProdNameDuplicate(isDuplicate);
+  };
+
+  // Copy Rich Display fields from an existing product
+  const handleCopyFromProduct = (id) => {
+    if (!id) { setCopyFromProductId(''); return; }
+    const src = mangoes.find(m => m.id === id);
+    if (!src) return;
+    setCopyFromProductId(id);
+    if (src.trustStrip) setProdTrustStrip(src.trustStrip);
+    if (src.deliveryInfo) setProdDeliveryInfo(src.deliveryInfo);
+    if (src.farmer) setProdFarmer(src.farmer);
+    if (src.specs) setProdSpecs(src.specs);
+    if (src.highlights?.length) setProdHighlights([...src.highlights]);
+    if (src.steps?.length) setProdSteps([...src.steps]);
+    if (src.badge) setProdBadge(src.badge);
+    toast.success(`Rich Display fields copied from "${src.name}"`);
+  };
 
   // --- CRUD ACTIONS METHODS ---
   // Product Save/Update
@@ -1286,16 +1350,50 @@ export default function Admin() {
     if (!prodName.trim() || !prodPrice) {
       return toast.error('Name and Price are required.');
     }
+    if (isSavingProduct) return; // Prevent double-submit
+    setIsSavingProduct(true);
     try {
       const pId = editProductId || generateUniqueId();
       const cleanImages = prodImages.map(img => img?.trim()).filter(Boolean);
       const finalImages = cleanImages.length > 0 ? cleanImages : [];
       const cleanHighlights = prodHighlights.filter(h => h?.trim() !== '');
       const cleanSteps = prodSteps.filter(s => s?.trim() !== '');
+      // Clean weight options
+      const cleanWeightOptions = weightOptions
+        .map(opt => {
+          if (typeof opt === 'string') {
+            if (!opt.trim()) return null;
+            return { label: opt.trim(), price: Number(prodPrice), discountPrice: prodDiscountPrice === '' ? null : Number(prodDiscountPrice) };
+          }
+          if (!opt.label || !opt.label.trim()) return null;
+          return {
+            label: opt.label.trim(),
+            price: Number(opt.price) || 0,
+            discountPrice: opt.discountPrice ? Number(opt.discountPrice) : null
+          };
+        })
+        .filter(Boolean);
+
+      // Auto-calc base price if there are valid weight options
+      let basePrice = Number(prodPrice);
+      let baseDiscountPrice = prodDiscountPrice === '' ? null : Number(prodDiscountPrice);
+      
+      if (cleanWeightOptions.length > 0) {
+        // Find option with lowest active price
+        const lowestOpt = cleanWeightOptions.reduce((minOpt, currOpt) => {
+          const minPrice = minOpt.discountPrice || minOpt.price;
+          const currPrice = currOpt.discountPrice || currOpt.price;
+          return currPrice < minPrice ? currOpt : minOpt;
+        }, cleanWeightOptions[0]);
+        
+        basePrice = lowestOpt.price;
+        baseDiscountPrice = lowestOpt.discountPrice;
+      }
+
       const pData = {
         name: prodName,
-        price: Number(prodPrice),
-        discountPrice: prodDiscountPrice === '' ? null : Number(prodDiscountPrice),
+        price: basePrice,
+        discountPrice: baseDiscountPrice,
         stock: Number(prodStock),
         category: prodCategories,
         variety: prodVariety,
@@ -1307,7 +1405,7 @@ export default function Admin() {
         description: prodDescription || 'Fresh premium bagged mango from Rajshahi orchards.',
         featured: prodFeatured,
         fixedWeight: prodFixedWeight,
-        weightOptions: weightOptions.map(opt => opt?.trim()).filter(Boolean),
+        weightOptions: cleanWeightOptions,
         order: editProductId ? (mangoes.find(m => m.id === editProductId)?.order ?? mangoes.length + 1) : mangoes.length + 1,
         badge: prodBadge ? prodBadge.trim() : '',
         trustStrip: prodTrustStrip,
@@ -1328,12 +1426,20 @@ export default function Admin() {
     } catch (err) {
       console.error('Product save failed:', err);
       toast.error('Failed to save product details.');
+    } finally {
+      setIsSavingProduct(false);
     }
   };
 
   function handleEditProductClick(p) {
     setEditProductId(p.id);
     setActiveProdFormTab('basic');
+    // Reset improvement states
+    setIsSavingProduct(false);
+    setImageValidity({});
+    setProdNameDuplicate(false);
+    setCopyFromProductId('');
+    setBasicTabTouched(false);
     setProdName(p.name || '');
     setProdPrice(p.price || 100);
     setProdDiscountPrice(p.discountPrice || '');
@@ -1350,7 +1456,13 @@ export default function Admin() {
     setProdDescription(p.description || '');
     setProdFeatured(p.featured || false);
     setProdFixedWeight(Array.isArray(p.fixedWeight) ? p.fixedWeight : [p.fixedWeight].filter(Boolean));
-    setWeightOptions(Array.isArray(p.weightOptions) ? p.weightOptions : []);
+    const wOpts = Array.isArray(p.weightOptions) ? p.weightOptions.map(opt => {
+      if (typeof opt === 'string') {
+        return { label: opt, price: p.price || 0, discountPrice: p.discountPrice || '' };
+      }
+      return { ...opt, discountPrice: opt.discountPrice || '' };
+    }) : [];
+    setWeightOptions(wOpts);
     
     setProdBadge(p.badge || '');
 
@@ -1378,17 +1490,43 @@ export default function Admin() {
     setShowProductModal(true);
   }
 
-  const handleDeleteProduct = async (pId, name) => {
-    if (window.confirm(`Are you sure you want to delete ${name}?`)) {
+  const handleDeleteProduct = (pId, name) => {
+    // Optimistic UI: mark as trashed immediately
+    setMangoes(prev => prev.map(m => m.id === pId ? { ...m, _pendingDelete: true } : m));
+
+    const undoTimer = { ref: null };
+
+    // Show undo toast for 5 seconds
+    toast(
+      (t) => (
+        <span style={{ display: 'flex', alignItems: 'center', gap: '.75rem', fontWeight: 600, fontSize: '.83rem' }}>
+          🗑️ <strong>{name}</strong> will be deleted
+          <button
+            onClick={() => {
+              clearTimeout(undoTimer.ref);
+              setMangoes(prev => prev.map(m => m.id === pId ? { ...m, _pendingDelete: false } : m));
+              toast.dismiss(t.id);
+              toast.success('↩️ Deletion undone!');
+            }}
+            style={{ padding: '.25rem .7rem', borderRadius: 100, background: '#fff', border: '1.5px solid #e5e7eb', cursor: 'pointer', fontWeight: 700, fontSize: '.75rem', color: '#374151' }}
+          >Undo</button>
+        </span>
+      ),
+      { duration: 5000 }
+    );
+
+    // Commit deletion after 5.2s if not undone
+    undoTimer.ref = setTimeout(async () => {
       try {
         await deleteDoc(doc(db, 'mangoes', pId));
-        toast.success(`${name} removed successfully!`);
-        fetchData();
+        setMangoes(prev => prev.filter(m => m.id !== pId));
+        toast.success(`${name} permanently deleted`);
       } catch (err) {
         console.error(err);
+        setMangoes(prev => prev.map(m => m.id === pId ? { ...m, _pendingDelete: false } : m));
         toast.error('Failed to delete product.');
       }
-    }
+    }, 5200);
   };
 
   const clearProductForm = () => {
@@ -1407,8 +1545,13 @@ export default function Admin() {
     setProdFeatured(false);
     setProdFixedWeight([]);
     setWeightOptions([]);
-    
     setProdBadge('');
+    // Reset improvement states
+    setIsSavingProduct(false);
+    setImageValidity({});
+    setProdNameDuplicate(false);
+    setCopyFromProductId('');
+    setBasicTabTouched(false);
 
     setProdTrustStrip([
       { title: 'Chemical-Free', sub: 'Guaranteed' },
@@ -1983,7 +2126,7 @@ export default function Admin() {
       {/* 1. PRODUCT CREATION MODAL */}
       {showProductModal && (
         <div className="fixed inset-0 z-[300] flex items-center justify-center p-4 backdrop-blur-md animate-in fade-in duration-300" style={{ background: 'rgba(0,0,0,0.6)' }}>
-          <div className="max-w-lg w-full max-h-[85vh] overflow-hidden flex flex-col animate-in scale-in duration-300" style={{ background: 'var(--bg-card)', borderRadius: '14px', border: '1.5px solid var(--border-color)', boxShadow: '0 20px 60px var(--shadow-color)' }}>
+          <div className="max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col animate-in scale-in duration-300" style={{ background: 'var(--bg-card)', borderRadius: '14px', border: '1.5px solid var(--border-color)', boxShadow: '0 20px 60px var(--shadow-color)' }}>
             {/* Modal Header */}
             <div style={{ background: '#121212', padding: '1rem 1.4rem', borderRadius: '14px 14px 0 0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0 }}>
               <div style={{ flex: 1 }}>
@@ -2004,26 +2147,29 @@ export default function Admin() {
 
             {/* Tab Row */}
             <div style={{ background: 'var(--bg-primary)', padding: '0.75rem 1rem', display: 'flex', gap: '0.5rem', flexShrink: 0 }}>
+              {/* Tab 1: Basic — shows ✓ badge when name+price filled */}
               <button 
                 type="button"
                 onClick={() => setActiveProdFormTab('basic')}
-                style={{ borderRadius: '100px', fontFamily: "'Sora', sans-serif", fontSize: '0.8rem', fontWeight: 700, padding: '0.5rem 1.1rem', border: activeProdFormTab === 'basic' ? '1.5px solid #E8540A' : '1.5px solid var(--border-color)', background: activeProdFormTab === 'basic' ? '#E8540A' : 'var(--bg-card)', color: activeProdFormTab === 'basic' ? '#FFFFFF' : 'var(--text-muted)', cursor: 'pointer' }}
+                style={{ borderRadius: '100px', fontFamily: "'Sora', sans-serif", fontSize: '0.8rem', fontWeight: 700, padding: '0.5rem 1.1rem', border: activeProdFormTab === 'basic' ? '1.5px solid #E8540A' : '1.5px solid var(--border-color)', background: activeProdFormTab === 'basic' ? '#E8540A' : 'var(--bg-card)', color: activeProdFormTab === 'basic' ? '#FFFFFF' : 'var(--text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.35rem' }}
               >
                 1. Basic Details
+                {(prodName.trim() && prodPrice && prodStock) && <span style={{ background: 'rgba(255,255,255,0.25)', borderRadius: '50%', width: 16, height: 16, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.65rem' }}>✓</span>}
               </button>
               <button 
                 type="button"
                 onClick={() => setActiveProdFormTab('rich')}
                 style={{ borderRadius: '100px', fontFamily: "'Sora', sans-serif", fontSize: '0.8rem', fontWeight: 700, padding: '0.5rem 1.1rem', border: activeProdFormTab === 'rich' ? '1.5px solid #E8540A' : '1.5px solid var(--border-color)', background: activeProdFormTab === 'rich' ? '#E8540A' : 'var(--bg-card)', color: activeProdFormTab === 'rich' ? '#FFFFFF' : 'var(--text-muted)', cursor: 'pointer' }}
               >
-                2. Rich Display Details
+                2. Rich Display
               </button>
               <button 
                 type="button"
                 onClick={() => setActiveProdFormTab('filters')}
-                style={{ borderRadius: '100px', fontFamily: "'Sora', sans-serif", fontSize: '0.8rem', fontWeight: 700, padding: '0.5rem 1.1rem', border: activeProdFormTab === 'filters' ? '1.5px solid #E8540A' : '1.5px solid var(--border-color)', background: activeProdFormTab === 'filters' ? '#E8540A' : 'var(--bg-card)', color: activeProdFormTab === 'filters' ? '#FFFFFF' : 'var(--text-muted)', cursor: 'pointer' }}
+                style={{ borderRadius: '100px', fontFamily: "'Sora', sans-serif", fontSize: '0.8rem', fontWeight: 700, padding: '0.5rem 1.1rem', border: activeProdFormTab === 'filters' ? '1.5px solid #E8540A' : '1.5px solid var(--border-color)', background: activeProdFormTab === 'filters' ? '#E8540A' : 'var(--bg-card)', color: activeProdFormTab === 'filters' ? '#FFFFFF' : 'var(--text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.35rem' }}
               >
                 3. Classification & Filters
+                {(prodCategories.length > 0 || prodVariety.length > 0) && <span style={{ background: 'rgba(255,255,255,0.25)', borderRadius: '50%', width: 16, height: 16, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.65rem' }}>✓</span>}
               </button>
             </div>
 
@@ -2066,10 +2212,17 @@ export default function Admin() {
                     <input 
                       type="text" 
                       value={prodName} 
-                      onChange={e => setProdName(e.target.value)} 
+                      onChange={e => { setProdName(e.target.value); setProdNameDuplicate(false); }} 
+                      onBlur={handleProdNameBlur}
                       required 
-                      className="form-input font-bold text-xs" 
+                      className="form-input font-bold text-xs"
+                      style={prodNameDuplicate ? { borderColor: '#F59E0B' } : {}}
                     />
+                    {prodNameDuplicate && (
+                      <div style={{ marginTop: '0.3rem', fontSize: '0.72rem', color: '#B45309', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                        ⚠️ A product with this name already exists. Sure you want to create another?
+                      </div>
+                    )}
                   </div>
                   <div>
                     <label className="form-label">Standard Price (৳)</label>
@@ -2091,52 +2244,78 @@ export default function Admin() {
                     />
                   </div>
                   <div>
-                    <label className="form-label">Initial Stock Box Qty</label>
-                    <input 
-                      type="number" 
-                      value={prodStock} 
-                      onChange={e => setProdStock(e.target.value)} 
-                      required 
-                      className="form-input font-bold text-xs" 
-                    />
+                    <label className="form-label">Initial Stock (boxes)</label>
+                    <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                      <input 
+                        type="number" 
+                        value={prodStock} 
+                        onChange={e => setProdStock(e.target.value)} 
+                        required 
+                        className="form-input font-bold text-xs"
+                        style={{ paddingRight: '3.5rem' }}
+                      />
+                      <span style={{ position: 'absolute', right: '0.75rem', fontSize: '0.72rem', fontWeight: 700, color: 'var(--gray4)', pointerEvents: 'none' }}>boxes</span>
+                    </div>
                   </div>
                   
                   <div className="col-span-2">
                     <label className="form-label">Weight / Size Options</label>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginBottom: '0.5rem' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginBottom: '0.75rem' }}>
                       {weightOptions.map((opt, idx) => (
-                        <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                          <input
-                            type="text"
-                            value={opt}
-                            onChange={e => {
-                              const updated = [...weightOptions];
-                              updated[idx] = e.target.value;
-                              setWeightOptions(updated);
-                            }}
-                            placeholder="E.g. 3kg, 5kg Box, 10kg Premium Box"
-                            className="form-input"
-                            style={{
-                              background: 'var(--input-bg)',
-                              border: '1.5px solid var(--border-color)',
-                              borderRadius: '8px',
-                              padding: '0.65rem 1rem',
-                              fontFamily: "'Sora', sans-serif",
-                              fontSize: '0.875rem',
-                              color: 'var(--text-primary)'
-                            }}
-                          />
+                        <div key={idx} style={{ display: 'flex', gap: '0.5rem', alignItems: 'flex-start' }}>
+                          <div style={{ flex: 2, display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
+                            {idx === 0 && <span style={{ fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.05em', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Label</span>}
+                            <input
+                              type="text"
+                              value={typeof opt === 'string' ? opt : opt.label}
+                              onChange={e => {
+                                const updated = [...weightOptions];
+                                const current = typeof updated[idx] === 'string' ? { label: updated[idx], price: prodPrice, discountPrice: '' } : updated[idx];
+                                updated[idx] = { ...current, label: e.target.value };
+                                setWeightOptions(updated);
+                              }}
+                              placeholder="Label (e.g. 5kg Box)"
+                              className="form-input"
+                            />
+                          </div>
+                          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
+                            {idx === 0 && <span style={{ fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.05em', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Price (৳)</span>}
+                            <input
+                              type="number"
+                              value={typeof opt === 'string' ? prodPrice : opt.price}
+                              onChange={e => {
+                                const updated = [...weightOptions];
+                                const current = typeof updated[idx] === 'string' ? { label: updated[idx], price: prodPrice, discountPrice: '' } : updated[idx];
+                                updated[idx] = { ...current, price: e.target.value };
+                                setWeightOptions(updated);
+                              }}
+                              placeholder="Price (৳)"
+                              className="form-input"
+                            />
+                          </div>
+                          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
+                            {idx === 0 && <span style={{ fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.05em', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Sale Price (৳)</span>}
+                            <input
+                              type="number"
+                              value={typeof opt === 'string' ? '' : opt.discountPrice}
+                              onChange={e => {
+                                const updated = [...weightOptions];
+                                const current = typeof updated[idx] === 'string' ? { label: updated[idx], price: prodPrice, discountPrice: '' } : updated[idx];
+                                updated[idx] = { ...current, discountPrice: e.target.value };
+                                setWeightOptions(updated);
+                              }}
+                              placeholder="Sale (৳)"
+                              className="form-input"
+                            />
+                          </div>
                           <button
                             type="button"
                             onClick={() => setWeightOptions(weightOptions.filter((_, i) => i !== idx))}
                             style={{
-                              background: 'transparent',
-                              border: 'none',
-                              color: '#EF4444',
-                              fontSize: '1.5rem',
-                              lineHeight: 1,
-                              cursor: 'pointer',
-                              padding: '0 0.5rem'
+                              background: 'var(--bg-card)', border: '1.5px solid var(--border-color)', color: '#EF4444',
+                              fontSize: '1rem', width: '42px', flexShrink: 0,
+                              cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                              borderRadius: '8px', alignSelf: idx === 0 ? 'flex-end' : 'center', height: '42px'
                             }}
                             title="Remove Option"
                           >
@@ -2147,7 +2326,7 @@ export default function Admin() {
                     </div>
                     <button
                       type="button"
-                      onClick={() => setWeightOptions([...weightOptions, ''])}
+                      onClick={() => setWeightOptions([...weightOptions, { label: '', price: prodPrice || 0, discountPrice: '' }])}
                       style={{
                         background: 'var(--bg-card)',
                         border: '1.5px solid var(--border-color)',
@@ -2171,6 +2350,12 @@ export default function Admin() {
                       placeholder="VP-HMS-1D" 
                       className="form-input font-bold text-xs" 
                     />
+                    {/* Live SKU preview */}
+                    <div style={{ marginTop: '0.3rem', fontSize: '0.7rem', color: 'var(--gray4)', fontFamily: "'Sora', sans-serif" }}>
+                      Preview: <strong style={{ color: 'var(--primary)', fontFamily: 'monospace' }}>
+                        {prodSku || `VP-${prodCategories.length > 0 ? prodCategories[0].slice(0,3).toUpperCase() : 'MGO'}-${(mangoes.length + 1).toString().padStart(3,'0')}`}
+                      </strong>
+                    </div>
                   </div>
                   <div>
                     <label className="form-label">Min Threshold Stock</label>
@@ -2184,26 +2369,53 @@ export default function Admin() {
 
                   <div className="col-span-2">
                     <label className="form-label mb-2">Product Images (URLs)</label>
-                    <div style={{ background: '#F7F7F7', border: '1.5px solid #EEEEEE', borderRadius: '8px', padding: '0.75rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                    <div style={{ fontSize: '0.7rem', color: 'var(--gray4)', marginBottom: '0.5rem', fontStyle: 'italic' }}>Paste direct image links. Each URL is validated live — a 🟢 means it loaded, 🔴 means it’s broken.</div>
+                    <div style={{ background: '#F7F7F7', border: '1.5px solid #EEEEEE', borderRadius: '8px', padding: '0.75rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                       {prodImages.map((img, idx) => (
-                        <div key={idx} className="flex gap-2">
-                          <input
-                            type="url"
-                            value={img}
-                            onChange={e => handleProdImageChange(idx, e.target.value)}
-                            placeholder="https://..."
-                            className="form-input flex-1"
-                          />
-                          {prodImages.length > 1 && (
-                            <button
-                              type="button"
-                              onClick={() => removeProdImageField(idx)}
-                              className="btn-outline shrink-0 px-3 text-xs"
-                              style={{ color: 'var(--red)', borderColor: 'var(--red)' }}
-                              aria-label="Remove image URL"
-                            >
-                              ✕
-                            </button>
+                        <div key={idx}>
+                          <div className="flex gap-2 items-center">
+                            {/* Thumbnail preview */}
+                            <div style={{
+                              width: 40, height: 40, borderRadius: 8, flexShrink: 0,
+                              border: '1.5px solid',
+                              borderColor: imageValidity[idx] === 'ok' ? '#16A34A' : imageValidity[idx] === 'error' ? '#DC2626' : '#E5E7EB',
+                              background: '#f9f9f9', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center'
+                            }}>
+                              {imageValidity[idx] === 'ok' && img ? (
+                                <img src={img} alt="preview" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                              ) : imageValidity[idx] === 'loading' ? (
+                                <span style={{ fontSize: '0.6rem', color: '#94A3B8' }}>⧖</span>
+                              ) : imageValidity[idx] === 'error' ? (
+                                <span style={{ fontSize: '0.8rem' }}>🔴</span>
+                              ) : (
+                                <span style={{ fontSize: '0.8rem', color: '#CBD5E1' }}>🖼️</span>
+                              )}
+                            </div>
+                            <input
+                              type="url"
+                              value={img}
+                              onChange={e => handleProdImageChange(idx, e.target.value)}
+                              onBlur={e => handleProdImageBlur(idx, e.target.value)}
+                              placeholder="https://..."
+                              className="form-input flex-1"
+                              style={{ borderColor: imageValidity[idx] === 'error' ? '#DC2626' : undefined }}
+                            />
+                            {prodImages.length > 1 && (
+                              <button
+                                type="button"
+                                onClick={() => removeProdImageField(idx)}
+                                className="btn-outline shrink-0 px-3 text-xs"
+                                style={{ color: 'var(--red)', borderColor: 'var(--red)' }}
+                                aria-label="Remove image URL"
+                              >
+                                ✕
+                              </button>
+                            )}
+                          </div>
+                          {imageValidity[idx] === 'error' && (
+                            <div style={{ marginTop: '0.25rem', fontSize: '0.7rem', color: '#DC2626', fontWeight: 700 }}>
+                              ⚠️ This URL didn’t load — check the link or use a different image host.
+                            </div>
                           )}
                         </div>
                       ))}
@@ -2248,7 +2460,6 @@ export default function Admin() {
                       </div>
                     </label>
                   </div>
-                </div>
                 </div>
 
                 {/* TAB 3: CLASSIFICATION & FILTERS */}
@@ -2319,6 +2530,24 @@ export default function Admin() {
 
                 {/* TAB 2: RICH DISPLAY DETAILS */}
                 <div style={{ display: activeProdFormTab === 'rich' ? 'block' : 'none' }}>
+                  {/* Copy from existing product */}
+                  <div className="bg-[rgba(232,84,10,0.06)] border border-[rgba(232,84,10,0.2)] rounded-[12px] p-3 mb-5 flex items-center gap-3">
+                    <span style={{ fontSize: '1.1rem' }}>📋</span>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--primary)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.35rem' }}>Copy Rich Display from another product</div>
+                      <select
+                        value={copyFromProductId}
+                        onChange={e => handleCopyFromProduct(e.target.value)}
+                        style={{ background: 'var(--bg-card)', border: '1.5px solid var(--border-color)', borderRadius: 8, padding: '0.4rem 0.75rem', fontFamily: "'Sora', sans-serif", fontSize: '0.8rem', color: 'var(--text-primary)', width: '100%', cursor: 'pointer' }}
+                      >
+                        <option value="">Select a product to copy from…</option>
+                        {mangoes.filter(m => m.id !== editProductId).map(m => (
+                          <option key={m.id} value={m.id}>{m.name}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     {/* Left Column */}
                     <div className="space-y-6">
@@ -2347,20 +2576,28 @@ export default function Admin() {
                       </div>
 
                       <div className="bg-white dark:bg-[#222222] rounded-[14px] border-[1.5px] border-[var(--gray2)] p-4">
-                        <h4 className="ach-title text-xs mb-2">🛡️ Trust Strip</h4>
-                        <div className="inline-block bg-[rgba(232,84,10,0.1)] text-[var(--primary)] text-[10px] font-bold px-3 py-1 rounded-full mb-3">3 Items Fixed</div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+                          <h4 className="ach-title text-xs">🛡️ Trust Strip</h4>
+                          <button
+                            type="button"
+                            onClick={() => setProdTrustStrip([...prodTrustStrip, { title: '', sub: '' }])}
+                            style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--primary)', background: 'rgba(232,84,10,0.08)', border: '1.5px solid rgba(232,84,10,0.2)', borderRadius: 100, padding: '0.2rem 0.6rem', cursor: 'pointer' }}
+                          >+ Add Item</button>
+                        </div>
+                        <div style={{ fontSize: '0.68rem', color: 'var(--gray4)', marginBottom: '0.5rem', fontStyle: 'italic' }}>{prodTrustStrip.length} item{prodTrustStrip.length !== 1 ? 's' : ''} — shown on the product detail page</div>
                         {prodTrustStrip.map((ts, idx) => (
-                          <div key={idx} className="flex gap-2 mb-2">
+                          <div key={idx} className="flex gap-2 mb-2 items-center">
                             <input type="text" placeholder="Title" value={ts.title} onChange={e => {
                               const newTS = [...prodTrustStrip];
-                              newTS[idx].title = e.target.value;
+                              newTS[idx] = { ...newTS[idx], title: e.target.value };
                               setProdTrustStrip(newTS);
-                            }} className="form-input w-1/2" />
+                            }} className="form-input" style={{ width: '45%' }} />
                             <input type="text" placeholder="Subtitle" value={ts.sub} onChange={e => {
                               const newTS = [...prodTrustStrip];
-                              newTS[idx].sub = e.target.value;
+                              newTS[idx] = { ...newTS[idx], sub: e.target.value };
                               setProdTrustStrip(newTS);
-                            }} className="form-input w-1/2" />
+                            }} className="form-input" style={{ width: '45%' }} />
+                            <button type="button" onClick={() => setProdTrustStrip(prodTrustStrip.filter((_, i) => i !== idx))} style={{ background: 'transparent', border: 'none', color: '#EF4444', fontSize: '1.2rem', cursor: 'pointer', lineHeight: 1, flexShrink: 0 }} title="Remove">×</button>
                           </div>
                         ))}
                       </div>
@@ -2420,16 +2657,21 @@ export default function Admin() {
                       <div className="bg-white dark:bg-[#222222] rounded-[14px] border-[1.5px] border-[var(--gray2)] p-4">
                         <label className="form-label mb-2">How We Grow Steps (Numbered)</label>
                         {prodSteps.map((s, idx) => (
-                          <div key={idx} className="flex gap-2 mb-2">
-                            <span className="w-6 h-8 flex items-center justify-center rounded text-xs font-bold shrink-0" style={{ background: 'var(--gray2)', color: 'var(--dark)' }}>{idx + 1}</span>
-                            <input type="text" placeholder="Step description" value={s} onChange={e => {
-                              const newS = [...prodSteps];
-                              newS[idx] = e.target.value;
-                              setProdSteps(newS);
-                            }} className="form-input flex-1" />
-                            <button type="button" onClick={() => {
-                              setProdSteps(prodSteps.filter((_, i) => i !== idx));
-                            }} className="btn-outline px-3 text-xs" style={{ color: 'var(--red)', borderColor: 'var(--red)' }}>✕</button>
+                          <div key={idx} className="mb-3">
+                            <div className="flex gap-2 items-center">
+                              <span className="w-6 h-8 flex items-center justify-center rounded text-xs font-bold shrink-0" style={{ background: 'var(--gray2)', color: 'var(--dark)' }}>{idx + 1}</span>
+                              <input type="text" placeholder="Step description" value={s} maxLength={150} onChange={e => {
+                                const newS = [...prodSteps];
+                                newS[idx] = e.target.value;
+                                setProdSteps(newS);
+                              }} className="form-input flex-1" />
+                              <button type="button" onClick={() => {
+                                setProdSteps(prodSteps.filter((_, i) => i !== idx));
+                              }} className="btn-outline px-3 text-xs" style={{ color: 'var(--red)', borderColor: 'var(--red)' }}>✕</button>
+                            </div>
+                            <div style={{ textAlign: 'right', fontSize: '0.65rem', color: s.length > 120 ? '#EF4444' : 'var(--gray4)', marginTop: '0.2rem', fontFamily: "'Sora', sans-serif" }}>
+                              {s.length}/120
+                            </div>
                           </div>
                         ))}
                         <button type="button" onClick={() => setProdSteps([...prodSteps, ''])} className="btn-secondary text-xs mt-1">
@@ -2440,22 +2682,37 @@ export default function Admin() {
                   </div>
                 </div>
               </div>
+              </div>
 
               {/* Modal Actions Footer */}
-              <div style={{ background: 'var(--bg-card)', padding: '1rem 1.4rem', borderTop: '1px solid var(--border-color)', display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', flexShrink: 0 }}>
-                <button 
-                  type="button" 
-                  onClick={() => { setShowProductModal(false); setEditProductId(null); clearProductForm(); }} 
-                  style={{ background: 'var(--bg-card)', border: '1.5px solid var(--border-color)', borderRadius: '100px', color: 'var(--text-primary)', fontWeight: 700, padding: '0.7rem 1.5rem', fontFamily: "'Sora', sans-serif", cursor: 'pointer' }}
-                >
-                  CANCEL
-                </button>
-                <button 
-                  type="submit" 
-                  style={{ background: '#E8540A', color: '#FFFFFF', borderRadius: '100px', fontWeight: 700, padding: '0.7rem 1.8rem', fontFamily: "'Sora', sans-serif", boxShadow: '0 6px 24px rgba(232,84,10,0.3)', border: 'none', cursor: 'pointer' }}
-                >
-                  SAVE PRODUCT DETAILS
-                </button>
+              <div style={{ background: 'var(--bg-card)', padding: '1rem 1.4rem', borderTop: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.75rem', flexShrink: 0 }}>
+                <div style={{ fontSize: '0.72rem', color: 'var(--gray4)', fontFamily: "'Sora', sans-serif" }}>
+                  {editProductId ? 'Editing existing product' : `${mangoes.length} product${mangoes.length !== 1 ? 's' : ''} in catalog`}
+                </div>
+                <div style={{ display: 'flex', gap: '0.75rem' }}>
+                  <button 
+                    type="button" 
+                    onClick={() => { setShowProductModal(false); setEditProductId(null); clearProductForm(); }} 
+                    disabled={isSavingProduct}
+                    style={{ background: 'var(--bg-card)', border: '1.5px solid var(--border-color)', borderRadius: '100px', color: 'var(--text-primary)', fontWeight: 700, padding: '0.7rem 1.5rem', fontFamily: "'Sora', sans-serif", cursor: isSavingProduct ? 'not-allowed' : 'pointer', opacity: isSavingProduct ? 0.5 : 1 }}
+                  >
+                    CANCEL
+                  </button>
+                  <button 
+                    type="submit" 
+                    disabled={isSavingProduct}
+                    style={{ background: isSavingProduct ? '#c0c0c0' : '#E8540A', color: '#FFFFFF', borderRadius: '100px', fontWeight: 700, padding: '0.7rem 1.8rem', fontFamily: "'Sora', sans-serif", boxShadow: isSavingProduct ? 'none' : '0 6px 24px rgba(232,84,10,0.3)', border: 'none', cursor: isSavingProduct ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem', transition: 'all 0.2s' }}
+                  >
+                    {isSavingProduct ? (
+                      <>
+                        <span style={{ width: 14, height: 14, border: '2.5px solid rgba(255,255,255,0.4)', borderTopColor: '#fff', borderRadius: '50%', animation: 'spin 0.7s linear infinite', display: 'inline-block', flexShrink: 0 }} />
+                        SAVING…
+                      </>
+                    ) : (
+                      editProductId ? 'SAVE CHANGES' : 'CREATE PRODUCT'
+                    )}
+                  </button>
+                </div>
               </div>
             </form>
           </div>
@@ -3471,7 +3728,7 @@ export default function Admin() {
                   </thead>
                   <tbody>
                     {filteredProducts.map(p => (
-                      <tr key={p.id}>
+                      <tr key={p.id} style={{ opacity: p._pendingDelete ? 0.35 : 1, transition: 'opacity 0.3s', pointerEvents: p._pendingDelete ? 'none' : 'auto' }}>
                         <td><input type="checkbox" className="at-check" /></td>
                         <td>
                           <div className="at-product-cell">

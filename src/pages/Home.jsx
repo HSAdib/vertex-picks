@@ -8,6 +8,7 @@ import { useWishlist } from '../hooks/useWishlist';
 import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
 import { sanitizeHTML } from '../utils/sanitizeHTML';
+import { resolvePrice, getOptionLabel } from '../utils/price';
 
 export default function Home() {
   const navigate = useNavigate();
@@ -32,7 +33,7 @@ export default function Home() {
 
   const handleAddToCart = (mango) => {
     const qtyToAdd = quantities[mango.id] || 1;
-    const selW = cardSelectedWeights[mango.id] || (mango.weightOptions && mango.weightOptions.length > 0 ? mango.weightOptions[0] : `${mango.fixedWeight || 1}kg Box`);
+    const selW = cardSelectedWeights[mango.id] || (mango.weightOptions && mango.weightOptions.length > 0 ? getOptionLabel(mango.weightOptions[0]) : `${mango.fixedWeight || 1}kg Box`);
     addToCart(mango.id, qtyToAdd, mango, selW);
     setQuantities(prev => ({ ...prev, [mango.id]: 1 }));
   };
@@ -378,8 +379,8 @@ export default function Home() {
           ) : (
             featuredProducts.map(p => {
               const mainImage = p.images?.[0] || p.image;
-              const displayPrice = p.discountPrice || p.price;
-              const oldPrice = p.discountPrice ? p.price : null;
+              const selW = cardSelectedWeights[p.id] || (p.weightOptions && p.weightOptions.length > 0 ? getOptionLabel(p.weightOptions[0]) : `${p.fixedWeight || 1}kg Box`);
+              const { displayPrice, oldPrice } = resolvePrice(p, selW);
               const ratingStars = Math.round(Number(p.stats?.rating) || Number(p.rating) || 5);
               const isLiked = isInWishlist(p.id);
 
@@ -416,12 +417,13 @@ export default function Home() {
                       {p.weightOptions && p.weightOptions.length > 1 ? (
                         <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap', marginTop: '0.2rem', marginBottom: '0.2rem' }} onClick={e => { e.preventDefault(); e.stopPropagation(); }}>
                           {p.weightOptions.map(opt => {
-                            const isSelected = (cardSelectedWeights[p.id] || p.weightOptions[0]) === opt;
+                            const optLabel = getOptionLabel(opt);
+                            const isSelected = selW === optLabel;
                             return (
                               <button
-                                key={opt}
+                                key={optLabel}
                                 type="button"
-                                onClick={() => setCardSelectedWeights(prev => ({ ...prev, [p.id]: opt }))}
+                                onClick={() => setCardSelectedWeights(prev => ({ ...prev, [p.id]: optLabel }))}
                                 style={{
                                   background: isSelected ? '#E8540A' : 'var(--bg-card)',
                                   borderColor: isSelected ? '#E8540A' : 'var(--border-color)',
@@ -436,13 +438,13 @@ export default function Home() {
                                   transition: 'all 0.15s'
                                 }}
                               >
-                                {opt}
+                                {optLabel}
                               </button>
                             );
                           })}
                         </div>
                       ) : (
-                        <span>📦 {p.weightOptions && p.weightOptions.length === 1 ? p.weightOptions[0] : `${p.fixedWeight || 1}kg Box`}</span>
+                        <span>📦 {p.weightOptions && p.weightOptions.length === 1 ? getOptionLabel(p.weightOptions[0]) : `${p.fixedWeight || 1}kg Box`}</span>
                       )}
                       {p.season && <span> · 🌱 {p.season} Season</span>}
                     </div>
