@@ -52,12 +52,18 @@ const FloatingWhatsApp = () => {
   );
 };
 
+import { QueryClientProvider } from '@tanstack/react-query';
+import { queryClient } from './utils/queryClient';
+import { HelmetProvider } from 'react-helmet-async';
+
 function App() {
   return (
-    <StoreProvider>
-      <ThemeProvider>
-        <AuthProvider>
-          <CartProvider>
+    <HelmetProvider>
+      <QueryClientProvider client={queryClient}>
+        <StoreProvider>
+          <ThemeProvider>
+            <AuthProvider>
+              <CartProvider>
             <Analytics />
             <Router>
               <div className="min-h-screen bg-white dark:bg-[#222222] flex flex-col">
@@ -90,6 +96,8 @@ function App() {
         </AuthProvider>
       </ThemeProvider>
     </StoreProvider>
+      </QueryClientProvider>
+    </HelmetProvider>
   );
 }
 export default App;

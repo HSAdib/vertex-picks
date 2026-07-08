@@ -10,6 +10,7 @@ import './ProductDetail.css';
 import ProductGallery from './ProductGallery';
 import ProductInfo from './ProductInfo';
 import ProductTabs from './ProductTabs';
+import SEO from '../SEO';
 
 export default function ProductDetail() {
   const { id } = useParams();
@@ -267,6 +268,11 @@ export default function ProductDetail() {
 
   return (
     <div className="page active" id="page-product-detail" style={{ paddingTop: 'var(--nav-height)', paddingBottom: '120px' }}>
+      <SEO 
+        title={mappedProduct.name} 
+        description={mappedProduct.description} 
+        image={mappedProduct.images?.[0]} 
+      />
       <div className="pdp-breadcrumb">
         <Link to="/">🏠 Home</Link>
         <span className="sep">›</span>

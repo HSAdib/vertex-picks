@@ -9,6 +9,8 @@ import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
 import { sanitizeHTML } from '../utils/sanitizeHTML';
 import { resolvePrice, getOptionLabel } from '../utils/price';
+import SEO from '../components/SEO';
+import Skeleton from '../components/ui/Skeleton';
 
 export default function Home() {
   const navigate = useNavigate();
@@ -263,7 +265,7 @@ export default function Home() {
 
   return (
     <div style={{ paddingTop: 'var(--nav-height, 88px)', background: 'var(--bg-primary)' }}>
-
+      <SEO title="Home" description={uiSettings.heroSubtitle} />
       {/* HERO */}
       <section className="hero-banner" style={{ background: 'var(--bg-primary)' }}>
         <div className="hero-left">
@@ -359,19 +361,18 @@ export default function Home() {
           <div className="sec-title">🔥 Featured <span>Mangoes</span></div>
           <span className="sec-link" onClick={() => navigate('/shop')}>View All →</span>
         </div>
-        <div className="products-row">
-          {featuredLoading ? (
-            /* Skeleton placeholders */
-            [1,2,3,4].map(i => (
-              <div key={i} className="product-card" style={{ pointerEvents: 'none' }}>
-                <div className="pc-img" style={{ background: 'var(--gray2)', animation: 'pulse 1.4s ease-in-out infinite' }} />
-                <div className="pc-body">
-                  <div style={{ height: 14, width: '60%', background: 'var(--gray2)', borderRadius: 8, marginBottom: 8, animation: 'pulse 1.4s ease-in-out infinite' }} />
-                  <div style={{ height: 10, width: '40%', background: 'var(--gray2)', borderRadius: 8, animation: 'pulse 1.4s ease-in-out infinite' }} />
-                </div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: '1.25rem' }}>
+          {featuredLoading ? Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="product-card" style={{ padding: 0 }}>
+              <Skeleton style={{ height: '200px', width: '100%', borderRadius: '12px 12px 0 0' }} />
+              <div className="pc-body">
+                <Skeleton className="mb-2" style={{ height: '1.2rem', width: '80%' }} />
+                <Skeleton className="mb-4" style={{ height: '0.8rem', width: '60%' }} />
+                <Skeleton className="mb-2" style={{ height: '1.5rem', width: '40%' }} />
+                <Skeleton style={{ height: '2.5rem', width: '100%', marginTop: 'auto', borderRadius: '100px' }} />
               </div>
-            ))
-          ) : featuredProducts.length === 0 ? (
+            </div>
+          )) : featuredProducts.length === 0 ? (
             <div style={{ gridColumn: '1/-1', textAlign: 'center', padding: '3rem', color: 'var(--gray4)' }}>
               <div style={{ fontSize: '2rem', marginBottom: '.5rem' }}>🥭</div>
               <p style={{ fontWeight: 600 }}>No featured products yet — visit Admin → Products to set some!</p>
