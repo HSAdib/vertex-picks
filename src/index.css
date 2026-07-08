@@ -167,16 +167,16 @@ img{display:block;max-width:100%}
 }
 
 .navbar, .navbar.scrolled {
-  background: rgba(255, 240, 232, 0.65) !important;
-  backdrop-filter: blur(12px) !important;
-  -webkit-backdrop-filter: blur(12px) !important;
+  background: rgba(255, 240, 232, 0.85) !important;
+  backdrop-filter: blur(24px) !important;
+  -webkit-backdrop-filter: blur(24px) !important;
   border: 1px solid rgba(232, 84, 10, 0.15) !important;
   box-shadow: 0 8px 32px 0 rgba(232, 84, 10, 0.06) !important;
 }
 
 html[data-theme="dark"] .navbar,
 html[data-theme="dark"] .navbar.scrolled {
-  background: rgba(45, 20, 5, 0.45) !important;
+  background: rgba(45, 20, 5, 0.75) !important;
   border: 1px solid rgba(232, 84, 10, 0.2) !important;
   box-shadow: 0 8px 32px 0 rgba(232, 84, 10, 0.08) !important;
 }
