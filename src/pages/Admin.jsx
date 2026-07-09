@@ -744,7 +744,7 @@ export default function Admin() {
       fullAddress += `\n${order.deliveryPostcode}`;
     }
     
-    let message = `হ্যালো, Vertex Picks থেকে বলছি! আপনার অর্ডারটি কনফার্ম করার জন্য মেসেজ দিচ্ছি।\n\n`;
+    let message = `হ্যালো, ${storeName} থেকে বলছি! আপনার অর্ডারটি কনফার্ম করার জন্য মেসেজ দিচ্ছি।\n\n`;
     message += `Order Details:\n${itemsText}\n\n`;
     message += `Subtotal: ৳${subtotal}\n`;
     message += `Delivery: ৳${order.deliveryFee || 0}\n`;
@@ -1054,8 +1054,8 @@ export default function Admin() {
       setStoreConfig({
         baseDeliveryFee: c.baseDeliveryFee ?? 110,
         perKgFee: c.perKgFee ?? 21,
-        automatedLeadEmail: c.automatedLeadEmail || "আসসালামু আলাইকুম,\nVertex Picks-এর আর্লি অ্যাক্সেস লিস্টে যুক্ত হওয়ার জন্য আপনাকে ধন্যবাদ! আমাদের নতুন সিজনের প্রিমিয়াম রাজশাহীর আম যখনই স্টকে আসবে, আমরা সবার আগে আপনাকে জানাবো। \n\nযেকোনো প্রয়োজনে আমাদের সাথে যোগাযোগ করতে পারেন।\nধন্যবাদ,\nVertex Picks টিম",
-        automatedLeadWhatsapp: c.automatedLeadWhatsapp || "আসসালামু আলাইকুম! Vertex Picks-এর আর্লি অ্যাক্সেস লিস্টে যুক্ত হওয়ার জন্য ধন্যবাদ 🥭 নতুন সিজনের আম স্টকে আসলে আমরা আপনাকে এখানেই জানিয়ে দিবো!"
+        automatedLeadEmail: c.automatedLeadEmail || `আসসালামু আলাইকুম,\n${c.storeName || 'Vertex Picks'}-এর আর্লি অ্যাক্সেস লিস্টে যুক্ত হওয়ার জন্য আপনাকে ধন্যবাদ! আমাদের নতুন সিজনের প্রিমিয়াম রাজশাহীর আম যখনই স্টকে আসবে, আমরা সবার আগে আপনাকে জানাবো। \n\nযেকোনো প্রয়োজনে আমাদের সাথে যোগাযোগ করতে পারেন।\nধন্যবাদ,\n${c.storeName || 'Vertex Picks'} টিম`,
+        automatedLeadWhatsapp: c.automatedLeadWhatsapp || `আসসালামু আলাইকুম! ${c.storeName || 'Vertex Picks'}-এর আর্লি অ্যাক্সেস লিস্টে যুক্ত হওয়ার জন্য ধন্যবাদ 🥭 নতুন সিজনের আম স্টকে আসলে আমরা আপনাকে এখানেই জানিয়ে দিবো!`
       });
       setStoreName(c.storeName || 'Vertex Picks');
       setContactEmail(c.contactEmail || 'hello@vertexpicks.com');
@@ -5797,7 +5797,7 @@ export default function Admin() {
                             <div className="at-actions" style={{ justifyContent: 'flex-end', gap: '0.75rem' }}>
                               {hasEmail && (
                                 <a
-                                  href={`mailto:${displayEmail}?subject=${encodeURIComponent('Vertex Picks - আর্লি অ্যাক্সেসে স্বাগতম! 🥭')}&body=${encodeURIComponent(storeConfig.automatedLeadEmail)}`}
+                                  href={`mailto:${displayEmail}?subject=${encodeURIComponent(`${storeName} - আর্লি অ্যাক্সেসে স্বাগতম! 🥭`)}&body=${encodeURIComponent(storeConfig.automatedLeadEmail)}`}
                                   target="_blank" rel="noreferrer"
                                   className="at-action-btn"
                                   style={{ background: 'var(--gray1)', border: '1.5px solid var(--gray2)', color: 'var(--dark)', fontWeight: 700, fontSize: '.8rem', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '.4rem' }}
@@ -6576,7 +6576,7 @@ export default function Admin() {
                         <div>📍 {contactAddress}</div>
                       </div>
                       <div style={{ fontSize: '.5rem', opacity: 0.5, borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: '.4rem', display: 'flex', justifyContent: 'space-between' }}>
-                        <span>© 2026 Vertex Picks.</span>
+                        <span>© 2026 {storeName}.</span>
                         <span>Made in Rajshahi 🥭</span>
                       </div>
                     </div>
