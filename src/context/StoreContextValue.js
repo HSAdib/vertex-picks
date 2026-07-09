@@ -1,3 +1,3 @@
 import { createContext } from 'react';
 
-export const StoreContext = createContext({ storeName: 'Vertex Picks', floatingWhatsappPhone: '' });
+export const StoreContext = createContext({ storeName: 'Mango Baba', floatingWhatsappPhone: '' });

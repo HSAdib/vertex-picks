@@ -55,7 +55,7 @@ export default function Home() {
     contactPhone: "+880 1581-221084",
     contactEmail: "hello@vertexpicks.com",
     contactAddress: "Rajshahi, Bangladesh",
-    storeName: "Vertex Picks"
+    storeName: "Mango Baba"
   });
 
   const [homeCategories, setHomeCategories] = useState([]);

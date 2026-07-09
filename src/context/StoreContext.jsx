@@ -7,9 +7,9 @@ const STORE_NAME_KEY = 'vp_store_name';
 const STORE_PHONE_KEY = 'vp_floating_phone';
 
 export function StoreProvider({ children }) {
-  // Read from localStorage instantly — eliminates the "Vertex Picks" flash on every load
+  // Read from localStorage instantly — eliminates the "Mango Baba" flash on every load
   const [storeName, setStoreName] = useState(
-    () => localStorage.getItem(STORE_NAME_KEY) || 'Vertex Picks'
+    () => localStorage.getItem(STORE_NAME_KEY) || 'Mango Baba'
   );
   const [floatingWhatsappPhone, setFloatingWhatsappPhone] = useState(
     () => localStorage.getItem(STORE_PHONE_KEY) || ''
