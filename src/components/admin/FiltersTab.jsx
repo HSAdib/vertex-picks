@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { doc, getDoc, setDoc, collection, getDocs, updateDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc, collection, getDocs, updateDoc, writeBatch } from 'firebase/firestore';
 import { db } from '../../firebaseConfig';
 import { toast } from 'react-hot-toast';
 
@@ -77,7 +77,7 @@ export default function FiltersTab() {
   const handleAdd = (category) => {
     const val = newInputs[category].trim();
     if (!val) return;
-    if (filters[category].includes(val)) {
+    if (filters[category].some(item => item.toLowerCase() === val.toLowerCase())) {
       toast.error('Option already exists');
       return;
     }
@@ -86,27 +86,66 @@ export default function FiltersTab() {
     setNewInputs({ ...newInputs, [category]: '' });
   };
 
-  const handleDelete = (category, val) => {
-    if (!window.confirm(`Delete option "${val}" from ${category}?`)) return;
-    const updated = { ...filters, [category]: filters[category].filter(v => v !== val) };
-    handleSave(updated);
+  const updateProductsForFilterChange = async (category, oldValue, nextValue = null) => {
+    const affected = products.flatMap((product) => {
+      const current = product[category];
+      const values = Array.isArray(current) ? current : [current].filter(Boolean);
+      if (!values.includes(oldValue)) return [];
+      const next = nextValue
+        ? values.map(value => value === oldValue ? nextValue : value)
+        : values.filter(value => value !== oldValue);
+      return [{ ref: doc(db, 'mangoes', product.id), value: next }];
+    });
+    for (let index = 0; index < affected.length; index += 500) {
+      const batch = writeBatch(db);
+      affected.slice(index, index + 500).forEach(update => batch.update(update.ref, { [category]: update.value }));
+      await batch.commit();
+    }
+    if (affected.length) {
+      setProducts(prev => prev.map(product => {
+        const current = product[category];
+        const values = Array.isArray(current) ? current : [current].filter(Boolean);
+        if (!values.includes(oldValue)) return product;
+        return { ...product, [category]: nextValue ? values.map(value => value === oldValue ? nextValue : value) : values.filter(value => value !== oldValue) };
+      }));
+    }
   };
 
-  const handleEditSave = () => {
+  const handleDelete = async (category, val) => {
+    if (!window.confirm(`Delete option "${val}" from ${category}?`)) return;
+    const updated = { ...filters, [category]: filters[category].filter(v => v !== val) };
+    try {
+      await updateProductsForFilterChange(category, val);
+      await handleSave(updated);
+      toast.success(`Removed ${val} from the filter and affected products.`);
+    } catch (err) {
+      console.error(err);
+      toast.error('Failed to delete the filter option safely');
+    }
+  };
+
+  const handleEditSave = async () => {
     const { category, oldVal, newVal } = editing;
     const val = newVal.trim();
     if (!val || val === oldVal) {
       setEditing({ category: null, oldVal: '', newVal: '' });
       return;
     }
-    if (filters[category].includes(val)) {
+    if (filters[category].some(item => item.toLowerCase() === val.toLowerCase())) {
       toast.error('Option already exists');
       return;
     }
     const updatedArray = filters[category].map(v => v === oldVal ? val : v);
     const updated = { ...filters, [category]: updatedArray };
-    handleSave(updated);
-    setEditing({ category: null, oldVal: '', newVal: '' });
+    try {
+      await updateProductsForFilterChange(category, oldVal, val);
+      await handleSave(updated);
+      setEditing({ category: null, oldVal: '', newVal: '' });
+      toast.success('Filter option and assigned products updated');
+    } catch (err) {
+      console.error(err);
+      toast.error('Failed to rename the filter option safely');
+    }
   };
 
   const toggleProductFilter = async (product, category, val) => {

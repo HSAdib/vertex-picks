@@ -8,7 +8,7 @@ import { resolvePrice, getOptionLabel, parseWeight } from '../utils/price';
 import { toast } from 'react-hot-toast';
 import { isValidBDPhoneNumber } from '../utils/phoneValidation';
 import { fetchCurrentLocation } from '../utils/geolocation';
-import { ShoppingBag, Box, Truck, MapPin, Ticket, ShieldCheck, PhoneCall, Check, Trash2, Plus, Minus, ArrowRight, Edit } from 'lucide-react';
+import { ShoppingBag, Box, Truck, MapPin, Ticket, ShieldCheck, PhoneCall, Check, ArrowRight, Edit } from 'lucide-react';
 
 import { generateUniqueId } from '../utils/id';
 
@@ -178,6 +178,7 @@ export default function Checkout() {
         if (pkgSnap.exists() && Array.isArray(pkgSnap.data().options)) {
           const activePkgs = pkgSnap.data().options.filter(p => p.active !== false);
           setPackagingOptions(activePkgs);
+          setSelectedPackaging(current => current || activePkgs[0]?.id || null);
         }
 
         // Fetch delivery options
@@ -186,6 +187,13 @@ export default function Checkout() {
         if (dlvSnap.exists() && Array.isArray(dlvSnap.data().options)) {
           const activeDlvs = dlvSnap.data().options.filter(d => d.active !== false);
           setDeliveryOptions(activeDlvs);
+          const cheapestDelivery = [...activeDlvs].sort((a, b) => {
+            const feeForOneKg = option => option.pricingType === 'per_kg'
+              ? Number(option.perKgRate) || 0
+              : Number(option.firstKgPrice) || 0;
+            return feeForOneKg(a) - feeForOneKg(b);
+          })[0];
+          setSelectedDelivery(current => current || cheapestDelivery?.id || null);
         }
         
         // B8 fix: use the resolved currentUser from onAuthStateChanged
@@ -404,12 +412,6 @@ export default function Checkout() {
 
   // Auto-select default packaging and cheapest delivery when options load
   // (moved into useEffect to avoid calling setState during render — C2 fix)
-  useEffect(() => {
-    if (!selectedPackaging && packagingOptions.length > 0 && totalWeight > 0) {
-      setSelectedPackaging(packagingOptions[0].id);
-    }
-  }, [packagingOptions, totalWeight, selectedPackaging]);
-
   // --- Delivery fee calculation ---
   const calcDeliveryFee = (dlv) => {
     if (!dlv || totalWeight <= 0) return 0;
@@ -422,14 +424,6 @@ export default function Checkout() {
       return firstKgPrice + (extraKgRate * Math.max(0, totalWeight - 1));
     }
   };
-
-  useEffect(() => {
-    if (!selectedDelivery && deliveryOptions.length > 0 && totalWeight > 0) {
-      const cheapest = [...deliveryOptions].sort((a, b) => calcDeliveryFee(a) - calcDeliveryFee(b))[0];
-      setSelectedDelivery(cheapest.id);
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [deliveryOptions, totalWeight, selectedDelivery]);
 
   const currentPackaging = packagingOptions.find(p => p.id === selectedPackaging);
   const { units: packagingUnits, cost: packagingCost } = calcPackagingCost(currentPackaging);

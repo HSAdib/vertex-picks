@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { doc, getDoc, setDoc, collection, getDocs, updateDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc, collection, getDocs, writeBatch } from 'firebase/firestore';
 import { db } from '../../firebaseConfig';
 import { toast } from 'react-hot-toast';
 
@@ -44,7 +44,7 @@ export default function CategoriesTab() {
   const handleAdd = () => {
     const trimmed = newCat.trim();
     if (!trimmed) return;
-    if (categories.includes(trimmed)) {
+    if (categories.some(category => category.toLowerCase() === trimmed.toLowerCase())) {
       toast.error('Category already exists');
       return;
     }
@@ -53,10 +53,31 @@ export default function CategoriesTab() {
     setNewCat('');
   };
 
-  const handleDelete = (cat) => {
-    if (!window.confirm(`Delete category "${cat}"?`)) return;
-    const updated = categories.filter(c => c !== cat);
-    handleSave(updated);
+  const handleDelete = async (cat) => {
+    if (!window.confirm(`Delete category "${cat}"? Products using it will be moved to Uncategorized.`)) return;
+    try {
+      const snapshot = await getDocs(collection(db, 'mangoes'));
+      const products = snapshot.docs.filter(d => !['CATEGORIES', 'FILTERS', 'VARIETIES', 'STORE_SECTIONS', 'STORE_SETTINGS', 'NAVBAR_TABS', 'PACKAGING_OPTIONS', 'DELIVERY_OPTIONS'].includes(d.id));
+      const updates = products.flatMap((product) => {
+        const current = product.data().category;
+        const values = Array.isArray(current) ? current : [current].filter(Boolean);
+        if (!values.includes(cat)) return [];
+        const next = values.filter(value => value !== cat);
+        return [{ ref: doc(db, 'mangoes', product.id), category: next.length ? next : ['Uncategorized'] }];
+      });
+      for (let index = 0; index < updates.length; index += 500) {
+        const batch = writeBatch(db);
+        updates.slice(index, index + 500).forEach(update => batch.update(update.ref, { category: update.category }));
+        await batch.commit();
+      }
+      const updated = categories.filter(c => c !== cat);
+      if (updates.length && !updated.some(category => category.toLowerCase() === 'uncategorized')) updated.push('Uncategorized');
+      await handleSave(updated);
+      toast.success(updates.length ? `Category removed from ${updates.length} product(s).` : 'Category deleted');
+    } catch (err) {
+      console.error(err);
+      toast.error('Failed to delete category safely');
+    }
   };
 
   // 5. Data Migration Utility
@@ -70,13 +91,19 @@ export default function CategoriesTab() {
       // to Firestore once at the end — not inside a setState updater (which Strict
       // Mode invokes twice, causing duplicate writes).
       const newCats = new Set(categories);
+      const updates = [];
       for (const d of snap.docs) {
         if (['CATEGORIES', 'FILTERS', 'VARIETIES', 'STORE_SECTIONS', 'STORE_SETTINGS', 'NAVBAR_TABS', 'PACKAGING_OPTIONS', 'DELIVERY_OPTIONS'].includes(d.id)) continue;
         const data = d.data();
         const cat = data.section || data.variety || 'Uncategorized';
-        await updateDoc(doc(db, 'mangoes', d.id), { category: cat });
+        updates.push({ ref: doc(db, 'mangoes', d.id), category: cat });
         newCats.add(cat);
         count++;
+      }
+      for (let index = 0; index < updates.length; index += 500) {
+        const batch = writeBatch(db);
+        updates.slice(index, index + 500).forEach(update => batch.update(update.ref, { category: update.category }));
+        await batch.commit();
       }
       const finalList = [...newCats];
       await setDoc(doc(db, 'mangoes', 'CATEGORIES'), { list: finalList }, { merge: true });

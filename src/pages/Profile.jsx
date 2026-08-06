@@ -3,7 +3,7 @@ import { signOut, updateProfile, sendPasswordResetEmail } from 'firebase/auth';
 import { doc, getDoc, setDoc, collection, query, where, getDocs, updateDoc } from 'firebase/firestore';
 import { auth, db } from '../firebaseConfig';
 import { useAuth } from '../context/AuthContext';
-import { Navigate, Link, useNavigate, useLocation } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
 import { isValidBDPhoneNumber } from '../utils/phoneValidation';
 import { fetchCurrentLocation } from '../utils/geolocation';

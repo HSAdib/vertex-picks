@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { signOut } from 'firebase/auth';
-import { collection, getDocs, doc, getDoc, setDoc, deleteDoc, updateDoc, onSnapshot } from 'firebase/firestore';
+import { collection, getDocs, doc, getDoc, setDoc, deleteDoc, updateDoc, onSnapshot, writeBatch } from 'firebase/firestore';
 import { auth, db } from '../firebaseConfig';
 import { useAuth } from '../context/AuthContext';
 import { Link, Navigate } from 'react-router-dom';
@@ -102,8 +102,6 @@ export default function Admin() {
   const [selectedOrders, setSelectedOrders] = useState(new Set());
   const [batchUpdating, setBatchUpdating] = useState(false);
   const [expandedOrder, setExpandedOrder] = useState(null);
-  const [editAddressModal, setEditAddressModal] = useState({ isOpen: false, orderId: null, address: '' });
-  const [editFinancialsModal, setEditFinancialsModal] = useState({ isOpen: false, orderId: null, total: '', deliveryFee: '' });
 
   // Edit Order Steps Modal States
   const [editOrderStepsModal, setEditOrderStepsModal] = useState({ isOpen: false, orderId: null });
@@ -123,7 +121,6 @@ export default function Admin() {
 
   // Map Modal & Geolocation States/Refs
   const [showMapModal, setShowMapModal] = useState(false);
-  const [locating, setLocating] = useState(false);
   const [pinnedCoords, setPinnedCoords] = useState({ lat: 23.6850, lng: 90.3563 });
   const mapRef = useRef(null);
 
@@ -154,12 +151,21 @@ export default function Admin() {
     };
   };
 
+  const commitOrderUpdates = async (ids, getPayload) => {
+    const uniqueIds = [...new Set(ids)];
+    for (let index = 0; index < uniqueIds.length; index += 500) {
+      const batch = writeBatch(db);
+      uniqueIds.slice(index, index + 500).forEach((id) => batch.update(doc(db, 'orders', id), getPayload(id)));
+      await batch.commit();
+    }
+  };
+
   const handleBatchStatus = async (newStatus) => {
     if (selectedOrders.size === 0) return;
     setBatchUpdating(true);
     try {
-      await Promise.all([...selectedOrders].map(id => updateDoc(doc(db, 'orders', id), getOrderUpdatePayload(id, { status: newStatus }))));
-      setOrders(orders.map(o => selectedOrders.has(o.id) ? { ...o, status: newStatus, isGuest: getOrderUpdatePayload(o.id, {}).isGuest } : o));
+      await commitOrderUpdates([...selectedOrders], id => getOrderUpdatePayload(id, { status: newStatus }));
+      setOrders(prev => prev.map(o => selectedOrders.has(o.id) ? { ...o, status: newStatus, isGuest: getOrderUpdatePayload(o.id, {}).isGuest } : o));
       toast.success(`${selectedOrders.size} order(s) marked as ${newStatus}`);
       setSelectedOrders(new Set());
     } catch (err) {
@@ -167,6 +173,22 @@ export default function Admin() {
       toast.error('Failed to update orders: ' + err.message);
     }
     setBatchUpdating(false);
+  };
+
+  const handleBatchTrash = async () => {
+    if (selectedOrders.size === 0 || !window.confirm(`Move ${selectedOrders.size} order(s) to trash?`)) return;
+    setBatchUpdating(true);
+    try {
+      await commitOrderUpdates([...selectedOrders], id => getOrderUpdatePayload(id, { deleted: true, deletedAt: new Date() }));
+      setOrders(prev => prev.map(o => selectedOrders.has(o.id) ? { ...o, deleted: true, deletedAt: new Date(), isGuest: getOrderUpdatePayload(o.id, {}).isGuest } : o));
+      toast.success(`${selectedOrders.size} order(s) moved to trash.`);
+      setSelectedOrders(new Set());
+    } catch (err) {
+      console.error('Failed to move orders to trash:', err);
+      toast.error('Some orders could not be moved to trash. Please refresh and try again.');
+    } finally {
+      setBatchUpdating(false);
+    }
   };
 
   const handleUpdateStatus = async (id, newStatus) => {
@@ -265,23 +287,15 @@ export default function Admin() {
     };
   }, [editOrderPackagingId, editedTotalWeight, packagingOptions]);
 
-  // Update delivery fee automatically based on chosen courier and weight
-  useEffect(() => {
-    if (editOrderStepsModal.isOpen) {
-      const dlv = deliveryOptions.find(d => d.id === editOrderDeliveryId);
-      if (dlv && editedTotalWeight > 0) {
-        const perKgRate = Number(dlv.perKgRate) || 0;
-        const firstKgPrice = Number(dlv.firstKgPrice) || 0;
-        const extraKgRate = Number(dlv.extraKgRate) || 0;
-        const fee = dlv.pricingType === 'per_kg'
-          ? perKgRate * editedTotalWeight
-          : firstKgPrice + (extraKgRate * Math.max(0, editedTotalWeight - 1));
-        setEditOrderDeliveryFee(fee);
-      } else if (!editOrderDeliveryId) {
-        setEditOrderDeliveryFee(0);
-      }
-    }
-  }, [editOrderDeliveryId, editedTotalWeight, deliveryOptions, editOrderStepsModal.isOpen]);
+  const calculateDeliveryFee = (deliveryOption, totalWeight) => {
+    if (!deliveryOption || totalWeight <= 0) return 0;
+    const perKgRate = Number(deliveryOption.perKgRate) || 0;
+    const firstKgPrice = Number(deliveryOption.firstKgPrice) || 0;
+    const extraKgRate = Number(deliveryOption.extraKgRate) || 0;
+    return deliveryOption.pricingType === 'per_kg'
+      ? perKgRate * totalWeight
+      : firstKgPrice + (extraKgRate * Math.max(0, totalWeight - 1));
+  };
 
   const editedTotal = useMemo(() => {
     return Math.max(0, editedSubtotal + editedPackagingCostInfo.cost + editOrderDeliveryFee - editOrderDiscount);
@@ -394,19 +408,11 @@ export default function Admin() {
     return mangoes.find(p => p.id === addItemProductId);
   }, [addItemProductId, mangoes]);
 
-  useEffect(() => {
-    if (selectedProductForAdd) {
-      if (selectedProductForAdd.weightOptions && selectedProductForAdd.weightOptions.length > 0) {
-        setAddItemWeight(selectedProductForAdd.weightOptions[0]);
-      } else if (selectedProductForAdd.fixedWeight) {
-        setAddItemWeight(`${selectedProductForAdd.fixedWeight}kg Box`);
-      } else {
-        setAddItemWeight('');
-      }
-    } else {
-      setAddItemWeight('');
-    }
-  }, [selectedProductForAdd]);
+  const handleAddProductSelection = (productId) => {
+    setAddItemProductId(productId);
+    const product = mangoes.find(p => p.id === productId);
+    setAddItemWeight(product?.weightOptions?.[0] || (product?.fixedWeight ? `${product.fixedWeight}kg Box` : ''));
+  };
 
   const handleAddItemToOrder = () => {
     if (!addItemProductId) return toast.error("Please select a product!");
@@ -944,6 +950,7 @@ export default function Admin() {
   const [showProductModal, setShowProductModal] = useState(false);
   const [editProductId, setEditProductId] = useState(null);
   const [activeProdFormTab, setActiveProdFormTab] = useState('basic');
+  const [, setBasicTabTouched] = useState(false);
   const [prodName, setProdName] = useState('');
   const [prodPrice, setProdPrice] = useState(100);
   const [prodDiscountPrice, setProdDiscountPrice] = useState('');
@@ -971,7 +978,6 @@ export default function Admin() {
   // ID of product to copy Rich Display fields from
   const [copyFromProductId, setCopyFromProductId] = useState('');
   // Tab completion badge: which tabs have their required fields filled
-  const [basicTabTouched, setBasicTabTouched] = useState(false);
 
   const [prodTrustStrip, setProdTrustStrip] = useState([
     { title: 'Chemical-Free', sub: 'Guaranteed' },
@@ -1195,6 +1201,8 @@ export default function Admin() {
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchData();
+    // fetchData intentionally runs once on mount; its helpers are recreated with component state.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Real-time orders listener — fires on new order creation after page load
@@ -1203,8 +1211,8 @@ export default function Admin() {
     if (loading) return;
     const unsubscribe = onSnapshot(collection(db, 'orders'), (snapshot) => {
       snapshot.docChanges().forEach((change) => {
+        const order = { id: change.doc.id, ...change.doc.data() };
         if (change.type === 'added') {
-          const order = { id: change.doc.id, ...change.doc.data() };
           const orderTime = order.createdAt?.toMillis
             ? order.createdAt.toMillis()
             : order.createdAt?.seconds
@@ -1232,6 +1240,10 @@ export default function Admin() {
               );
             }
           }
+        } else if (change.type === 'modified') {
+          setOrders(prev => prev.map(existing => existing.id === order.id ? order : existing));
+        } else if (change.type === 'removed') {
+          setOrders(prev => prev.filter(existing => existing.id !== order.id));
         }
       });
     });
@@ -1258,6 +1270,8 @@ export default function Admin() {
       } catch (err) { console.error('Seed failed:', err); }
     };
     seedDefaults();
+    // Seeding is a one-time recovery action after initial data loading.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loading, mangoes.length]);
 
 
@@ -1580,7 +1594,19 @@ export default function Admin() {
   const handleCreateCoupon = async (e) => {
     e.preventDefault();
     try {
-      const upperCode = coupCode.toUpperCase();
+      const upperCode = coupCode.trim().toUpperCase();
+      if (!/^[A-Z0-9_-]{3,40}$/.test(upperCode)) {
+        toast.error('Use 3-40 letters, numbers, hyphens, or underscores for a promo code.');
+        return;
+      }
+      if (coupType === 'percent' && (Number(coupValue) <= 0 || Number(coupValue) > 100)) {
+        toast.error('Percentage discounts must be between 1 and 100.');
+        return;
+      }
+      if (Number(coupValue) <= 0 || Number(coupMinOrder) < 0 || Number(coupLimit) < 1) {
+        toast.error('Promo values must be valid positive numbers.');
+        return;
+      }
       const cData = {
         code: upperCode,
         type: coupType,
@@ -1592,11 +1618,10 @@ export default function Admin() {
         createdAt: editPromoId && editPromoCreatedAt ? editPromoCreatedAt : new Date()
       };
       
-      if (editPromoId && editPromoId !== upperCode) {
-        await deleteDoc(doc(db, 'promos', editPromoId));
-      }
-
-      await setDoc(doc(db, 'promos', upperCode), cData);
+      const batch = writeBatch(db);
+      batch.set(doc(db, 'promos', upperCode), cData);
+      if (editPromoId && editPromoId !== upperCode) batch.delete(doc(db, 'promos', editPromoId));
+      await batch.commit();
       toast.success(editPromoId ? `Promo Code ${upperCode} updated!` : `Promo Code ${upperCode} active!`);
       setShowCouponModal(false);
       openPromoModal(null);
@@ -1634,18 +1659,6 @@ export default function Admin() {
   };
 
 
-
-  // Delivery Config Save
-  const handleSaveStoreConfig = async (e) => {
-    e.preventDefault();
-    try {
-      await setDoc(doc(db, 'mangoes', 'STORE_SETTINGS'), storeConfig, { merge: true });
-      toast.success('Store baseline config saved!');
-    } catch (err) {
-      console.error(err);
-      toast.error('Failed to save baseline settings.');
-    }
-  };
 
   // General Config Save
   const handleSaveStoreGeneral = async (e) => {
@@ -4389,15 +4402,7 @@ export default function Admin() {
                     ))}
                     <div style={{ width:1,height:20,background:'rgba(255,255,255,.15)',flexShrink:0 }}></div>
                     <button
-                      onClick={async () => {
-                        if (!window.confirm(`Move ${selectedOrders.size} order(s) to trash?`)) return;
-                        setBatchUpdating(true);
-                        await Promise.all([...selectedOrders].map(id => updateDoc(doc(db,'orders',id), getOrderUpdatePayload(id, {deleted:true}))));
-                        setOrders(orders.map(o => selectedOrders.has(o.id) ? {...o,deleted:true,isGuest: getOrderUpdatePayload(o.id, {}).isGuest} : o));
-                        toast.success(`${selectedOrders.size} order(s) moved to trash.`);
-                        setSelectedOrders(new Set());
-                        setBatchUpdating(false);
-                      }}
+                      onClick={handleBatchTrash}
                       disabled={batchUpdating}
                       style={{ fontFamily:'var(--ff)',fontWeight:800,fontSize:'.72rem',textTransform:'uppercase',letterSpacing:'.05em',color:'#FCA5A5',background:'transparent',border:'none',cursor:'pointer',padding:'.35rem .7rem',borderRadius:100,transition:'all .15s',flexShrink:0 }}
                     >🗑 Trash</button>
@@ -4844,7 +4849,7 @@ export default function Admin() {
                                 <label className="order-input-label">Select Product to Add</label>
                                 <select 
                                   value={addItemProductId} 
-                                  onChange={e => setAddItemProductId(e.target.value)}
+                                  onChange={e => handleAddProductSelection(e.target.value)}
                                   className="order-input"
                                 >
                                   <option value="">-- Choose Product --</option>
@@ -5033,7 +5038,10 @@ export default function Admin() {
                                 return (
                                   <div 
                                     key={dlv.id}
-                                    onClick={() => setEditOrderDeliveryId(dlv.id)}
+                                    onClick={() => {
+                                      setEditOrderDeliveryId(dlv.id);
+                                      setEditOrderDeliveryFee(calculateDeliveryFee(dlv, editedTotalWeight));
+                                    }}
                                     className={`premium-radio-card ${isSelected ? 'selected' : ''}`}
                                     style={{ padding: '1rem', display: 'flex', gap: '0.75rem', cursor: 'pointer', transition: 'all 0.2s', border: isSelected ? '2px solid var(--primary)' : '1.5px solid var(--border-color)', borderRadius: '12px' }}
                                   >
@@ -6088,7 +6096,7 @@ export default function Admin() {
                           <span style={{ fontSize: '.7rem', color: 'var(--gray4)', fontWeight: 600, display: 'block', marginBottom: '.5rem', textTransform: 'uppercase' }}>Live Preview:</span>
                           <div className="banner-card" style={{ background: `linear-gradient(135deg, ${banner.color1}, ${banner.color2})`, margin: 0, height: '140px', color: '#fff' }}>
                             <div className="bc-label">{banner.label}</div>
-                            <div className="bc-title" dangerouslySetInnerHTML={{ __html: banner.title }} />
+                            <div className="bc-title" dangerouslySetInnerHTML={{ __html: sanitizeHTML(banner.title) }} />
                             <div className="bc-btn" style={{ background: 'rgba(255,255,255,.2)', color: '#fff', fontSize: '.7rem', padding: '.3rem .8rem' }}>{banner.btnText}</div>
                             <div className="bc-emoji" style={{ fontSize: '4rem' }}>{banner.emoji}</div>
                           </div>
@@ -6519,7 +6527,7 @@ export default function Admin() {
                         fontFamily: '"Fraunces", serif',
                         textAlign: 'center'
                       }}>
-                        {promiseTitle && (promiseTitle.includes('<span>') ? <span dangerouslySetInnerHTML={{ __html: promiseTitle }} /> : promiseTitle)}
+                        {promiseTitle && (promiseTitle.includes('<span>') ? <span dangerouslySetInnerHTML={{ __html: sanitizeHTML(promiseTitle) }} /> : promiseTitle)}
                       </div>
                       
                       <div style={{ 

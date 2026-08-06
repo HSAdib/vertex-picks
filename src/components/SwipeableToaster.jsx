@@ -9,7 +9,7 @@ import { useRef } from 'react';
  */
 export default function SwipeableToaster() {
   const { toasts, handlers } = useToaster({ duration: 3000 });
-  const { startPause, endPause, calculateOffset, updateHeight } = handlers;
+  const { startPause, endPause, updateHeight } = handlers;
 
   return (
     <>

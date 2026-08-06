@@ -21,10 +21,14 @@ export function useShopFilters() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   useEffect(() => {
+    // Navigation is an external source of truth; this intentionally synchronizes local input state.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setSearchQuery(urlSearch || '');
   }, [urlSearch]);
 
   useEffect(() => {
+    // Navigation is an external source of truth; this intentionally synchronizes local filter state.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setSelectedCategories(urlCategory ? [urlCategory] : []);
   }, [urlCategory]);
 
