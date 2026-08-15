@@ -133,13 +133,14 @@ export default function ProductInfo({
 
       <div className="pdp-section-label">Quantity</div>
       <div className="pdp-buy-row" id="pdp-buy-row">
-        <div className="pdp-qty">
-          <button className="pdp-qty-btn" onClick={() => setQty(Math.max(1, qty - 1))}>−</button>
+        <div className={`pdp-qty ${!product.inStock ? 'opacity-50 pointer-events-none' : ''}`}>
+          <button className="pdp-qty-btn" onClick={() => setQty(Math.max(1, qty - 1))} disabled={!product.inStock}>−</button>
           <div className="pdp-qty-val" id="pdp-qty-val">
             <input
               type="number"
               value={qty}
               min="1"
+              disabled={!product.inStock}
               onChange={(e) => {
                 const val = e.target.value;
                 setQty(val === '' ? '' : Math.max(1, parseInt(val) || 1));
@@ -148,18 +149,24 @@ export default function ProductInfo({
               style={{ width: '100%', height: '100%', textAlign: 'center', border: 'none', background: 'transparent', outline: 'none', fontWeight: 700, fontSize: 'inherit', color: 'inherit', margin: 0, padding: 0 }}
             />
           </div>
-          <button className="pdp-qty-btn" onClick={() => setQty(qty + 1)}>+</button>
+          <button className="pdp-qty-btn" onClick={() => setQty(qty + 1)} disabled={!product.inStock}>+</button>
         </div>
         <button
-          className={`pdp-add-cart ${isAdded ? 'added' : ''}`}
+          className={`pdp-add-cart ${isAdded ? 'added' : ''} ${!product.inStock ? '!bg-gray-200 dark:!bg-zinc-800 !text-gray-400 !shadow-none !cursor-not-allowed hover:!transform-none' : ''}`}
           id="pdp-add-cart-btn"
           onClick={handleAddToCart}
           disabled={!product.inStock}
         >
-          {product.inStock ? '🛒 Add to Cart' : 'Out of Stock'}
+          {product.inStock ? '🛒 Add to Cart' : '🚫 Out of Stock'}
         </button>
-        <button className="pdp-buy-now" onClick={handleBuyNow} disabled={!product.inStock}>
-          Buy Now <span style={{ opacity: 0.85, fontWeight: 700 }}>• ৳{Number((displayPrice || 0) * (qty || 1)).toLocaleString()}</span>
+        <button 
+          className={`pdp-buy-now ${!product.inStock ? '!bg-gray-200 dark:!bg-zinc-800 !text-gray-400 !shadow-none !cursor-not-allowed hover:!transform-none' : ''}`} 
+          onClick={handleBuyNow} 
+          disabled={!product.inStock}
+        >
+          {product.inStock ? (
+            <>Buy Now <span style={{ opacity: 0.85, fontWeight: 700 }}>• ৳{Number((displayPrice || 0) * (qty || 1)).toLocaleString()}</span></>
+          ) : 'Unavailable'}
         </button>
       </div>
 

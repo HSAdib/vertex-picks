@@ -11,6 +11,8 @@ import FiltersTab from '../components/admin/FiltersTab';
 import { ResponsiveContainer, BarChart, CartesianGrid, XAxis, YAxis, Tooltip, Bar } from 'recharts';
 import { sanitizeHTML } from '../utils/sanitizeHTML';
 import { parseWeight } from '../utils/price';
+import { AdminSidebar } from '../components/admin/AdminSidebar';
+import { SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
 
 const exportToCSV = (filename, rows, headers) => {
   const escapeCsvField = (field) => {
@@ -100,6 +102,7 @@ export default function Admin() {
   const [dlvExtraKgRate, setDlvExtraKgRate] = useState(22);
   const [dlvActive, setDlvActive] = useState(true);
   const [selectedOrders, setSelectedOrders] = useState(new Set());
+  const [selectedLeads, setSelectedLeads] = useState(new Set());
   const [batchUpdating, setBatchUpdating] = useState(false);
   const [expandedOrder, setExpandedOrder] = useState(null);
 
@@ -783,6 +786,9 @@ export default function Admin() {
   const [contactPhone, setContactPhone] = useState('+880 1581-221084');
   const [contactAddress, setContactAddress] = useState('Rajshahi, Bangladesh');
   const [floatingWhatsappPhone, setFloatingWhatsappPhone] = useState('8801581221084');
+  const [socialWebsite, setSocialWebsite] = useState('');
+  const [socialInstagram, setSocialInstagram] = useState('');
+  const [socialWhatsapp, setSocialWhatsapp] = useState('');
 
   // Homepage Customizer states
   const [marqueeItems, setMarqueeItems] = useState([
@@ -1069,6 +1075,9 @@ export default function Admin() {
       setContactPhone(c.contactPhone || '+880 1581-221084');
       setContactAddress(c.contactAddress || 'Rajshahi, Bangladesh');
       setFloatingWhatsappPhone(c.floatingWhatsappPhone || '8801581221084');
+      setSocialWebsite(c.socialWebsite || '');
+      setSocialInstagram(c.socialInstagram || '');
+      setSocialWhatsapp(c.socialWhatsapp || '');
       if (c.marqueeItems && Array.isArray(c.marqueeItems)) setMarqueeItems(c.marqueeItems);
       if (c.heroBadge1 !== undefined) setHeroBadge1(c.heroBadge1);
       if (c.heroBadge2 !== undefined) setHeroBadge2(c.heroBadge2);
@@ -1409,6 +1418,7 @@ export default function Admin() {
         price: basePrice,
         discountPrice: baseDiscountPrice,
         stock: Number(prodStock),
+        inStock: Number(prodStock) > 0,
         category: prodCategories,
         variety: prodVariety,
         sku: prodSku || `VP-${prodCategories.length > 0 ? prodCategories[0].slice(0,3).toUpperCase() : 'MGO'}-${pId.slice(-3).toUpperCase()}`,
@@ -1711,6 +1721,9 @@ export default function Admin() {
         contactPhone,
         contactAddress,
         contactEmail,
+        socialWebsite,
+        socialInstagram,
+        socialWhatsapp,
         promoBanners,
       }, { merge: true });
       toast.success('🎉 Homepage & UI copy successfully published live!');
@@ -2076,6 +2089,58 @@ export default function Admin() {
     });
   }
 
+  // Flatten reviews across all catalog products dynamically
+  const allProductReviews = [];
+  mangoes.forEach(prod => {
+    const reviewArr = prod.reviewsList || prod.reviews || [];
+    if (Array.isArray(reviewArr)) {
+      reviewArr.forEach(rev => {
+        allProductReviews.push({
+          ...rev,
+          productId: prod.id,
+          productName: prod.name
+        });
+      });
+    }
+  });
+  const pendingReviewsCount = allProductReviews.filter(r => r.status === 'pending').length;
+
+  // --- REAL STATS COMPUTATIONS ---
+  const lastWeekStart = new Date(today);
+  lastWeekStart.setDate(lastWeekStart.getDate() - 13);
+  const lastWeekEnd = new Date(today);
+  lastWeekEnd.setDate(lastWeekEnd.getDate() - 7);
+  const thisWeekStart = new Date(today);
+  thisWeekStart.setDate(thisWeekStart.getDate() - 6);
+
+  const lastWeekRevenue = activeOrders.filter(o => {
+    if (!o.createdAt) return false;
+    const orderDate = o.createdAt.toDate ? o.createdAt.toDate() : new Date(o.createdAt);
+    return orderDate >= lastWeekStart && orderDate < lastWeekEnd;
+  }).reduce((sum, o) => sum + (Number(o.total) || 0), 0);
+  
+  const thisWeekRevenue = activeOrders.filter(o => {
+    if (!o.createdAt) return false;
+    const orderDate = o.createdAt.toDate ? o.createdAt.toDate() : new Date(o.createdAt);
+    return orderDate >= thisWeekStart;
+  }).reduce((sum, o) => sum + (Number(o.total) || 0), 0);
+
+  const revenueTrend = lastWeekRevenue === 0 ? (thisWeekRevenue > 0 ? 100 : 0) : ((thisWeekRevenue - lastWeekRevenue) / lastWeekRevenue) * 100;
+  const revenueTrendStr = revenueTrend >= 0 ? `↑ +${revenueTrend.toFixed(1)}%` : `↓ ${Math.abs(revenueTrend).toFixed(1)}%`;
+  
+  const validReviews = allProductReviews.filter(r => r.rating);
+  const avgRating = validReviews.length > 0 
+    ? (validReviews.reduce((sum, r) => sum + Number(r.rating), 0) / validReviews.length).toFixed(1) 
+    : '0.0';
+
+  const pendingOrdersCount = orders.filter(o => o.status === 'Pending').length;
+  
+  const newCustomersThisMonth = users.filter(u => {
+    if (!u.createdAt) return false;
+    const createDate = u.createdAt.toDate ? u.createdAt.toDate() : new Date(u.createdAt);
+    return createDate.getMonth() === today.getMonth() && createDate.getFullYear() === today.getFullYear();
+  }).length;
+
   // --- CRUD SEARCH FILTERS CALCULATIONS ---
   // Products Filter
   const filteredProducts = mangoes.filter(p => {
@@ -2093,8 +2158,6 @@ export default function Admin() {
     return true;
   });
 
-
-
   // Customers Filter
   const filteredCustomers = users.filter(u => {
     if (customerSearch.trim() !== '') {
@@ -2106,27 +2169,12 @@ export default function Admin() {
     return true;
   });
 
-  // Flatten reviews across all catalog products dynamically
-  const allProductReviews = [];
-  mangoes.forEach(prod => {
-    const reviewArr = prod.reviewsList || prod.reviews || [];
-    if (Array.isArray(reviewArr)) {
-      reviewArr.forEach(rev => {
-        allProductReviews.push({
-          ...rev,
-          productId: prod.id,
-          productName: prod.name
-        });
-      });
-    }
-  });
-  const pendingReviewsCount = allProductReviews.filter(r => r.status === 'pending').length;
-
   const aFirstWord = storeName.split(' ')[0] || '';
   const aRestWord = storeName.split(' ').slice(1).join(' ') || '';
 
   return (
-    <div style={{ paddingTop: 'var(--nav-height)' }}>
+    <SidebarProvider>
+    <div style={{ paddingTop: 'var(--nav-height)', width: '100%' }}>
       <style>{`
         @keyframes spin{to{transform:rotate(360deg)}}
         @keyframes marqueeSimulate {
@@ -2946,61 +2994,24 @@ export default function Admin() {
         </div>
       )}
 
-      {/* MOBILE OVERLAY */}
-      {isSidebarOpen && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.45)', zIndex: 290 }} onClick={() => setIsSidebarOpen(false)} />
-      )}
-
       {/* ADMIN SIDEBAR */}
-      <aside className="admin-sidebar" style={isSidebarOpen ? { display: 'flex', flexDirection: 'column', position: 'fixed', top: 0, left: 0, height: '100vh', zIndex: 300 } : {}}>
-        <div className="admin-logo-area">
-          <div className="admin-logo-text">{aFirstWord}<span>{aRestWord}</span></div>
-          <div className="admin-role-badge">⚙️ Admin Console</div>
-        </div>
-
-        <div className="admin-nav-section">
-          <span className="admin-nav-label">Main</span>
-          {[{ id: 'dashboard', icon: '📊', label: 'Dashboard' }, { id: 'categories', icon: '📁', label: 'Categories' }, { id: 'filters', icon: '🎛️', label: 'Filters' }, { id: 'products', icon: '🥭', label: 'Products' }, { id: 'orders', icon: '📦', label: 'Orders', badge: unreadOrderCount > 0 ? unreadOrderCount : orders.length }, { id: 'customers', icon: '👥', label: 'Customers' }].map(item => (
-            <button key={item.id} className={`admin-nav-item${activeAdminTab === item.id ? ' active' : ''}`} onClick={() => { setActiveAdminTab(item.id); setIsSidebarOpen(false); if (item.id === 'orders') { setUnreadOrderCount(0); setNewOrderAlert(prev => ({ ...prev, show: false })); } }}>
-              <span className="ani-icon">{item.icon}</span>
-              {item.label}
-              {item.badge > 0 && <span className="ani-badge">{item.badge}</span>}
-            </button>
-          ))}
-        </div>
-
-        <div className="admin-nav-section">
-          <span className="admin-nav-label">Manage</span>
-          {[{ id: 'coupons', icon: '🎟️', label: 'Promo Codes' }, { id: 'packaging', icon: '📦', label: 'Packaging & Delivery' }, { id: 'reviews', icon: '⭐', label: 'Reviews', badge: pendingReviewsCount }, { id: 'leads', icon: '📧', label: 'Leads', badge: leads.length }, { id: 'analytics', icon: '📈', label: 'Analytics' }, { id: 'customizer', icon: '🎨', label: 'UI Customizer' }].map(item => (
-            <button key={item.id} className={`admin-nav-item${activeAdminTab === item.id ? ' active' : ''}`} onClick={() => { setActiveAdminTab(item.id); setIsSidebarOpen(false); }}>
-              <span className="ani-icon">{item.icon}</span>
-              {item.label}
-              {item.badge > 0 && <span className="ani-badge">{item.badge}</span>}
-            </button>
-          ))}
-        </div>
-
-        <div style={{ marginTop: 'auto', padding: '.9rem', borderTop: '1px solid rgba(255,255,255,.08)' }}>
-          <Link to="/profile" className="admin-nav-item" style={{ display: 'flex', alignItems: 'center', gap: '.7rem', color: 'rgba(255,255,255,.6)' }}>
-            <span className="ani-icon">👤</span> My Profile
-          </Link>
-          <button className="admin-nav-item" style={{ width: '100%', textAlign: 'left', color: '#f87171' }} onClick={() => signOut(auth)}>
-            <span className="ani-icon">🚪</span> Sign Out
-          </button>
-        </div>
-      </aside>
+      <AdminSidebar 
+        activeAdminTab={activeAdminTab}
+        setActiveAdminTab={setActiveAdminTab}
+        storeName={storeName}
+        unreadOrderCount={unreadOrderCount}
+        ordersLength={orders.length}
+        pendingReviewsCount={pendingReviewsCount}
+        leadsLength={leads.length}
+      />
 
       {/* ADMIN MAIN CONTENT */}
-      <main className="admin-main">
+      <main className="admin-main" style={{ flex: 1, minWidth: 0 }}>
         
         {/* Admin Topbar */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '1rem 1.5rem', marginBottom: '1.5rem', background: '#fff', border: '1.5px solid var(--gray2)', borderRadius: 'var(--radius)', boxShadow: 'var(--shadow-sm)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '1rem 1.5rem', marginBottom: '1.5rem', background: 'var(--bg-card)', border: '1.5px solid var(--border-color)', borderRadius: 'var(--radius)', boxShadow: 'var(--shadow-sm)' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-            <button
-              onClick={() => setIsSidebarOpen(true)}
-              className="sidebar-mobile-toggle"
-              style={{ padding: '8px', borderRadius: 10, border: '1.5px solid var(--gray2)', background: '#fff', cursor: 'pointer', fontSize: '1.1rem', display: 'none' }}
-            >☰</button>
+            <SidebarTrigger className="md:hidden" />
             <div>
               <div style={{ fontSize: '.68rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.1em', color: 'var(--gray4)' }}>Admin Control Center</div>
               <div style={{ fontSize: '.9rem', fontWeight: 800, color: 'var(--dark)', textTransform: 'capitalize' }}>{activeAdminTab} Panel</div>
@@ -3094,38 +3105,51 @@ export default function Admin() {
               </div>
             </div>
 
+            {/* Quick Actions */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+              <button onClick={() => { setActiveAdminTab('products'); setTimeout(() => { document.querySelector('.add-btn')?.click(); }, 100); }} className="admin-card !p-4 flex items-center justify-center gap-3 hover:scale-[1.02] transition-transform text-[#E8540A] font-black uppercase text-xs tracking-wider cursor-pointer">
+                <span>➕</span> Add New Product
+              </button>
+              <button onClick={() => { setActiveAdminTab('orders'); setOrderStatusFilter('Pending'); }} className="admin-card !p-4 flex items-center justify-center gap-3 hover:scale-[1.02] transition-transform text-[#2563EB] font-black uppercase text-xs tracking-wider cursor-pointer">
+                <span>📦</span> View Pending Orders
+              </button>
+              <button onClick={() => { setActiveAdminTab('coupons'); }} className="admin-card !p-4 flex items-center justify-center gap-3 hover:scale-[1.02] transition-transform text-[#16A34A] font-black uppercase text-xs tracking-wider cursor-pointer">
+                <span>🎟️</span> Manage Promo Codes
+              </button>
+            </div>
+
             {/* Stats row */}
             <div className="admin-stats">
-              <div className="admin-stat">
+              <div className="admin-stat hover:scale-[1.02] transition-transform">
                 <div className="as-icon orange">💰</div>
                 <div>
                   <div className="as-label">Total Revenue</div>
                   <div className="as-val">৳{totalRevenue.toLocaleString()}</div>
-                  <div className="as-trend up">↑ +14% vs last week</div>
+                  <div className={`as-trend ${revenueTrend >= 0 ? 'up' : 'down'}`}>{revenueTrendStr} vs last week</div>
                 </div>
               </div>
-              <div className="admin-stat">
+              <div className="admin-stat hover:scale-[1.02] transition-transform">
                 <div className="as-icon green">🛒</div>
                 <div>
                   <div className="as-label">Total Orders</div>
                   <div className="as-val">{totalOrdersCount}</div>
-                  <div className="as-trend up">↑ +{orders.filter(o => o.status === 'Pending').length} pending</div>
+                  <div className="as-trend up">↑ {pendingOrdersCount} pending</div>
                 </div>
               </div>
-              <div className="admin-stat">
+              <div className="admin-stat hover:scale-[1.02] transition-transform">
                 <div className="as-icon blue">👥</div>
                 <div>
                   <div className="as-label">Customers</div>
                   <div className="as-val">{customersCount}</div>
-                  <div className="as-trend up">↑ +12 this month</div>
+                  <div className="as-trend up">↑ +{newCustomersThisMonth} this month</div>
                 </div>
               </div>
-              <div className="admin-stat">
+              <div className="admin-stat hover:scale-[1.02] transition-transform">
                 <div className="as-icon purple">⭐</div>
                 <div>
                   <div className="as-label">Avg. Rating</div>
-                  <div className="as-val">4.9</div>
-                  <div className="as-trend up">↑ 0.1 improved</div>
+                  <div className="as-val">{avgRating}</div>
+                  <div className="as-trend up">Based on {validReviews.length} reviews</div>
                 </div>
               </div>
             </div>
@@ -3141,7 +3165,7 @@ export default function Admin() {
                   </div>
                   <select className="ach-select"><option>This Week</option><option>Last Month</option></select>
                 </div>
-                <div className="p-6 h-[220px]">
+                <div style={{ height: '220px', minWidth: 0 }}>
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart data={dailyRevenue}>
                       <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
@@ -3196,6 +3220,81 @@ export default function Admin() {
                 </div>
               </div>
             </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+              {/* Recent Orders */}
+              <div className="admin-card">
+                <div className="admin-card-head flex justify-between items-center">
+                  <div className="ach-title">🕒 Recent Orders</div>
+                  <button onClick={() => setActiveAdminTab('orders')} className="text-[#E8540A] text-xs font-bold hover:underline">View All</button>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="admin-table w-full">
+                    <thead>
+                      <tr>
+                        <th>Order ID</th>
+                        <th>Customer</th>
+                        <th>Total</th>
+                        <th>Status</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {orders.filter(o => !o.deleted).slice(0, 5).map(o => (
+                        <tr key={o.id}>
+                          <td className="font-mono text-xs">{o.id.substring(0, 8)}</td>
+                          <td className="text-xs font-bold">{o.customerName || 'Guest'}</td>
+                          <td className="font-black text-[#E8540A]">৳{o.total}</td>
+                          <td>
+                            <span className={`status-pill ${(o.status || 'pending').toLowerCase()}`}>
+                              {o.status}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                      {orders.filter(o => !o.deleted).length === 0 && (
+                        <tr><td colSpan="4" className="text-center p-4 text-gray-400 font-bold text-xs">No recent orders</td></tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* Low Stock Alerts */}
+              <div className="admin-card border-red-200">
+                <div className="admin-card-head flex justify-between items-center bg-red-50/50 dark:bg-red-950/20">
+                  <div className="ach-title text-red-600 flex items-center gap-2"><span>⚠️</span> Low Stock Alerts</div>
+                  <button onClick={() => setActiveAdminTab('inventory')} className="text-red-600 text-xs font-bold hover:underline">Manage Inventory</button>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="admin-table w-full">
+                    <thead>
+                      <tr>
+                        <th>Product</th>
+                        <th>Current Stock</th>
+                        <th>Threshold</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {mangoes.filter(p => p.stock <= (p.minThreshold || 10)).slice(0, 5).map(p => (
+                        <tr key={p.id}>
+                          <td className="font-bold text-xs flex items-center gap-2">
+                            <span className="text-xl">🥭</span> {p.name}
+                          </td>
+                          <td className={`font-black ${p.stock <= 0 ? 'text-red-600' : 'text-orange-500'}`}>
+                            {p.stock || 0} boxes
+                          </td>
+                          <td className="text-gray-400 font-bold text-xs">{p.minThreshold || 10}</td>
+                        </tr>
+                      ))}
+                      {mangoes.filter(p => p.stock <= (p.minThreshold || 10)).length === 0 && (
+                        <tr><td colSpan="3" className="text-center p-4 text-green-600 font-bold text-xs">All products are adequately stocked!</td></tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+
             {/* Settings Module */}
             <div className="admin-header" style={{ marginTop: '2.5rem' }}>
               <div className="admin-title">⚙️ Control Panel Settings</div>
@@ -3645,7 +3744,7 @@ export default function Admin() {
               <div className="admin-card-head">
                 <div><div className="ach-title">📅 Monthly Revenue</div><div className="ach-sub">Season 2026 breakdown (৳)</div></div>
               </div>
-              <div className="p-6 h-[180px]">
+              <div style={{ height: '180px', minWidth: 0 }}>
                 {analyticsLoading ? (
                   <div className="flex items-center justify-center h-full text-xs font-bold text-gray-400">Calculating...</div>
                 ) : analyticsMonthlyRevenue.length === 0 ? (
@@ -3677,7 +3776,7 @@ export default function Admin() {
         {activeAdminTab === 'products' && (
           <div className="admin-tab active" id="atab-products">
             <div className="admin-header">
-              <div className="admin-title">🥭 Products Catalog</div>
+              <div className="admin-title">🥭 Products Catalog <span className="text-gray-400 text-sm font-bold ml-2">({filteredProducts.length} items)</span></div>
               <button className="add-btn" onClick={() => { clearProductForm(); setShowProductModal(true); }}>+ Add Product</button>
             </div>
             
@@ -3699,12 +3798,9 @@ export default function Admin() {
                     onChange={e => setProductSectionFilter(e.target.value)}
                   >
                     <option>All Varieties</option>
-                    <option>Himsagar</option>
-                    <option>Langra</option>
-                    <option>Fazli</option>
-                    <option>Gopalbhog</option>
-                    <option>Amrapali</option>
-                    <option>Gift Box</option>
+                    {[...new Set(mangoes.map(m => m.section).filter(Boolean))].map(variety => (
+                      <option key={variety}>{variety}</option>
+                    ))}
                   </select>
                   <select 
                     className="aab-filter"
@@ -3740,7 +3836,14 @@ export default function Admin() {
                     </tr>
                   </thead>
                   <tbody>
-                    {filteredProducts.map(p => (
+                    {filteredProducts.length === 0 ? (
+                      <tr>
+                        <td colSpan="8" className="text-center p-8">
+                          <div className="text-4xl mb-3">📦</div>
+                          <div className="font-bold text-gray-400 text-sm">No products found matching your criteria.</div>
+                        </td>
+                      </tr>
+                    ) : filteredProducts.map(p => (
                       <tr key={p.id} style={{ opacity: p._pendingDelete ? 0.35 : 1, transition: 'opacity 0.3s', pointerEvents: p._pendingDelete ? 'none' : 'auto' }}>
                         <td><input type="checkbox" className="at-check" /></td>
                         <td>
@@ -3774,15 +3877,17 @@ export default function Admin() {
                                 onChange={e => setEditingStock(s => ({ ...s, value: e.target.value }))}
                                 onKeyDown={async e => {
                                   if (e.key === 'Enter') {
-                                    await setDoc(doc(db, 'mangoes', p.id), { stock: Number(editingStock.value) }, { merge: true });
-                                    toast.success(`Stock updated: ${editingStock.value} boxes`);
+                                    const val = Number(editingStock.value);
+                                    await setDoc(doc(db, 'mangoes', p.id), { stock: val, inStock: val > 0 }, { merge: true });
+                                    toast.success(`Stock updated: ${val} boxes`);
                                     setEditingStock(null);
                                     fetchData();
                                   } else if (e.key === 'Escape') { setEditingStock(null); }
                                 }}
                                 onBlur={async () => {
-                                  await setDoc(doc(db, 'mangoes', p.id), { stock: Number(editingStock.value) }, { merge: true });
-                                  toast.success(`Stock updated: ${editingStock.value} boxes`);
+                                  const val = Number(editingStock.value);
+                                  await setDoc(doc(db, 'mangoes', p.id), { stock: val, inStock: val > 0 }, { merge: true });
+                                  toast.success(`Stock updated: ${val} boxes`);
                                   setEditingStock(null);
                                   fetchData();
                                 }}
@@ -4466,12 +4571,20 @@ export default function Admin() {
                       const sm = statusMeta[order.status] || { cls: 'pending', icon: '⏳' };
                       const isExpanded = expandedOrder === order.id;
                       const isSelected = selectedOrders.has(order.id);
-                      const orderDate = order.createdAt?.toDate
-                        ? order.createdAt.toDate().toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})
-                        : new Date(order.createdAt?.seconds ? order.createdAt.seconds*1000 : order.createdAt).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'});
+                      const dateObj = order.createdAt?.toDate
+                        ? order.createdAt.toDate()
+                        : new Date(order.createdAt?.seconds ? order.createdAt.seconds*1000 : order.createdAt);
+                      const orderDate = dateObj.toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'});
+                      
+                      const diffHours = Math.floor((new Date() - dateObj) / (1000 * 60 * 60));
+                      const diffDays = Math.floor(diffHours / 24);
+                      const ageStr = diffHours < 1 ? 'Just now' : diffHours < 24 ? `${diffHours}h ago` : `${diffDays}d ago`;
+                      
+                      const isPriority = Number(order.total) >= 5000;
 
                       return (
-                        <div key={order.id} className={`order-card${isSelected?' selected':''}${order.status==='Cancelled'?' cancelled':''}${order.isManual?' manual':''}`}>
+                        <div key={order.id} className={`order-card${isSelected?' selected':''}${order.status==='Cancelled'?' cancelled':''}${order.isManual?' manual':''}${isPriority ? ' border-orange-500 shadow-orange-500/20 shadow-lg relative' : ''}`}>
+                          {isPriority && <div className="absolute top-0 right-0 w-8 h-8 bg-orange-500/10 rounded-bl-3xl flex items-start justify-end p-1.5"><span className="text-[10px]">🔥</span></div>}
 
                           {/* Cancelled banner */}
                           {order.status === 'Cancelled' && (
@@ -4493,7 +4606,8 @@ export default function Admin() {
                             <div style={{ flex:1,cursor:'pointer',minWidth:0 }} onClick={() => setExpandedOrder(isExpanded ? null : order.id)}>
                               <div style={{ display:'flex',alignItems:'center',gap:'.5rem',flexWrap:'wrap',marginBottom:'.35rem' }}>
                                 <span style={{ fontFamily:'monospace',fontWeight:800,fontSize:'.7rem',color:'#BBBBBB',letterSpacing:'.05em' }}>#{order.id?.slice(-6).toUpperCase()}</span>
-                                <span style={{ fontFamily:'var(--ff)',fontSize:'.7rem',color:'#BBBBBB',fontWeight:600 }}>{orderDate}</span>
+                                <span style={{ fontFamily:'var(--ff)',fontSize:'.7rem',color:'#BBBBBB',fontWeight:600 }}>{orderDate} <span className="text-gray-400 font-bold ml-1">({ageStr})</span></span>
+                                {isPriority && <span className="bg-orange-100 text-orange-600 font-black text-[0.62rem] px-2 py-0.5 rounded-full uppercase tracking-wider animate-pulse border border-orange-200">🔥 Priority</span>}
                                 <span className={`status-pill ${sm.cls}`}>{sm.icon} {order.status}</span>
                                 {order.isManual && <span style={{ background:'#EFF6FF',color:'#2563EB',fontFamily:'var(--ff)',fontSize:'.62rem',fontWeight:900,padding:'.15rem .55rem',borderRadius:100,textTransform:'uppercase',letterSpacing:'.06em' }}>Offline Sale</span>}
                                 {order.trackingLink && <span style={{ background:'#F5F3FF',color:'#7C3AED',fontFamily:'var(--ff)',fontSize:'.62rem',fontWeight:900,padding:'.15rem .55rem',borderRadius:100,textTransform:'uppercase',letterSpacing:'.06em' }}>📦 Tracked</span>}
@@ -4582,8 +4696,8 @@ export default function Admin() {
                                 exit={{ height: 0, opacity: 0 }}
                                 style={{ overflow: 'hidden' }}
                               >
-                                <div className="order-expand-panel">
-                                  <div className="order-info-grid">
+                                <div className="order-expand-panel p-4 bg-gray-50/50">
+                                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
                                     {/* Delivery Info */}
                                     <div>
@@ -5452,7 +5566,7 @@ export default function Admin() {
         {/* TAB 6: REGISTERED CUSTOMERS TAB */}
         {activeAdminTab === 'customers' && (
           <div className="admin-tab active" id="atab-customers">
-            <div className="admin-header"><div className="admin-title">👥 Customers</div></div>
+            <div className="admin-header"><div className="admin-title">👥 Customers <span className="text-gray-400 text-sm font-bold ml-2">({filteredCustomers.length} registered)</span></div></div>
             
             {/* Top Customers stats cards */}
             <div className="customer-grid">
@@ -5674,8 +5788,20 @@ export default function Admin() {
           <div className="admin-tab active" id="atab-leads">
             <div className="admin-header">
               <div className="admin-title">📧 Newsletter Subscribers & Leads</div>
-              <div style={{ fontSize: '.8rem', color: 'var(--gray4)', fontWeight: 600 }}>
-                {leads.length} subscribers registered
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+              <div className="admin-card !p-5 flex items-center gap-4 hover:scale-[1.02] transition-transform">
+                <div className="text-4xl">👥</div>
+                <div><div className="text-sm font-bold text-gray-500 uppercase tracking-widest">Total Leads</div><div className="text-3xl font-black text-gray-900">{leads.length}</div></div>
+              </div>
+              <div className="admin-card !p-5 flex items-center gap-4 hover:scale-[1.02] transition-transform">
+                <div className="text-4xl">📱</div>
+                <div><div className="text-sm font-bold text-gray-500 uppercase tracking-widest">WhatsApp</div><div className="text-3xl font-black text-[#128C7E]">{leads.filter(l => l.whatsapp || (l.emailOrPhone && !l.emailOrPhone.includes('@'))).length}</div></div>
+              </div>
+              <div className="admin-card !p-5 flex items-center gap-4 hover:scale-[1.02] transition-transform">
+                <div className="text-4xl">📧</div>
+                <div><div className="text-sm font-bold text-gray-500 uppercase tracking-widest">Email</div><div className="text-3xl font-black text-[#2563EB]">{leads.filter(l => l.email || (l.emailOrPhone && l.emailOrPhone.includes('@'))).length}</div></div>
               </div>
             </div>
 
@@ -5728,16 +5854,18 @@ export default function Admin() {
                   <button 
                     className="add-btn" 
                     onClick={() => {
-                      if (leads.length === 0) {
+                      const targets = selectedLeads.size > 0 ? leads.filter(l => selectedLeads.has(l.id)) : leads;
+                      if (targets.length === 0) {
                         toast.error("No subscribers to export!");
                         return;
                       }
-                      const emails = leads.map(l => l.email || l.whatsapp || l.emailOrPhone).filter(Boolean).join('\n');
+                      const emails = targets.map(l => l.email || l.whatsapp || l.emailOrPhone).filter(Boolean).join('\n');
                       navigator.clipboard.writeText(emails);
-                      toast.success('📋 Copied all subscriber emails/phones to clipboard!');
+                      toast.success(`📋 Copied ${targets.length} subscriber(s) to clipboard!`);
+                      setSelectedLeads(new Set());
                     }}
                   >
-                    📋 Copy All
+                    📋 {selectedLeads.size > 0 ? `Export Selected (${selectedLeads.size})` : 'Export All'}
                   </button>
                 </div>
               </div>
@@ -5746,6 +5874,20 @@ export default function Admin() {
                 <table className="admin-table">
                   <thead>
                     <tr>
+                      <th style={{ width: '40px' }}>
+                        <input 
+                          type="checkbox" 
+                          className="at-check"
+                          checked={selectedLeads.size === leads.length && leads.length > 0}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setSelectedLeads(new Set(leads.map(l => l.id)));
+                            } else {
+                              setSelectedLeads(new Set());
+                            }
+                          }}
+                        />
+                      </th>
                       <th>Subscriber Contact</th>
                       <th>Date Subscribed</th>
                       <th style={{ width: '220px', textAlign: 'right' }}>Actions</th>
@@ -5775,7 +5917,20 @@ export default function Admin() {
                         const displayWhatsapp = l.whatsapp || (l.emailOrPhone && !l.emailOrPhone.includes('@') ? l.emailOrPhone : null);
 
                         return (
-                        <tr key={l.id}>
+                        <tr key={l.id} className={selectedLeads.has(l.id) ? 'bg-orange-50/50 dark:bg-orange-950/20' : ''}>
+                          <td>
+                            <input 
+                              type="checkbox" 
+                              className="at-check"
+                              checked={selectedLeads.has(l.id)}
+                              onChange={(e) => {
+                                const newSet = new Set(selectedLeads);
+                                if (e.target.checked) newSet.add(l.id);
+                                else newSet.delete(l.id);
+                                setSelectedLeads(newSet);
+                              }}
+                            />
+                          </td>
                           <td>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '.4rem' }}>
                               {displayEmail && (
@@ -6308,6 +6463,36 @@ export default function Admin() {
                         required 
                       />
                     </div>
+                    <div className="form-group">
+                      <label className="form-label" style={{ fontWeight: 800, fontSize: '.7rem', color: 'var(--gray4)' }}>🌐 Custom Website URL (Globe Icon)</label>
+                      <input 
+                        type="text" 
+                        className="form-input !rounded-[12px] font-bold" 
+                        placeholder="https://yourwebsite.com (leave empty to scroll to top)"
+                        value={socialWebsite} 
+                        onChange={e => setSocialWebsite(e.target.value)}
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label" style={{ fontWeight: 800, fontSize: '.7rem', color: 'var(--gray4)' }}>📷 Instagram Profile URL (Camera Icon)</label>
+                      <input 
+                        type="text" 
+                        className="form-input !rounded-[12px] font-bold" 
+                        placeholder="https://instagram.com/yourprofile"
+                        value={socialInstagram} 
+                        onChange={e => setSocialInstagram(e.target.value)}
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label" style={{ fontWeight: 800, fontSize: '.7rem', color: 'var(--gray4)' }}>💬 Custom WhatsApp Chat Link (Chat Icon)</label>
+                      <input 
+                        type="text" 
+                        className="form-input !rounded-[12px] font-bold" 
+                        placeholder="https://wa.me/8801581221084 (leave empty for auto-phone link)"
+                        value={socialWhatsapp} 
+                        onChange={e => setSocialWhatsapp(e.target.value)}
+                      />
+                    </div>
                   </div>
                 </div>
 
@@ -6702,5 +6887,6 @@ export default function Admin() {
 
       </div>
     </div>
+    </SidebarProvider>
   );
 }

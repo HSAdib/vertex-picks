@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import { toast } from 'react-hot-toast';
 import { useWishlist } from '../../hooks/useWishlist';
 import { Heart } from 'lucide-react';
 

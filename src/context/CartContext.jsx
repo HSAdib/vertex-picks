@@ -23,7 +23,8 @@ export function CartProvider({ children }) {
 
   const addToCart = (productId, quantityToAdd = 1, productData = null, selectedWeight = null) => {
     // B7: check stock if product data is provided
-    if (productData && productData.inStock === false) {
+    const isOutOfStock = productData && (productData.inStock === false || (productData.stock !== undefined && Number(productData.stock) <= 0));
+    if (isOutOfStock) {
       toast.error('Sorry, this item is out of stock!', { icon: '🚫' });
       return;
     }

@@ -1,5 +1,5 @@
 import { Suspense, lazy } from 'react';
-import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Link, useLocation } from 'react-router-dom';
 import SwipeableToaster from './components/SwipeableToaster';
 import { motion } from 'framer-motion';
 import { AuthProvider } from './context/AuthContext';
@@ -27,6 +27,10 @@ const RouteFallback = () => (
 
 const FloatingWhatsApp = () => {
   const { storeName, floatingWhatsappPhone } = useStore();
+  const location = useLocation();
+
+  // Hide on admin pages
+  if (location.pathname.startsWith('/admin')) return null;
 
   // Build WA URL from context — no extra Firestore read needed (StoreContext already has a live listener)
   const rawPhone = floatingWhatsappPhone || '8801581221084';
@@ -64,38 +68,38 @@ function App() {
           <ThemeProvider>
             <AuthProvider>
               <CartProvider>
-            <Analytics />
-            <Router>
-              <div className="min-h-screen bg-white dark:bg-[#222222] flex flex-col">
-                <SwipeableToaster />
-                <Navbar />
-                <main className="flex-grow">
-                  <Routes>
-                    <Route path="/product/:id" element={<Suspense fallback={<RouteFallback />}><ProductDetail /></Suspense>} />
-                    <Route path="/profile" element={<Suspense fallback={<RouteFallback />}><Profile /></Suspense>} />
-                    <Route path="/login" element={<Suspense fallback={<RouteFallback />}><Login /></Suspense>} />
-                    <Route path="/admin" element={<Suspense fallback={<RouteFallback />}><AdminRoute><Admin /></AdminRoute></Suspense>} />
-                    <Route path="/" element={<Suspense fallback={<RouteFallback />}><Home /></Suspense>} />
-                    <Route path="/shop" element={<Suspense fallback={<RouteFallback />}><Shop /></Suspense>} />
-                    <Route path="/checkout" element={<Suspense fallback={<RouteFallback />}><Checkout /></Suspense>} />
-                    {/* Fix #8: catch-all 404 — renders instead of a blank page */}
-                    <Route path="*" element={
-                      <div style={{ paddingTop: 'var(--nav-height)', minHeight: '80vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', gap: '1rem' }}>
-                        <div style={{ fontSize: '4rem' }}>🥭</div>
-                        <h2 style={{ fontSize: '1.5rem', fontWeight: 900, color: 'var(--dark)' }}>Page Not Found</h2>
-                        <p style={{ color: 'var(--gray4)', fontSize: '.9rem' }}>The page you're looking for doesn't exist.</p>
-                        <Link to="/" style={{ background: 'var(--primary)', color: '#fff', padding: '.6rem 1.5rem', borderRadius: 100, fontWeight: 700, fontSize: '.85rem', textDecoration: 'none' }}>← Back to Home</Link>
-                      </div>
-                    } />
-                  </Routes>
-                </main>
-                <FloatingWhatsApp />
-              </div>
-            </Router>
-          </CartProvider>
-        </AuthProvider>
-      </ThemeProvider>
-    </StoreProvider>
+                <Analytics />
+                <Router>
+                  <div className="min-h-screen bg-white dark:bg-[#222222] flex flex-col">
+                    <SwipeableToaster />
+                    <Navbar />
+                    <main className="flex-grow">
+                      <Routes>
+                        <Route path="/product/:id" element={<Suspense fallback={<RouteFallback />}><ProductDetail /></Suspense>} />
+                        <Route path="/profile" element={<Suspense fallback={<RouteFallback />}><Profile /></Suspense>} />
+                        <Route path="/login" element={<Suspense fallback={<RouteFallback />}><Login /></Suspense>} />
+                        <Route path="/admin" element={<Suspense fallback={<RouteFallback />}><AdminRoute><Admin /></AdminRoute></Suspense>} />
+                        <Route path="/" element={<Suspense fallback={<RouteFallback />}><Home /></Suspense>} />
+                        <Route path="/shop" element={<Suspense fallback={<RouteFallback />}><Shop /></Suspense>} />
+                        <Route path="/checkout" element={<Suspense fallback={<RouteFallback />}><Checkout /></Suspense>} />
+                        {/* Fix #8: catch-all 404 — renders instead of a blank page */}
+                        <Route path="*" element={
+                          <div style={{ paddingTop: 'var(--nav-height)', minHeight: '80vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', gap: '1rem' }}>
+                            <div style={{ fontSize: '4rem' }}>🥭</div>
+                            <h2 style={{ fontSize: '1.5rem', fontWeight: 900, color: 'var(--dark)' }}>Page Not Found</h2>
+                            <p style={{ color: 'var(--gray4)', fontSize: '.9rem' }}>The page you're looking for doesn't exist.</p>
+                            <Link to="/" style={{ background: 'var(--primary)', color: '#fff', padding: '.6rem 1.5rem', borderRadius: 100, fontWeight: 700, fontSize: '.85rem', textDecoration: 'none' }}>← Back to Home</Link>
+                          </div>
+                        } />
+                      </Routes>
+                    </main>
+                    <FloatingWhatsApp />
+                  </div>
+                </Router>
+              </CartProvider>
+            </AuthProvider>
+          </ThemeProvider>
+        </StoreProvider>
       </QueryClientProvider>
     </HelmetProvider>
   );

@@ -74,20 +74,26 @@ export default function ProductGrid({ filteredMangoes, viewMode, isLoading }) {
         const ratingStars = Math.round(Number(mango.stats?.rating) || Number(mango.rating) || 5);
         const isLiked = isInWishlist(mango.id);
 
+        const isOutOfStock = mango.inStock === false || (mango.stock !== undefined && Number(mango.stock) <= 0);
+
         return (
-          <div key={mango.id} className="product-card" onClick={() => navigate(`/product/${mango.id}`)}>
+          <div key={mango.id} className={`product-card ${isOutOfStock ? 'opacity-90' : ''}`} onClick={() => navigate(`/product/${mango.id}`)}>
             {/* Image */}
-            <div className="pc-img">
-              {mango.discountPercent && (
+            <div className="pc-img relative">
+              {isOutOfStock ? (
+                <div className="absolute top-2 left-2 z-10 bg-red-600/90 backdrop-blur-sm text-white font-black text-[0.65rem] uppercase px-2.5 py-1 rounded-full shadow-md tracking-wider">
+                  Out of Stock
+                </div>
+              ) : mango.discountPercent ? (
                 <div className="pc-discount-badge">-{mango.discountPercent}%</div>
-              )}
+              ) : null}
               {isAdmin && (
                 <button className="pc-edit-btn" onClick={e => handleGodModeEdit(e, mango.id)}>
                   EDIT
                 </button>
               )}
               {mainImage
-                ? <img src={mainImage} alt={mango.name} loading="lazy" />
+                ? <img src={mainImage} alt={mango.name} loading="lazy" className={isOutOfStock ? 'grayscale-[30%]' : ''} />
                 : <span style={{ fontSize: '3.5rem' }}>🥭</span>
               }
             </div>
@@ -170,36 +176,47 @@ export default function ProductGrid({ filteredMangoes, viewMode, isLoading }) {
 
               {/* Bottom Actions */}
               <div style={{ marginTop: 'auto', paddingTop: '0.75rem', borderTop: '1px solid var(--gray2)', display: 'flex', flexDirection: 'column', alignItems: 'center' }} onClick={e => { e.preventDefault(); e.stopPropagation(); }}>
-                <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', marginBottom: '0.6rem', width: '100%' }}>
-                  <div className="pc-qty-stepper">
-                    <button className="pc-qty-btn" onClick={e => { e.stopPropagation(); updateQty(mango.id, -1); }}>−</button>
-                    <input
-                      type="number"
-                      className="pc-qty-input"
-                      value={quantities[mango.id] === undefined ? 1 : quantities[mango.id]}
-                      min="1"
-                      onClick={e => { e.preventDefault(); e.stopPropagation(); }}
-                      onChange={e => {
-                        const val = e.target.value;
-                        setQuantities(prev => ({ ...prev, [mango.id]: val === '' ? '' : Math.max(1, parseInt(val) || 1) }));
-                      }}
-                      onBlur={() => {
-                        if (quantities[mango.id] === '' || quantities[mango.id] < 1) {
-                          setQuantities(prev => ({ ...prev, [mango.id]: 1 }));
-                        }
-                      }}
-                    />
-                    <button className="pc-qty-btn" onClick={e => { e.stopPropagation(); updateQty(mango.id, 1); }}>+</button>
-                  </div>
-                </div>
-                <div style={{ display: 'flex', gap: '0.5rem', width: '100%' }}>
-                  <button className="pc-add-btn-new" onClick={e => { e.stopPropagation(); handleAddToCart(mango); }}>
-                    Add to Cart
+                {isOutOfStock ? (
+                  <button 
+                    disabled 
+                    className="w-full py-2.5 px-4 rounded-full bg-gray-200 dark:bg-zinc-800 text-gray-400 font-bold text-xs cursor-not-allowed uppercase tracking-wider flex items-center justify-center gap-1.5"
+                  >
+                    <span>🚫</span> Out of Stock
                   </button>
-                  <button className="pc-buy-btn-new" onClick={e => { e.stopPropagation(); handleAddToCart(mango); navigate('/checkout'); }}>
-                    Buy Now
-                  </button>
-                </div>
+                ) : (
+                  <>
+                    <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', marginBottom: '0.6rem', width: '100%' }}>
+                      <div className="pc-qty-stepper">
+                        <button className="pc-qty-btn" onClick={e => { e.stopPropagation(); updateQty(mango.id, -1); }}>−</button>
+                        <input
+                          type="number"
+                          className="pc-qty-input"
+                          value={quantities[mango.id] === undefined ? 1 : quantities[mango.id]}
+                          min="1"
+                          onClick={e => { e.preventDefault(); e.stopPropagation(); }}
+                          onChange={e => {
+                            const val = e.target.value;
+                            setQuantities(prev => ({ ...prev, [mango.id]: val === '' ? '' : Math.max(1, parseInt(val) || 1) }));
+                          }}
+                          onBlur={() => {
+                            if (quantities[mango.id] === '' || quantities[mango.id] < 1) {
+                              setQuantities(prev => ({ ...prev, [mango.id]: 1 }));
+                            }
+                          }}
+                        />
+                        <button className="pc-qty-btn" onClick={e => { e.stopPropagation(); updateQty(mango.id, 1); }}>+</button>
+                      </div>
+                    </div>
+                    <div style={{ display: 'flex', gap: '0.5rem', width: '100%' }}>
+                      <button className="pc-add-btn-new" onClick={e => { e.stopPropagation(); handleAddToCart(mango); }}>
+                        Add to Cart
+                      </button>
+                      <button className="pc-buy-btn-new" onClick={e => { e.stopPropagation(); handleAddToCart(mango); navigate('/checkout'); }}>
+                        Buy Now
+                      </button>
+                    </div>
+                  </>
+                )}
               </div>
             </div>
           </div>

@@ -1,8 +1,17 @@
-export default function Skeleton({ className = "", style = {} }) {
+import { cn } from "@/lib/utils"
+
+function Skeleton({
+  className,
+  ...props
+}) {
   return (
-    <div 
-      className={`animate-pulse bg-gray-200 dark:bg-gray-700 rounded ${className}`}
-      style={style}
-    ></div>
+    <div
+      data-slot="skeleton"
+      className={cn("animate-pulse rounded-md bg-muted", className)}
+      {...props} />
   );
 }
+
+export { Skeleton }
+export default Skeleton
+

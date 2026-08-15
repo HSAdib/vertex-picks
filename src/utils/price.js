@@ -17,9 +17,9 @@ export const resolvePrice = (product, selectedWeightLabel) => {
   }
   
   return {
-    displayPrice: baseDiscount || basePrice,
-    oldPrice: baseDiscount ? basePrice : null,
-    activePriceRaw: baseDiscount || basePrice
+    displayPrice: baseDiscount != null ? baseDiscount : basePrice,
+    oldPrice: baseDiscount != null ? basePrice : null,
+    activePriceRaw: baseDiscount != null ? baseDiscount : basePrice
   };
 };
 
@@ -31,9 +31,9 @@ export const getOptionLabel = (opt) => typeof opt === 'string' ? opt : opt?.labe
  */
 export function parseWeight(selectedWeightStr, fallbackWeight) {
   if (!selectedWeightStr) return fallbackWeight;
-  const kgMatch = String(selectedWeightStr).match(/(\d+(?:\.\d+)?)\s*k?g/i);
+  const kgMatch = String(selectedWeightStr).match(/(\d+(?:\.\d+)?)\s*kg\b/i);
   if (kgMatch) return Number(kgMatch[1]);
-  const gMatch = String(selectedWeightStr).match(/(\d+(?:\.\d+)?)\s*g/i);
+  const gMatch = String(selectedWeightStr).match(/(\d+(?:\.\d+)?)\s*g\b/i);
   if (gMatch) return Number(gMatch[1]) / 1000;
   return fallbackWeight;
 }

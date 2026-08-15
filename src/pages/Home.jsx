@@ -55,7 +55,10 @@ export default function Home() {
     contactPhone: "+880 1581-221084",
     contactEmail: "hello@vertexpicks.com",
     contactAddress: "Rajshahi, Bangladesh",
-    storeName: "Mango Baba"
+    storeName: "Mango Baba",
+    socialWebsite: "",
+    socialInstagram: "",
+    socialWhatsapp: ""
   });
 
   const [homeCategories, setHomeCategories] = useState([]);
@@ -132,7 +135,10 @@ export default function Home() {
             contactPhone: data.contactPhone || prev.contactPhone,
             contactEmail: data.contactEmail || prev.contactEmail,
             contactAddress: data.contactAddress || prev.contactAddress,
-            storeName: data.storeName || prev.storeName
+            storeName: data.storeName || prev.storeName,
+            socialWebsite: data.socialWebsite || prev.socialWebsite,
+            socialInstagram: data.socialInstagram || prev.socialInstagram,
+            socialWhatsapp: data.socialWhatsapp || prev.socialWhatsapp
           }));
           
           setUiSettings(prev => ({
@@ -205,6 +211,29 @@ export default function Home() {
       console.error(err);
       toast.error('Failed to register subscription. Please try again.');
       setNotifyText('Notify Me');
+    }
+  };
+
+  const handleShareSite = async (e) => {
+    e.preventDefault();
+    const shareUrl = window.location.href;
+    const shareData = {
+      title: footerSettings.storeName || 'Mango Baba',
+      text: footerSettings.footerDesc || 'Hand-picked Rajshahi mangoes delivered fresh.',
+      url: shareUrl
+    };
+    if (navigator.share) {
+      try {
+        await navigator.share(shareData);
+      } catch (err) {
+        if (err.name !== 'AbortError') {
+          await navigator.clipboard.writeText(shareUrl);
+          toast.success('Store link copied to clipboard!');
+        }
+      }
+    } else {
+      await navigator.clipboard.writeText(shareUrl);
+      toast.success('Store link copied to clipboard!');
     }
   };
 
@@ -385,23 +414,28 @@ export default function Home() {
               const ratingStars = Math.round(Number(p.stats?.rating) || Number(p.rating) || 5);
               const isLiked = isInWishlist(p.id);
 
+              const isOutOfStock = p.inStock === false || (p.stock !== undefined && Number(p.stock) <= 0);
+
               return (
-                <div key={p.id} className="product-card" onClick={() => navigate(`/product/${p.id}`)}>
+                <div key={p.id} className={`product-card ${isOutOfStock ? 'opacity-90' : ''}`} onClick={() => navigate(`/product/${p.id}`)}>
                   {/* Image */}
-                  <div className="pc-img">
-                    {p.discountPercent && (
+                  <div className="pc-img relative">
+                    {isOutOfStock ? (
+                      <div className="absolute top-2 left-2 z-10 bg-red-600/90 backdrop-blur-sm text-white font-black text-[0.65rem] uppercase px-2.5 py-1 rounded-full shadow-md tracking-wider">
+                        Out of Stock
+                      </div>
+                    ) : p.discountPercent ? (
                       <div className="pc-discount-badge">-{p.discountPercent}%</div>
-                    )}
-                    {p.discountPrice && !p.discountPercent && (
+                    ) : p.discountPrice && !p.discountPercent ? (
                       <div className="pc-discount-badge">Sale</div>
-                    )}
+                    ) : null}
                     {isAdmin && (
                       <button className="pc-edit-btn" onClick={e => handleGodModeEdit(e, p.id)}>
                         EDIT
                       </button>
                     )}
                     {mainImage
-                      ? <img src={mainImage} alt={p.name} loading="lazy" />
+                      ? <img src={mainImage} alt={p.name} loading="lazy" className={isOutOfStock ? 'grayscale-[30%]' : ''} />
                       : <span style={{ fontSize: '3.5rem' }}>🥭</span>
                     }
                   </div>
@@ -484,36 +518,47 @@ export default function Home() {
 
                     {/* Bottom Actions */}
                     <div style={{ marginTop: 'auto', paddingTop: '0.75rem', borderTop: '1px solid var(--gray2)', display: 'flex', flexDirection: 'column', alignItems: 'center' }} onClick={e => { e.preventDefault(); e.stopPropagation(); }}>
-                      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', marginBottom: '0.6rem', width: '100%' }}>
-                        <div className="pc-qty-stepper">
-                          <button className="pc-qty-btn" onClick={e => { e.stopPropagation(); updateQty(p.id, -1); }}>−</button>
-                          <input
-                            type="number"
-                            className="pc-qty-input"
-                            value={quantities[p.id] === undefined ? 1 : quantities[p.id]}
-                            min="1"
-                            onClick={e => { e.preventDefault(); e.stopPropagation(); }}
-                            onChange={e => {
-                              const val = e.target.value;
-                              setQuantities(prev => ({ ...prev, [p.id]: val === '' ? '' : Math.max(1, parseInt(val) || 1) }));
-                            }}
-                            onBlur={() => {
-                              if (quantities[p.id] === '' || quantities[p.id] < 1) {
-                                setQuantities(prev => ({ ...prev, [p.id]: 1 }));
-                              }
-                            }}
-                          />
-                          <button className="pc-qty-btn" onClick={e => { e.stopPropagation(); updateQty(p.id, 1); }}>+</button>
-                        </div>
-                      </div>
-                      <div style={{ display: 'flex', gap: '0.5rem', width: '100%' }}>
-                        <button className="pc-add-btn-new" onClick={e => { e.stopPropagation(); handleAddToCart(p); }}>
-                          Add to Cart
+                      {isOutOfStock ? (
+                        <button 
+                          disabled 
+                          className="w-full py-2.5 px-4 rounded-full bg-gray-200 dark:bg-zinc-800 text-gray-400 font-bold text-xs cursor-not-allowed uppercase tracking-wider flex items-center justify-center gap-1.5"
+                        >
+                          <span>🚫</span> Out of Stock
                         </button>
-                        <button className="pc-buy-btn-new" onClick={e => { e.stopPropagation(); handleAddToCart(p); navigate('/checkout'); }}>
-                          Buy Now
-                        </button>
-                      </div>
+                      ) : (
+                        <>
+                          <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', marginBottom: '0.6rem', width: '100%' }}>
+                            <div className="pc-qty-stepper">
+                              <button className="pc-qty-btn" onClick={e => { e.stopPropagation(); updateQty(p.id, -1); }}>−</button>
+                              <input
+                                type="number"
+                                className="pc-qty-input"
+                                value={quantities[p.id] === undefined ? 1 : quantities[p.id]}
+                                min="1"
+                                onClick={e => { e.preventDefault(); e.stopPropagation(); }}
+                                onChange={e => {
+                                  const val = e.target.value;
+                                  setQuantities(prev => ({ ...prev, [p.id]: val === '' ? '' : Math.max(1, parseInt(val) || 1) }));
+                                }}
+                                onBlur={() => {
+                                  if (quantities[p.id] === '' || quantities[p.id] < 1) {
+                                    setQuantities(prev => ({ ...prev, [p.id]: 1 }));
+                                  }
+                                }}
+                              />
+                              <button className="pc-qty-btn" onClick={e => { e.stopPropagation(); updateQty(p.id, 1); }}>+</button>
+                            </div>
+                          </div>
+                          <div style={{ display: 'flex', gap: '0.5rem', width: '100%' }}>
+                            <button className="pc-add-btn-new" onClick={e => { e.stopPropagation(); handleAddToCart(p); }}>
+                              Add to Cart
+                            </button>
+                            <button className="pc-buy-btn-new" onClick={e => { e.stopPropagation(); handleAddToCart(p); navigate('/checkout'); }}>
+                              Buy Now
+                            </button>
+                          </div>
+                        </>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -663,10 +708,51 @@ export default function Home() {
             <div className="footer-logo">{fFirstWord}<span>{fRestWord}</span></div>
             <div className="footer-desc">{footerSettings.footerDesc}</div>
             <div className="footer-socials">
-              <div className="fsoc"><Globe size={18} /></div>
-              <div className="fsoc"><Camera size={18} /></div>
-              <div className="fsoc"><Share2 size={18} /></div>
-              <div className="fsoc"><MessageCircle size={18} /></div>
+              <a
+                href={footerSettings.socialWebsite || '#top'}
+                onClick={(e) => {
+                  if (!footerSettings.socialWebsite) {
+                    e.preventDefault();
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                  }
+                }}
+                target={footerSettings.socialWebsite ? "_blank" : "_self"}
+                rel="noreferrer"
+                className="fsoc"
+                title="Website / Back to Top"
+                aria-label="Website"
+              >
+                <Globe size={18} />
+              </a>
+              <a
+                href={footerSettings.socialInstagram || 'https://instagram.com'}
+                target="_blank"
+                rel="noreferrer"
+                className="fsoc"
+                title="Follow on Instagram"
+                aria-label="Instagram"
+              >
+                <Camera size={18} />
+              </a>
+              <button
+                type="button"
+                onClick={handleShareSite}
+                className="fsoc"
+                title="Share Store Link"
+                aria-label="Share Store"
+              >
+                <Share2 size={18} />
+              </button>
+              <a
+                href={footerSettings.socialWhatsapp || `https://wa.me/${(footerSettings.contactPhone || '8801581221084').replace(/[^0-9]/g, '')}`}
+                target="_blank"
+                rel="noreferrer"
+                className="fsoc"
+                title="Chat on WhatsApp"
+                aria-label="WhatsApp"
+              >
+                <MessageCircle size={18} />
+              </a>
             </div>
           </div>
           <div className="footer-col">

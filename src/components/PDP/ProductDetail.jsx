@@ -234,8 +234,8 @@ export default function ProductDetail() {
     bg: '#FFD580',
     emoji: productData.emoji || '🥭',
     badge: productData.badge || 'Peak Season',
-    season: productData.season || 'Peak',
-    inStock: productData.inStock !== false,
+    inStock: productData.inStock !== false && (productData.stock === undefined || Number(productData.stock) > 0),
+    stock: productData.stock !== undefined ? Number(productData.stock) : 50,
     price: productData.discountPrice || productData.price,
     discountPrice: productData.discountPrice ? productData.discountPrice : null,
     oldPrice: productData.discountPrice ? productData.price : null,
@@ -270,7 +270,7 @@ export default function ProductDetail() {
     <div className="page active" id="page-product-detail" style={{ paddingTop: 'var(--nav-height)', paddingBottom: '120px' }}>
       <SEO 
         title={mappedProduct.name} 
-        description={mappedProduct.description} 
+        description={mappedProduct.desc} 
         image={mappedProduct.images?.[0]} 
       />
       <div className="pdp-breadcrumb">
