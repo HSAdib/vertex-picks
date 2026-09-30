@@ -1,10 +1,9 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { signOut } from 'firebase/auth';
 import { collection, getDocs, doc, getDoc, setDoc, deleteDoc, updateDoc, onSnapshot, writeBatch } from 'firebase/firestore';
 import { auth, db } from '../firebaseConfig';
 import { useAuth } from '../context/AuthContext';
-import { Link, Navigate } from 'react-router-dom';
+import { Navigate } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
 import CategoriesTab from '../components/admin/CategoriesTab';
 import FiltersTab from '../components/admin/FiltersTab';
@@ -12,7 +11,7 @@ import { ResponsiveContainer, BarChart, CartesianGrid, XAxis, YAxis, Tooltip, Ba
 import { sanitizeHTML } from '../utils/sanitizeHTML';
 import { parseWeight } from '../utils/price';
 import { AdminSidebar } from '../components/admin/AdminSidebar';
-import { SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
+import { SidebarProvider, SidebarTrigger, SidebarInset } from '@/components/ui/sidebar';
 
 const exportToCSV = (filename, rows, headers) => {
   const escapeCsvField = (field) => {
@@ -45,11 +44,34 @@ function generateUniqueId() {
     : Date.now().toString(36) + Math.random().toString(36).slice(2);
 }
 
+const ADMIN_TAB_LABELS = {
+  dashboard: 'Dashboard',
+  categories: 'Categories',
+  filters: 'Filters',
+  products: 'Products',
+  inventory: 'Inventory',
+  orders: 'Orders',
+  customers: 'Customers',
+  coupons: 'Promo Codes',
+  packaging: 'Packaging & Delivery',
+  reviews: 'Reviews',
+  leads: 'Leads',
+  analytics: 'Analytics',
+  customizer: 'UI Customizer',
+};
+
 export default function Admin() {
   const { user, isAdmin, authLoading } = useAuth();
 
   const [activeAdminTab, setActiveAdminTab] = useState('dashboard');
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+
+  const handleAdminTabChange = (tab) => {
+    setActiveAdminTab(tab);
+    if (tab === 'orders') {
+      setUnreadOrderCount(0);
+      setNewOrderAlert({ show: false, orders: [], count: 0 });
+    }
+  };
   const [loading, setLoading] = useState(true);
 
   // Real-time notification state
@@ -1293,7 +1315,7 @@ export default function Admin() {
         if (prod) {
           handleEditProductClick(prod);
           // eslint-disable-next-line react-hooks/set-state-in-effect
-          setActiveAdminTab('products');
+          handleAdminTabChange('products');
           toast.success(`Teleported: Modifying ${prod.name}`);
         }
         localStorage.removeItem('teleportEditId');
@@ -2015,10 +2037,10 @@ export default function Admin() {
 
   if (authLoading || loading) {
     return (
-      <div style={{ paddingTop: 'var(--nav-height)', minHeight: '80vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#F3F4F6' }}>
+      <div style={{ paddingTop: 'var(--nav-height)', minHeight: '80vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg-primary)' }}>
         <div style={{ textAlign: 'center' }}>
           <div style={{ width: 40, height: 40, border: '4px solid var(--primary)', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite', margin: '0 auto 1rem' }} />
-          <p style={{ fontSize: '.875rem', fontWeight: 700, color: 'var(--gray4)', textTransform: 'uppercase', letterSpacing: '.08em' }}>Entering Admin Panel…</p>
+          <p style={{ fontSize: '.875rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '.08em' }}>Entering Admin Panel…</p>
         </div>
         <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
       </div>
@@ -2133,7 +2155,8 @@ export default function Admin() {
     ? (validReviews.reduce((sum, r) => sum + Number(r.rating), 0) / validReviews.length).toFixed(1) 
     : '0.0';
 
-  const pendingOrdersCount = orders.filter(o => o.status === 'Pending').length;
+  const pendingOrdersCount = orders.filter(o => !o.deleted && o.status === 'Pending').length;
+  const ordersBadgeCount = unreadOrderCount > 0 ? unreadOrderCount : pendingOrdersCount;
   
   const newCustomersThisMonth = users.filter(u => {
     if (!u.createdAt) return false;
@@ -2169,12 +2192,8 @@ export default function Admin() {
     return true;
   });
 
-  const aFirstWord = storeName.split(' ')[0] || '';
-  const aRestWord = storeName.split(' ').slice(1).join(' ') || '';
-
   return (
     <SidebarProvider>
-    <div style={{ paddingTop: 'var(--nav-height)', width: '100%' }}>
       <style>{`
         @keyframes spin{to{transform:rotate(360deg)}}
         @keyframes marqueeSimulate {
@@ -2182,9 +2201,8 @@ export default function Admin() {
           100% { transform: translateX(-50%); }
         }
       `}</style>
-      <div className="admin-layout">
-      
-      {/* 1. PRODUCT CREATION MODAL */}
+
+      {/* 1. PRODUCT CREATION MODAL — position:fixed so no wrapper div needed */}
       {showProductModal && (
         <div className="fixed inset-0 z-[300] flex items-center justify-center p-4 backdrop-blur-md animate-in fade-in duration-300" style={{ background: 'rgba(0,0,0,0.6)' }}>
           <div className="max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col animate-in scale-in duration-300" style={{ background: 'var(--bg-card)', borderRadius: '14px', border: '1.5px solid var(--border-color)', boxShadow: '0 20px 60px var(--shadow-color)' }}>
@@ -2994,31 +3012,33 @@ export default function Admin() {
         </div>
       )}
 
-      {/* ADMIN SIDEBAR */}
+      {/* ADMIN SIDEBAR — must be a direct child of SidebarProvider's flex wrapper */}
       <AdminSidebar 
         activeAdminTab={activeAdminTab}
-        setActiveAdminTab={setActiveAdminTab}
+        setActiveAdminTab={handleAdminTabChange}
         storeName={storeName}
-        unreadOrderCount={unreadOrderCount}
-        ordersLength={orders.length}
+        ordersBadgeCount={ordersBadgeCount}
         pendingReviewsCount={pendingReviewsCount}
         leadsLength={leads.length}
       />
 
-      {/* ADMIN MAIN CONTENT */}
-      <main className="admin-main" style={{ flex: 1, minWidth: 0 }}>
+      {/* ADMIN MAIN CONTENT — must be a direct sibling of AdminSidebar for peer CSS */}
+      <SidebarInset className="admin-main" style={{ flex: 1, minWidth: 0, paddingTop: 'var(--nav-height)' }}>
         
         {/* Admin Topbar */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '1rem 1.5rem', marginBottom: '1.5rem', background: 'var(--bg-card)', border: '1.5px solid var(--border-color)', borderRadius: 'var(--radius)', boxShadow: 'var(--shadow-sm)' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-            <SidebarTrigger className="md:hidden" />
-            <div>
-              <div style={{ fontSize: '.68rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.1em', color: 'var(--gray4)' }}>Admin Control Center</div>
-              <div style={{ fontSize: '.9rem', fontWeight: 800, color: 'var(--dark)', textTransform: 'capitalize' }}>{activeAdminTab} Panel</div>
+        <div className="admin-topbar" style={{ background: 'var(--glass-bg-strong)', backdropFilter: 'var(--glass-blur)', WebkitBackdropFilter: 'var(--glass-blur)', border: '1px solid var(--glass-border)', borderTop: '1px solid var(--glass-border-shine)', borderRadius: 'var(--radius)', boxShadow: 'var(--glass-shadow), var(--glass-highlight)', position: 'relative', overflow: 'hidden' }}>
+          <div style={{ position: 'absolute', inset: 0, borderRadius: 'inherit', background: 'var(--glass-shine)', pointerEvents: 'none', zIndex: 0 }} />
+          <div style={{ display: 'flex', alignItems: 'center', gap: '.75rem', position: 'relative', zIndex: 1, minWidth: 0, flex: 1 }}>
+            <SidebarTrigger className="shrink-0" />
+            <div style={{ minWidth: 0 }}>
+              {/* Label only visible on desktop */}
+              <div className="hidden md:block" style={{ fontSize: '.68rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.1em', color: 'var(--text-muted)' }}>Admin Console</div>
+              <div style={{ fontSize: '.85rem', fontWeight: 800, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{ADMIN_TAB_LABELS[activeAdminTab] || activeAdminTab}</div>
             </div>
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '.75rem' }}>
-            <span style={{ fontSize: '.78rem', color: 'var(--gray4)' }}>{user?.email}</span>
+          {/* Meta: email hidden on mobile, Live badge always visible */}
+          <div className="admin-topbar-meta" style={{ position: 'relative', zIndex: 1, flexShrink: 0 }}>
+            <span className="hidden md:block admin-topbar-email">{user?.email}</span>
             <span style={{ fontSize: '.68rem', fontWeight: 700, padding: '.25rem .65rem', borderRadius: 100, background: 'var(--primary-pale)', color: 'var(--primary)', textTransform: 'uppercase', letterSpacing: '.06em' }}>⚡ Live</span>
           </div>
         </div>
@@ -3062,7 +3082,7 @@ export default function Admin() {
               </div>
               <div style={{ display: 'flex', gap: '.75rem', alignItems: 'center' }}>
                 <button
-                  onClick={() => { setActiveAdminTab('orders'); setUnreadOrderCount(0); setNewOrderAlert({ show: false, orders: [], count: 0 }); }}
+                  onClick={() => handleAdminTabChange('orders')}
                   style={{ background: 'linear-gradient(135deg,#E8540A,#FF7A35)', color: '#fff', fontWeight: 700, fontSize: '.78rem', padding: '.45rem 1rem', borderRadius: 100, border: 'none', cursor: 'pointer', letterSpacing: '.04em' }}
                 >
                   View Orders →
@@ -3084,7 +3104,7 @@ export default function Admin() {
             <div className="admin-header">
               <div>
                 <div className="admin-title">📊 Dashboard Control Panel</div>
-                <div style={{ fontSize: '.82rem', color: 'var(--gray4)' }}>Season 2026 · Realtime system console</div>
+                <div style={{ fontSize: '.82rem', color: 'var(--text-muted)' }}>Season 2026 · Realtime system console</div>
               </div>
               <div style={{ display: 'flex', gap: '.75rem', alignItems: 'center' }}>
                 <select className="aab-filter">
@@ -3107,13 +3127,13 @@ export default function Admin() {
 
             {/* Quick Actions */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
-              <button onClick={() => { setActiveAdminTab('products'); setTimeout(() => { document.querySelector('.add-btn')?.click(); }, 100); }} className="admin-card !p-4 flex items-center justify-center gap-3 hover:scale-[1.02] transition-transform text-[#E8540A] font-black uppercase text-xs tracking-wider cursor-pointer">
+              <button onClick={() => { handleAdminTabChange('products'); setTimeout(() => { document.querySelector('.add-btn')?.click(); }, 100); }} className="admin-card !p-4 flex items-center justify-center gap-3 hover:scale-[1.02] transition-transform text-[#E8540A] font-black uppercase text-xs tracking-wider cursor-pointer">
                 <span>➕</span> Add New Product
               </button>
-              <button onClick={() => { setActiveAdminTab('orders'); setOrderStatusFilter('Pending'); }} className="admin-card !p-4 flex items-center justify-center gap-3 hover:scale-[1.02] transition-transform text-[#2563EB] font-black uppercase text-xs tracking-wider cursor-pointer">
+              <button onClick={() => { handleAdminTabChange('orders'); setOrderStatusFilter('Pending'); }} className="admin-card !p-4 flex items-center justify-center gap-3 hover:scale-[1.02] transition-transform text-[#2563EB] font-black uppercase text-xs tracking-wider cursor-pointer">
                 <span>📦</span> View Pending Orders
               </button>
-              <button onClick={() => { setActiveAdminTab('coupons'); }} className="admin-card !p-4 flex items-center justify-center gap-3 hover:scale-[1.02] transition-transform text-[#16A34A] font-black uppercase text-xs tracking-wider cursor-pointer">
+              <button onClick={() => { handleAdminTabChange('coupons'); }} className="admin-card !p-4 flex items-center justify-center gap-3 hover:scale-[1.02] transition-transform text-[#16A34A] font-black uppercase text-xs tracking-wider cursor-pointer">
                 <span>🎟️</span> Manage Promo Codes
               </button>
             </div>
@@ -3226,7 +3246,7 @@ export default function Admin() {
               <div className="admin-card">
                 <div className="admin-card-head flex justify-between items-center">
                   <div className="ach-title">🕒 Recent Orders</div>
-                  <button onClick={() => setActiveAdminTab('orders')} className="text-[#E8540A] text-xs font-bold hover:underline">View All</button>
+                  <button onClick={() => handleAdminTabChange('orders')} className="text-[#E8540A] text-xs font-bold hover:underline">View All</button>
                 </div>
                 <div className="overflow-x-auto">
                   <table className="admin-table w-full">
@@ -3263,7 +3283,7 @@ export default function Admin() {
               <div className="admin-card border-red-200">
                 <div className="admin-card-head flex justify-between items-center bg-red-50/50 dark:bg-red-950/20">
                   <div className="ach-title text-red-600 flex items-center gap-2"><span>⚠️</span> Low Stock Alerts</div>
-                  <button onClick={() => setActiveAdminTab('inventory')} className="text-red-600 text-xs font-bold hover:underline">Manage Inventory</button>
+                  <button onClick={() => handleAdminTabChange('inventory')} className="text-red-600 text-xs font-bold hover:underline">Manage Inventory</button>
                 </div>
                 <div className="overflow-x-auto">
                   <table className="admin-table w-full">
@@ -3365,7 +3385,7 @@ export default function Admin() {
                 <div className="admin-card-head"><div className="ach-title">🚚 Delivery & Packaging</div></div>
                 <div style={{ padding: '1rem 1.5rem' }}>
                   <p style={{ fontSize: '.85rem', color: 'var(--gray4)', margin: 0 }}>Delivery methods and packaging options are now managed from the <strong>📦 Packaging & Delivery</strong> tab in the sidebar.</p>
-                  <button type="button" className="btn-primary shiny-btn !rounded-full shadow-lg shadow-orange-500/10 font-bold uppercase tracking-wider text-[10px] px-6 py-2.5" style={{ marginTop: '1rem' }} onClick={() => setActiveAdminTab('packaging')}>Go to Packaging & Delivery →</button>
+                  <button type="button" className="btn-primary shiny-btn !rounded-full shadow-lg shadow-orange-500/10 font-bold uppercase tracking-wider text-[10px] px-6 py-2.5" style={{ marginTop: '1rem' }} onClick={() => handleAdminTabChange('packaging')}>Go to Packaging & Delivery →</button>
                 </div>
               </div>
 
@@ -3971,7 +3991,7 @@ export default function Admin() {
             <div className="admin-card">
               <div className="admin-card-head">
                 <div className="ach-title">📊 Stock Threshold Levels</div>
-                <button className="add-btn" onClick={() => setActiveAdminTab('products')}>+ Update Stock</button>
+                <button className="add-btn" onClick={() => handleAdminTabChange('products')}>+ Update Stock</button>
               </div>
               <div style={{ overflowX: 'auto' }}>
                 <table className="admin-table">
@@ -6784,7 +6804,6 @@ export default function Admin() {
 
 
 
-      </main>
         {/* CRM Customer Modal */}
         {selectedCustomerDetails && (
           <div className="modal-overlay" onClick={() => setSelectedCustomerDetails(null)}>
@@ -6885,8 +6904,7 @@ export default function Admin() {
           </div>
         )}
 
-      </div>
-    </div>
+      </SidebarInset>
     </SidebarProvider>
   );
 }

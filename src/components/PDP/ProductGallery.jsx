@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useWishlist } from '../../hooks/useWishlist';
 import { Heart } from 'lucide-react';
+import { toast } from 'react-hot-toast';
 
 export default function ProductGallery({ product }) {
   const { toggleWishlist, isInWishlist } = useWishlist();
